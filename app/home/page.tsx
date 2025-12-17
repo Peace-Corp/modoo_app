@@ -1,4 +1,6 @@
 import Header from "@/app/components/Header";
+import ProductCard from "../components/ProductCard";
+import HeroBanner from "../components/HeroBanner";
 
 export default function HomePage() {
   return (
@@ -8,46 +10,21 @@ export default function HomePage() {
 
       {/* Hero Banner */}
       {/* this will only be used in the home screen */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="h-96 bg-gray-300 rounded-2xl" />
-      </section>
+      <HeroBanner />
 
       {/* Categories */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
-        <div className="h-8 w-48 bg-gray-300 rounded mb-3 animate-pulse" />
-        <div className="flex gap-4 overflow-x-auto">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center gap-2">
-              <div className="size-16 bg-gray-300 rounded-full animate-pulse" />
-              <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </section>
+      <CategoriesSection />
 
       {/* Featured Products Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between mb-6">
-          <div className="h-8 w-64 bg-gray-300 rounded animate-pulse" />
-          <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-black font-bold">인기 급상승</p>
+          {/* <div className="h-8 w-64 bg-gray-300 rounded animate-pulse" /> */}
+          {/* <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" /> */}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-sm overflow-hidden shadow-sm">
-              {/* Product Image */}
-              <div className="aspect-square bg-gray-300 animate-    "/>
-
-              {/* Product Details */}
-              <div className="p-2 space-y-3">
-                <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
-                <div className="h-6 w-1/2 bg-gray-300 rounded animate-pulse" />
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-16 bg-yellow-200 rounded animate-pulse" />
-                  <div className="h-4 w-12 bg-gray-200 rounded animate-pulse" />
-                </div>
-              </div>
-            </div>
+            <ProductCard key={i}/>
           ))}
         </div>
       </section>
@@ -107,4 +84,19 @@ export default function HomePage() {
       </footer>
     </div>
   );
+}
+
+function CategoriesSection() {
+  return (
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+        <div className="flex gap-4 overflow-x-auto">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-2">
+              <div className="size-16 bg-gray-300 rounded-full animate-pulse" />
+              <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </section>
+  )
 }
