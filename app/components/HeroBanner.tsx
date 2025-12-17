@@ -30,7 +30,7 @@ const bannerSlides = [
 
 export default function HeroBanner() {
   return (
-    <section className="max-w-7xl mx-auto sm:px-6 lg:px-8 px-2">
+    <section className="max-w-7xl mx-auto ">
       <Swiper
         modules={[Pagination, Autoplay]}
         spaceBetween={3}
@@ -43,7 +43,7 @@ export default function HeroBanner() {
           disableOnInteraction: false,
         }}
         loop={true}
-        className="h-96 rounded-2xl"
+        className="h-96"
       >
         {bannerSlides.map((slide) => (
           <SwiperSlide key={slide.id}>

@@ -8,7 +8,6 @@ export default function ProductCard() {
       {/* Product Details */}
       <div className="p-2 space-y-2">
         {/* Brand Name */}
-        test
         <div className="h-3 bg-gray-200 rounded animate-pulse w-10" />
         {/* Product Name */}
         <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
