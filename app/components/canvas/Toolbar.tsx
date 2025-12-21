@@ -12,8 +12,10 @@ const Toolbar = () => {
     if (!canvas) return; // for error handling
 
     const text = new fabric.IText('Text', {
-      left: 100,
-      top: 100,
+      left: canvas.width / 2,
+      top: canvas.height / 2,
+      originX: 'center',
+      originY: 'center',
       fontFamily: 'Arial',
       fill: '#333',
       fontSize: 30,

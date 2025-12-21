@@ -70,7 +70,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     canvas.add(guideBox);
 
     // Load background image
-    fabric.FabricImage.fromURL(side.imageUrl)
+    fabric.FabricImage.fromURL(side.imageUrl, {crossOrigin:'anonymous'})
       .then((img) => {
         if (!img) {
           console.error('Failed to load image:', side.imageUrl);
@@ -105,7 +105,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.sendObjectToBack(img); // ensure it stays behind design elements
         // canvas.requestRenderAll();
         canvas.add(guideBox);
-      }, {crossOrigin:'anonymous'})
+      })
       .catch((error) => {
         console.error('Error loading image for', side.name, ':', error);
       });
