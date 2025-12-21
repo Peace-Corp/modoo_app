@@ -5,7 +5,7 @@ import { useCanvasStore } from '@/store/useCanvasStore';
 
 
 const Toolbar = () => {
-  const { getActiveCanvas, activeSideId } = useCanvasStore();
+  const { getActiveCanvas, activeSideId, isEditMode } = useCanvasStore();
 
   const addText = () => {
     const canvas = getActiveCanvas();
@@ -25,7 +25,10 @@ const Toolbar = () => {
     canvas.setActiveObject(text); // set the selected object to the text once created
     canvas.renderAll();  // render the new object
   };
-  
+
+  // Only show toolbar in edit mode
+  if (!isEditMode) return null;
+
   return (
     <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-white shadow-xl rounded-full px-6 py-3 flex gap-4 border border-gray-200 z-50">
       <div className="flex items-center gap-2 border-r pr-4 mr-2">

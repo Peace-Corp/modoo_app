@@ -19,8 +19,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 }) => {
   const canvasEl = useRef<HTMLCanvasElement>(null);
 
-  const { registerCanvas, unregisterCanvas, setActiveSide, activeSideId } = useCanvasStore();
-  const isActive = activeSideId === side.id; // checks whether the active canvas is the current canvas
+  const { registerCanvas, unregisterCanvas } = useCanvasStore();
 
   // const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
 
@@ -111,7 +110,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         }
 
         // for changing the scaling of the image based on the canvas's width and height
-        const scale = Math.min(width / imgWidth*2, height / imgHeight);
+        const scale = Math.min(width / imgWidth, height / imgHeight);
 
         img.set({
           scaleX: scale,
@@ -203,16 +202,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     };
 
 
-  }, [side, height, width, registerCanvas, unregisterCanvas, setActiveSide]);
+  }, [side, height, width, registerCanvas, unregisterCanvas]);
 
   return (
-    <div 
-      className={`flex flex-col items-center gap-2 cursor-pointer transition-all duration-200
-        ${isActive ? 'ring-2 ring-blue-500 scale-105' : 'opacity-80 hover:opacity-100'}
-      `}
-      onClick={() => setActiveSide(side.id)} // User clicks the div to activate
-    >
-      <h3 className={`text-lg font-bold ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+    <div className="flex flex-col items-center gap-2">
+      <h3 className="text-lg font-bold text-blue-600 capitalize">
         {side.name}
       </h3>
       <div className='border border-gray-300 shadow-sm'>

@@ -7,6 +7,10 @@ interface CanvasState {
   activeSideId: string;
   setActiveSide: (id: string) => void;
 
+  // Edit mode state
+  isEditMode: boolean;
+  setEditMode: (isEdit: boolean) => void;
+
   canvasMap: Record<string, fabric.Canvas>;
   registerCanvas: (id: string, cavas: fabric.Canvas) => void;
   unregisterCanvas: (id: string) => void;
@@ -17,7 +21,9 @@ interface CanvasState {
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeSideId: 'front',
   canvasMap: {},
+  isEditMode: false,
   setActiveSide: (id) => set({ activeSideId: id}),
+  setEditMode: (isEdit) => set({ isEditMode: isEdit }),
 
   registerCanvas: (id, canvas) => {
     set((state) => {

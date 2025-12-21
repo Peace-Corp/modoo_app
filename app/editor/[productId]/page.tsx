@@ -1,4 +1,5 @@
 import ProductDesigner from "@/app/components/canvas/ProductDesigner";
+import EditButton from "@/app/components/canvas/EditButton";
 import { ProductConfig } from "@/types/types";
 
 const mockProductData: ProductConfig = {
@@ -37,6 +38,7 @@ export default function ProductEditorPage() {
     <div>
       This is the product editor page
       <ProductDesigner config={mockProductData} />
+      <EditButton />
     </div>
   )
 }
