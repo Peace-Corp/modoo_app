@@ -22,8 +22,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const canvasEl = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const isEditRef = useRef(isEdit);
+  const productImageRef = useRef<fabric.FabricImage | null>(null);
 
-  const { registerCanvas, unregisterCanvas } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor } = useCanvasStore();
 
   // Update isEdit ref when prop changes
   useEffect(() => {
@@ -136,6 +137,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           evented: false, // Clicks pass through the objects behind (if any) or canvas
         });
 
+        // Store reference to the product image
+        productImageRef.current = img;
+
         canvas.clipPath = undefined;
 
         canvas.add(img);
@@ -233,6 +237,32 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
     canvas.requestRenderAll();
   }, [isEdit]);
+
+  // Effect to apply color filter when productColor changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const productImage = productImageRef.current;
+
+    if (!canvas || !productImage) return;
+
+    // Remove any existing filters
+    productImage.filters = [];
+
+    // Apply color overlay filter if color is not white
+    if (productColor && productColor !== '#FFFFFF') {
+      const colorFilter = new fabric.filters.BlendColor({
+        color: productColor,
+        mode: 'multiply',
+        alpha: 0.5, // Adjust opacity of the color overlay
+      });
+
+      productImage.filters.push(colorFilter);
+    }
+
+    // Apply the filters and render
+    productImage.applyFilters();
+    canvas.requestRenderAll();
+  }, [productColor]);
 
   return (
     <div className="">

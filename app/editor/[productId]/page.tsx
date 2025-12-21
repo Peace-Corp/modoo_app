@@ -6,6 +6,18 @@ import { useCanvasStore } from "@/store/useCanvasStore";
 import Header from "@/app/components/Header";
 import { Share } from "lucide-react";
 
+// Mock color list with hex codes
+const mockColors = [
+  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
+  { id: 'white', name: '화이트', hex: '#FFFFFF' },
+  { id: 'black', name: '블랙', hex: '#000000' },
+  { id: 'navy', name: '네이비', hex: '#1E3A8A' },
+  { id: 'red', name: '레드', hex: '#EF4444' },
+  { id: 'pink', name: '핑크', hex: '#F9A8D4' },
+  { id: 'green', name: '그린', hex: '#22C55E' },
+  { id: 'yellow', name: '옐로우', hex: '#FACC15' },
+];
+
 const mockProductData: ProductConfig = {
   productId: 'shirt-001',
   sides: [
@@ -38,7 +50,12 @@ const mockProductData: ProductConfig = {
 
 
 export default function ProductEditorPage() {
-  const { isEditMode, setEditMode } = useCanvasStore();
+  const { isEditMode, setEditMode, productColor, setProductColor } = useCanvasStore();
+
+  const handleColorChange = (color: string) => {
+    setProductColor(color);
+  };
+
   return (
     <div className="">
 
@@ -76,6 +93,27 @@ export default function ProductEditorPage() {
           <div className="flex gap-2 text-[.8em]">
             <p className="text-orange-300">4.9</p>
             <p>리뷰 46</p>
+          </div>
+
+          {/* Horizontal Color Selector */}
+          <div className="mt-4 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-3 pb-2">
+              {mockColors.map((color) => (
+                <button
+                  key={color.id}
+                  onClick={() => handleColorChange(color.hex)}
+                  className="flex-shrink-0 flex flex-col items-center gap-2"
+                >
+                  <div
+                    className={`w-12 h-12 rounded-full border-2 ${
+                      productColor === color.hex ? 'border-black' : 'border-gray-300'
+                    }`}
+                    style={{ backgroundColor: color.hex }}
+                  ></div>
+                  <span className="text-xs">{color.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

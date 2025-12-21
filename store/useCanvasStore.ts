@@ -11,6 +11,10 @@ interface CanvasState {
   isEditMode: boolean;
   setEditMode: (isEdit: boolean) => void;
 
+  // Product color state
+  productColor: string;
+  setProductColor: (color: string) => void;
+
   canvasMap: Record<string, fabric.Canvas>;
   registerCanvas: (id: string, cavas: fabric.Canvas) => void;
   unregisterCanvas: (id: string) => void;
@@ -22,8 +26,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeSideId: 'front',
   canvasMap: {},
   isEditMode: false,
+  productColor: '#9CA3AF', // Default mix gray color
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
+  setProductColor: (color) => set({ productColor: color }),
 
   registerCanvas: (id, canvas) => {
     set((state) => {
