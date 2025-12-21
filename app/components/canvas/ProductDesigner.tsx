@@ -182,7 +182,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
       </div>
 
       {/* Toolbar - shows only in edit mode */}
-      <Toolbar />
+      <Toolbar sides={config.sides} />
     </div>
   );
 };
