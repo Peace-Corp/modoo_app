@@ -173,7 +173,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
       canvas.on('object:added', (e) => {
         const obj = e.target;
-        if (!obj || obj === guideBox || obj.type === 'image') return; // Don't clip the guide or the bg shirt
+        if (!obj || obj === guideBox || obj === productImageRef.current) return; // Don't clip the guide or the bg shirt
 
         // Apply the specific clip area to this object (using centered position)
         obj.clipPath = new fabric.Rect({

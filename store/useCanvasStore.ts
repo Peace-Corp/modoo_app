@@ -113,9 +113,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!canvas) return Promise.resolve();
 
       return new Promise<void>((resolve) => {
-        // First, remove only user-added objects (keep background image and guides)
+        // First, remove only user-added objects (keep background product image and guides)
         const objectsToRemove = canvas.getObjects().filter(obj => {
-          return obj.type !== 'image' && !obj.excludeFromExport;
+          // Keep guide boxes and snap lines
+          if (obj.excludeFromExport) return false;
+
+          // Keep the background product image (it's the first/bottom-most image)
+          if (obj.type === 'image') {
+            const objects = canvas.getObjects();
+            const imageIndex = objects.indexOf(obj);
+            const firstImageIndex = objects.findIndex(o => o.type === 'image');
+            // Remove user-added images (not the first one)
+            return imageIndex !== firstImageIndex;
+          }
+
+          // Remove all other user-added objects
+          return true;
         });
         objectsToRemove.forEach(obj => canvas.remove(obj));
 
@@ -128,11 +141,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
               if (obj && typeof obj === 'object' && 'type' in obj) {
                 const fabricObj = obj as fabric.FabricObject;
 
-                // Set interactivity based on current edit mode
-                fabricObj.selectable = isEditMode;
-                fabricObj.evented = isEditMode;
-
                 canvas.add(fabricObj);
+
+                // Set interactivity AFTER adding to canvas
+                // This ensures the properties are applied after canvas event handlers
+                fabricObj.set({
+                  selectable: isEditMode,
+                  evented: isEditMode
+                });
+
+                if (fabricObj.type === 'image') {
+                  console.log('Restored image - selectable:', fabricObj.selectable, 'evented:', fabricObj.evented, 'isEditMode:', isEditMode);
+                }
               }
             });
             canvas.requestRenderAll();
@@ -196,9 +216,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!canvas) return;
 
     return new Promise<void>((resolve) => {
-      // First, remove only user-added objects (keep background image and guides)
+      // First, remove only user-added objects (keep background product image and guides)
       const objectsToRemove = canvas.getObjects().filter(obj => {
-        return obj.type !== 'image' && !obj.excludeFromExport;
+        // Keep guide boxes and snap lines
+        if (obj.excludeFromExport) return false;
+
+        // Keep the background product image (it's the first/bottom-most image)
+        if (obj.type === 'image') {
+          const objects = canvas.getObjects();
+          const imageIndex = objects.indexOf(obj);
+          const firstImageIndex = objects.findIndex(o => o.type === 'image');
+          // Remove user-added images (not the first one)
+          return imageIndex !== firstImageIndex;
+        }
+
+        // Remove all other user-added objects
+        return true;
       });
       objectsToRemove.forEach(obj => canvas.remove(obj));
 
@@ -211,11 +244,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             if (obj && typeof obj === 'object' && 'type' in obj) {
               const fabricObj = obj as fabric.FabricObject;
 
-              // Set interactivity based on current edit mode
-              fabricObj.selectable = isEditMode;
-              fabricObj.evented = isEditMode;
-
               canvas.add(fabricObj);
+
+              // Set interactivity AFTER adding to canvas
+              fabricObj.set({
+                selectable: isEditMode,
+                evented: isEditMode
+              });
             }
           });
           canvas.requestRenderAll();
