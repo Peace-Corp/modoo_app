@@ -184,21 +184,19 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
         }`}>
           <button
             onClick={addText}
-            className="bg-white rounded-full p-3 flex items-center justify-center text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap"
           >
-            <TextCursor />
+            <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
+              <TextCursor />
+            </div>
+            <p className='text-xs'>텍스트</p>
           </button>
           <button
             onClick={addImage}
-            className="bg-white rounded-full px-6 py-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap"
           >
-            <FileImage />
-          </button>
-          <button
-            onClick={addText}
-            className="bg-white rounded-full px-6 py-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap"
-          >
-            T
+            <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
+              <FileImage />
+            </div>
+            <p className='text-xs'>이미지</p>
           </button>
         </div>
 
