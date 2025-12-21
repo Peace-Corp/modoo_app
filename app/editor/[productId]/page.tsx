@@ -4,7 +4,8 @@ import EditButton from "@/app/components/canvas/EditButton";
 import { ProductConfig } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import Header from "@/app/components/Header";
-import { Share } from "lucide-react";
+import { Share, Star } from "lucide-react";
+import { FaStar } from "react-icons/fa";
 
 // Mock color list with hex codes
 const mockColors = [
@@ -87,12 +88,12 @@ export default function ProductEditorPage() {
           {/* Price and Delivery Section */}
           <div className="w-full flex justify-between">
             <p className="text-sm text-black">1개당 <span className="font-bold">7,500원</span></p>
-            <p className="text-sm text-black">배송비 3,000원</p>
+            <p className="text-sm text-black/80">배송비 3,000원</p>
           </div>
           {/* Reviews Section */}
           <div className="flex gap-2 text-[.8em]">
-            <p className="text-orange-300">4.9</p>
-            <p>리뷰 46</p>
+            <p className="text-orange-300 flex items-center gap-1"><span><FaStar /></span>4.9</p>
+            <p className="underline">리뷰 46</p>
           </div>
 
           {/* Horizontal Color Selector */}
@@ -102,7 +103,7 @@ export default function ProductEditorPage() {
                 <button
                   key={color.id}
                   onClick={() => handleColorChange(color.hex)}
-                  className="flex-shrink-0 flex flex-col items-center gap-2"
+                  className="shrink-0 flex flex-col items-center gap-2"
                 >
                   <div
                     className={`w-12 h-12 rounded-full border-2 ${
