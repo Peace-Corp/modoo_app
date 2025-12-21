@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers } from 'lucide-react';
+import { Plus, TextCursor, Layers, Image, FileImage } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 
 interface ToolbarProps {
@@ -30,6 +30,55 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     canvas.add(text);
     canvas.setActiveObject(text); // set the selected object to the text once created
     canvas.renderAll();  // render the new object
+  };
+
+  const addImage = () => {
+    const canvas = getActiveCanvas();
+    if (!canvas) return; // for error handling
+
+    // Create a hidden file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imgUrl = event.target?.result as string;
+
+        fabric.FabricImage.fromURL(imgUrl).then((img) => {
+          // Scale image to fit canvas if it's too large
+          const maxWidth = canvas.width * 0.5;
+          const maxHeight = canvas.height * 0.5;
+
+          if (img.width > maxWidth || img.height > maxHeight) {
+            const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+            img.scale(scale);
+          }
+
+          // Center the image on canvas
+          img.set({
+            left: canvas.width / 2,
+            top: canvas.height / 2,
+            originX: 'center',
+            originY: 'center',
+          });
+
+          canvas.add(img);
+          canvas.setActiveObject(img);
+          canvas.renderAll();
+        });
+      };
+
+      reader.readAsDataURL(file);
+    };
+
+    // Trigger file input click
+    input.click();
   };
 
   const handleSideSelect = (sideId: string) => {
@@ -130,7 +179,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
       {/* Right-side toolbar */}
       <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-50">
         {/* Inner buttons - expand upwards */}
-        <div className={`flex flex-col gap-3 transition-all duration-300 overflow-hidden ${
+        <div className={`flex flex-col gap-2 transition-all duration-700 overflow-hidden ${
           isExpanded ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0'
         }`}>
           <button
@@ -140,10 +189,10 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
             <TextCursor />
           </button>
           <button
-            onClick={addText}
+            onClick={addImage}
             className="bg-white rounded-full px-6 py-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap"
           >
-            T
+            <FileImage />
           </button>
           <button
             onClick={addText}
