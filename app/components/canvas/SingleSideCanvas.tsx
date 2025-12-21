@@ -38,18 +38,20 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
 
     // -- For calculations
-    const printX = side.printArea.x;
-    const printY = side.printArea.y;
     const printW = side.printArea.width;
     const printH = side.printArea.height;
 
-    // The exact horizontal center of the print area
-    const printCenterX = printX + (printW / 2);
+    // Calculate centered position for the print area
+    const centeredLeft = (width - printW) / 2;
+    const centeredTop = (height - printH) / 2;
+
+    // The exact horizontal center of the print area (using centered position)
+    const printCenterX = centeredLeft + (printW / 2);
 
     // Creating the Snap Line (Vertical)
     // Coords: [x1, y1, x2, y2]
     const verticalSnapLine = new fabric.Line(
-      [printCenterX, printY, printCenterX, printY + printH],
+      [printCenterX, centeredTop, printCenterX, centeredTop + printH],
       {
         stroke: '#FF0072', // Hot pink
         strokeWidth: 1,
@@ -63,10 +65,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
 
     // Creating the clipping mask(invisible, stricly designes where ink can go)
-    // Define this area using the printArea data
+    // Define this area using the printArea data, centered on canvas
     const clipPath = new fabric.Rect({
-      left: side.printArea.x,
-      top: side.printArea.y,
+      left: centeredLeft,
+      top: centeredTop,
       width: side.printArea.width,
       height: side.printArea.height,
       absolutePositioned: true, // fixes the mask to the canvas ignoring zoom/pan
@@ -77,8 +79,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     // Create the visual guide box (dashed border)
     const guideBox = new fabric.Rect({
-      left: side.printArea.x,
-      top: side.printArea.y,
+      left: centeredLeft,
+      top: centeredTop,
       width: side.printArea.width,
       height: side.printArea.height,
       fill: 'transparent',
@@ -158,10 +160,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         const obj = e.target;
         if (!obj || obj === guideBox || obj.type === 'image') return; // Don't clip the guide or the bg shirt
 
-        // Apply the specific clip area to this object
+        // Apply the specific clip area to this object (using centered position)
         obj.clipPath = new fabric.Rect({
-          left: side.printArea.x,
-          top: side.printArea.y,
+          left: centeredLeft,
+          top: centeredTop,
           width: side.printArea.width,
           height: side.printArea.height,
           absolutePositioned: true,
@@ -205,13 +207,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   }, [side, height, width, registerCanvas, unregisterCanvas]);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <h3 className="text-lg font-bold text-blue-600 capitalize">
-        {side.name}
-      </h3>
-      <div className='border border-gray-300 shadow-sm'>
-        <canvas ref={canvasEl}/>
-      </div>
+    <div className="">
+      <canvas ref={canvasEl}/>
     </div>
   )
 }
