@@ -38,6 +38,31 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     registerCanvas(side.id, canvas)
 
 
+    // -- For calculations
+    const printX = side.printArea.x;
+    const printY = side.printArea.y;
+    const printW = side.printArea.width;
+    const printH = side.printArea.height;
+
+    // The exact horizontal center of the print area
+    const printCenterX = printX + (printW / 2);
+
+    // Creating the Snap Line (Vertical)
+    // Coords: [x1, y1, x2, y2]
+    const verticalSnapLine = new fabric.Line(
+      [printCenterX, printY, printCenterX, printY + printH],
+      {
+        stroke: '#FF0072', // Hot pink
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+        visible: false, // Hidden by default
+        excludeFromExport: true // Don't save this in the image
+      }
+    )
+    canvas.add(verticalSnapLine)
+
+
     // Creating the clipping mask(invisible, stricly designes where ink can go)
     // Define this area using the printArea data
     const clipPath = new fabric.Rect({
@@ -143,6 +168,33 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           absolutePositioned: true,
         });
       })
+
+      const snapThreshold = 10;
+      // const printCenterX = side.printArea.x + (side.printArea.width / 2);
+
+      canvas.on('object:moving', (e) => {
+        const obj = e.target;
+        if (!obj) return; // for error handling if there is no object
+
+        const objCenter = obj.getCenterPoint();
+
+        // 1. Snap: force the object to the center line
+        if (Math.abs(objCenter.x - printCenterX) < snapThreshold) {
+          obj.setPositionByOrigin(
+            new fabric.Point(printCenterX, objCenter.y),
+            'center',
+            'center'
+          );
+          verticalSnapLine.set('visible', true);
+        } else {
+          verticalSnapLine.set('visible', false)
+        }
+      });
+
+      canvas.on('mouse:up', () => {
+        verticalSnapLine.set('visible', false);
+        canvas.requestRenderAll();
+      });
 
     return () => {
       unregisterCanvas(side.id);
