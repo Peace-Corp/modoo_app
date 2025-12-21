@@ -287,10 +287,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     canvas.selection = isEdit;
     canvas.forEachObject((obj) => {
-      if (obj.type !== 'image' && !obj.excludeFromExport) {
-        obj.selectable = isEdit;
-        obj.evented = isEdit;
-      }
+      // Skip guide boxes and snap lines
+      if (obj.excludeFromExport) return;
+
+      // Skip the product background image (stored in ref)
+      if (obj === productImageRef.current) return;
+
+      // Make all other objects (including user-added images) selectable/editable
+      obj.selectable = isEdit;
+      obj.evented = isEdit;
     });
     canvas.requestRenderAll();
   }, [isEdit]);

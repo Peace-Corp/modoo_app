@@ -149,10 +149,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                   selectable: isEditMode,
                   evented: isEditMode
                 });
-
-                if (fabricObj.type === 'image') {
-                  console.log('Restored image - selectable:', fabricObj.selectable, 'evented:', fabricObj.evented, 'isEditMode:', isEditMode);
-                }
               }
             });
             canvas.requestRenderAll();
