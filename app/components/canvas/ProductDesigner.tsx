@@ -101,7 +101,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className={isEditMode ? "min-h-screen" : ""}>
       <div className="">
         {/* Exit Edit Mode Button */}
         {isEditMode && (
@@ -114,13 +114,6 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
             </button>
           </div>
         )}
-
-        {!isEditMode && (
-          <div className="w-full sticky top-0 bg-gray-300 z-50">
-            <Header back={true} />
-          </div>
-        )
-        }
 
         <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : 'bg-[#f3f3f3]'} flex flex-col justify-center items-center `}>
           <div

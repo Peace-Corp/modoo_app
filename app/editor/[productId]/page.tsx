@@ -3,6 +3,7 @@ import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
 import { ProductConfig } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
+import Header from "@/app/components/Header";
 
 const mockProductData: ProductConfig = {
   productId: 'shirt-001',
@@ -39,9 +40,16 @@ export default function ProductEditorPage() {
   const { isEditMode, setEditMode } = useCanvasStore();
   return (
     <div className="">
+        {!isEditMode && (
+          <div className="w-full sticky top-0 bg-gray-300 z-50">
+            <Header back={true} />
+          </div>
+          )
+        }
+
+
+      {/* The actual product designer component */}
       <ProductDesigner config={mockProductData} />
-
-
 
 
       {/* Bottom Bar */}
@@ -53,9 +61,13 @@ export default function ProductEditorPage() {
       )}
 
       {/* Product Details */}
-      <div className="text-black">
-        <p>This is the product</p>
-      </div>
+      {!isEditMode && (
+        <div className="text-black bg-white p-6 mb-24">
+          <h2 className="text-xl font-bold mb-2">상품 정보</h2>
+          <p className="text-gray-700">티셔츠 - 커스텀 디자인</p>
+          <p className="text-sm text-gray-500 mt-2">원하는 디자인을 자유롭게 추가하세요</p>
+        </div>
+      )}
     </div>
   )
 }
