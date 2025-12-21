@@ -1,17 +1,10 @@
 'use client'
 
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import { ProductConfig } from "@/types/types";
 import Toolbar from "./Toolbar";
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination } from 'swiper/modules';
-import type { Swiper as SwiperType } from 'swiper';
 import { useCanvasStore } from '@/store/useCanvasStore';
-
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/pagination';
 
 
 const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSideCanvas'), {
@@ -24,92 +17,183 @@ interface ProductDesignerProps {
 }
 
 const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
-  const { isEditMode, setEditMode, setActiveSide, activeSideId } = useCanvasStore();
-  const swiperRef = useRef<SwiperType | null>(null);
+  const { isEditMode, setEditMode, setActiveSide, activeSideId, canvasMap } = useCanvasStore();
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [translateX, setTranslateX] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleSlideChange = (swiper: SwiperType) => {
-    const activeIndex = swiper.activeIndex;
-    const activeSide = config.sides[activeIndex];
-    if (activeSide) {
-      setActiveSide(activeSide.id);
-    }
+  // Derive current index from activeSideId
+  const currentIndex = config.sides.findIndex(side => side.id === activeSideId);
+  const validCurrentIndex = currentIndex !== -1 ? currentIndex : 0;
+
+  // Update container width on mount and resize
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth);
+      }
+    };
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isEditMode) return;
+    setIsDragging(true);
+    setStartX(e.touches[0].clientX);
   };
 
-  const handleExitEdit = () => {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isEditMode) return;
+    setIsDragging(true);
+    setStartX(e.clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || isEditMode) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX;
+    setTranslateX(diff);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || isEditMode) return;
+    const currentX = e.clientX;
+    const diff = currentX - startX;
+    setTranslateX(diff);
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging || isEditMode) return;
+    setIsDragging(false);
+
+    const threshold = 50; // Minimum drag distance to trigger slide change
+
+    if (translateX > threshold && validCurrentIndex > 0) {
+      // Swipe right - go to previous
+      setActiveSide(config.sides[validCurrentIndex - 1].id);
+    } else if (translateX < -threshold && validCurrentIndex < config.sides.length - 1) {
+      // Swipe left - go to next
+      setActiveSide(config.sides[validCurrentIndex + 1].id);
+    }
+
+    setTranslateX(0);
+  };
+
+  const getTransform = () => {
+    const baseTranslate = -validCurrentIndex * 100;
+    const dragTranslate = !isEditMode && isDragging && containerWidth > 0 ? (translateX / containerWidth) * 100 : 0;
+    return `translateX(${baseTranslate + dragTranslate}%)`;
+  };
+
+  const handleExitEditMode = () => {
+    // Deselect all items on all canvases before exiting edit mode
+    Object.values(canvasMap).forEach((canvas) => {
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+    });
     setEditMode(false);
   };
 
-  // Find initial slide index based on active side
-  const initialSlide = config.sides.findIndex(side => side.id === activeSideId) || 0;
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {!isEditMode ? (
-        // Swiper View
-        <div className="p-8 text-center">
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Customizer</h1>
-          <p className="text-gray-500 mb-8">Swipe to select a side to edit</p>
-
-          <div className="max-w-2xl mx-auto">
-            <Swiper
-              modules={[Navigation, Pagination]}
-              spaceBetween={50}
-              slidesPerView={1}
-              navigation
-              pagination={{ clickable: true }}
-              onSwiper={(swiper) => { swiperRef.current = swiper; }}
-              onSlideChange={handleSlideChange}
-              initialSlide={initialSlide}
-              className="pb-12"
-            >
-              {config.sides.map((side) => (
-                <SwiperSlide key={side.id}>
-                  <div className="flex flex-col items-center gap-4">
-                    <SingleSideCanvas
-                      side={side}
-                      width={400}
-                      height={500}
-                    />
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </div>
-        </div>
-      ) : (
-        // Edit Mode - Full Screen Canvas
-        <div className="fixed inset-0 bg-gray-50 z-40 flex flex-col">
-          {/* Header with Exit Button */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">
-              Editing: <span className="text-blue-600 capitalize">{activeSideId}</span>
-            </h2>
+      <div className="p-8 text-center">
+        {/* Exit Edit Mode Button */}
+        {isEditMode && (
+          <div className="fixed top-4 right-4 z-50">
             <button
-              onClick={handleExitEdit}
-              className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition"
+              onClick={handleExitEditMode}
+              className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-lg shadow-lg border border-gray-200 transition flex items-center gap-2"
             >
-              Done
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              Exit Edit Mode
             </button>
           </div>
+        )}
 
-          {/* Full Screen Canvas */}
-          <div className="flex-1 flex items-center justify-center overflow-auto pb-24">
-            {config.sides
-              .filter(side => side.id === activeSideId)
-              .map((side) => (
-                <SingleSideCanvas
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Customizer</h1>
+        {!isEditMode && (
+          <p className="text-gray-500 mb-8">Swipe to select a side to edit</p>
+        )}
+
+        <div className="max-w-2xl mx-auto overflow-hidden">
+          <div
+            ref={containerRef}
+            className={`relative ${!isEditMode ? 'touch-pan-y' : ''}`}
+            onTouchStart={!isEditMode ? handleTouchStart : undefined}
+            onTouchMove={!isEditMode ? handleTouchMove : undefined}
+            onTouchEnd={!isEditMode ? handleDragEnd : undefined}
+            onMouseDown={!isEditMode ? handleMouseDown : undefined}
+            onMouseMove={!isEditMode ? handleMouseMove : undefined}
+            onMouseUp={!isEditMode ? handleDragEnd : undefined}
+            onMouseLeave={!isEditMode ? handleDragEnd : undefined}
+          >
+            <div
+              className="flex transition-transform"
+              style={{
+                transform: getTransform(),
+                transitionDuration: isDragging ? '0ms' : '300ms',
+                cursor: !isEditMode && !isDragging ? 'grab' : !isEditMode && isDragging ? 'grabbing' : 'default',
+              }}
+            >
+              {config.sides.map((side) => (
+                <div
+                  className="flex flex-col items-center gap-4 shrink-0"
+                  style={{ width: '100%' }}
                   key={side.id}
-                  side={side}
-                  width={450}
-                  height={750}
-                />
+                >
+                  <SingleSideCanvas
+                    side={side}
+                    width={400}
+                    height={500}
+                    isEdit={isEditMode}
+                  />
+                </div>
               ))}
+            </div>
           </div>
 
-          {/* Toolbar */}
-          <Toolbar />
+          {/* Pagination dots */}
+          {!isEditMode && config.sides.length > 1 && (
+            <div className="flex justify-center gap-2 mt-6">
+              {config.sides.map((side, index) => (
+                <button
+                  key={side.id}
+                  onClick={() => {
+                    setActiveSide(side.id);
+                  }}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === validCurrentIndex
+                      ? 'bg-gray-900 w-6'
+                      : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  aria-label={`Go to ${side.name}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Toolbar - shows only in edit mode */}
+      <Toolbar />
     </div>
   );
 };

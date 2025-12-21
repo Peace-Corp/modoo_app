@@ -10,19 +10,27 @@ interface SingleSideCanvasProps {
   side: ProductSide;
   width?: number; // these are optional because there will be a default value
   height?: number; // ''
+  isEdit?: boolean; // whether canvas is in edit mode
 }
 
 const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   side,
   width = 500,
-  height = 500
+  height = 500,
+  isEdit = false
 }) => {
   const canvasEl = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<fabric.Canvas | null>(null);
+  const isEditRef = useRef(isEdit);
 
   const { registerCanvas, unregisterCanvas } = useCanvasStore();
 
-  // const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  // Update isEdit ref when prop changes
+  useEffect(() => {
+    isEditRef.current = isEdit;
+  }, [isEdit]);
 
+  // Initialize canvas once
   useEffect(() => {
     if (!canvasEl.current) return; // if the canvas element is not initialized properly pass this code
 
@@ -31,7 +39,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       height,
       backgroundColor: '#f3f3f3', // light gray background for visibility
       preserveObjectStacking: true, // keeps selected objects from jumping to front automatically
+      selection: false, // Will be controlled by separate effect based on isEdit
     })
+
+    canvasRef.current = canvas;
 
     // Register this canvas to the global store
     registerCanvas(side.id, canvas)
@@ -168,6 +179,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           height: side.printArea.height,
           absolutePositioned: true,
         });
+
+        // Make objects selectable based on current edit mode
+        obj.selectable = isEditRef.current;
+        obj.evented = isEditRef.current;
       })
 
       const snapThreshold = 10;
@@ -200,11 +215,24 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     return () => {
       unregisterCanvas(side.id);
       canvas.dispose();
-      // fabricCanvasRef.current = null;
+      canvasRef.current = null;
     };
-
-
   }, [side, height, width, registerCanvas, unregisterCanvas]);
+
+  // Separate effect to update selection state when isEdit changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.selection = isEdit;
+    canvas.forEachObject((obj) => {
+      if (obj.type !== 'image' && !obj.excludeFromExport) {
+        obj.selectable = isEdit;
+        obj.evented = isEdit;
+      }
+    });
+    canvas.requestRenderAll();
+  }, [isEdit]);
 
   return (
     <div className="">
