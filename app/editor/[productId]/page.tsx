@@ -4,6 +4,7 @@ import EditButton from "@/app/components/canvas/EditButton";
 import { ProductConfig } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import Header from "@/app/components/Header";
+import { Share } from "lucide-react";
 
 const mockProductData: ProductConfig = {
   productId: 'shirt-001',
@@ -40,6 +41,8 @@ export default function ProductEditorPage() {
   const { isEditMode, setEditMode } = useCanvasStore();
   return (
     <div className="">
+
+      {/* Header */}
         {!isEditMode && (
           <div className="w-full sticky top-0 bg-gray-300 z-50">
             <Header back={true} />
@@ -47,9 +50,35 @@ export default function ProductEditorPage() {
           )
         }
 
-
       {/* The actual product designer component */}
       <ProductDesigner config={mockProductData} />
+
+
+      {/* Product Details */}
+      {!isEditMode && (
+        <div className="text-black bg-white p-4 mb-24 flex flex-col gap-1">
+          {/* First Section */}
+          <div className="w-full flex justify-between">
+            <div className="">
+              <h2 className="text-xs font-bold">길단</h2>
+              <p className="text-black font-normal">오버핏 티셔츠</p>
+            </div>
+            <div>
+              <Share />
+            </div>
+          </div>
+          {/* Price and Delivery Section */}
+          <div className="w-full flex justify-between">
+            <p className="text-sm text-black">1개당 <span className="font-bold">7,500원</span></p>
+            <p className="text-sm text-black">배송비 3,000원</p>
+          </div>
+          {/* Reviews Section */}
+          <div className="flex gap-2 text-[.8em]">
+            <p className="text-orange-300">4.9</p>
+            <p>리뷰 46</p>
+          </div>
+        </div>
+      )}
 
 
       {/* Bottom Bar */}
@@ -60,14 +89,10 @@ export default function ProductEditorPage() {
         </div>
       )}
 
-      {/* Product Details */}
-      {!isEditMode && (
-        <div className="text-black bg-white p-6 mb-24">
-          <h2 className="text-xl font-bold mb-2">상품 정보</h2>
-          <p className="text-gray-700">티셔츠 - 커스텀 디자인</p>
-          <p className="text-sm text-gray-500 mt-2">원하는 디자인을 자유롭게 추가하세요</p>
-        </div>
-      )}
+
     </div>
+
+
+
   )
 }
