@@ -8,21 +8,25 @@ const mockProductData: ProductConfig = {
       id: 'front',
       name: '앞면',
       imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/front.png', // Replace with real URL
+      printArea: { x: 100, y: 120, width: 200, height: 280 }
     },
     {
       id: 'back',
       name: '뒷면',
       imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/back.png',
+      printArea: { x: 100, y: 120, width: 200, height: 280 }
     },
     {
       id: 'sleeve-left',
       name: '왼쪽',
       imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/left_sleeve.png',
+      printArea: { x: 100, y: 120, width: 200, height: 280 }
     },
     {
       id: 'sleeve-right',
       name: '오른쪽',
       imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/right_sleeve.png',
+      printArea: { x: 100, y: 120, width: 200, height: 280 }
     },
   ],
 };

@@ -37,6 +37,38 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     // Register this canvas to the global store
     registerCanvas(side.id, canvas)
 
+
+    // Creating the clipping mask(invisible, stricly designes where ink can go)
+    // Define this area using the printArea data
+    const clipPath = new fabric.Rect({
+      left: side.printArea.x,
+      top: side.printArea.y,
+      width: side.printArea.width,
+      height: side.printArea.height,
+      absolutePositioned: true, // fixes the mask to the canvas ignoring zoom/pan
+    })
+
+    // Apply the clipping to the entire canvas
+    canvas.clipPath = clipPath;
+
+    // Create the visual guide box (dashed border)
+    const guideBox = new fabric.Rect({
+      left: side.printArea.x,
+      top: side.printArea.y,
+      width: side.printArea.width,
+      height: side.printArea.height,
+      fill: 'transparent',
+      stroke: '#fffff',     // Blue border
+      strokeWidth: 1,
+      strokeDashArray: [5, 5], // Dashed line
+      selectable: false,     // Users cannot click/move the border itself
+      evented: false,        // Clicks pass through it
+      visible: false,        // Hidden by default
+      excludeFromExport: true // Don't include this box in the final saved image
+    });
+
+    canvas.add(guideBox);
+
     // Load background image
     fabric.FabricImage.fromURL(side.imageUrl)
       .then((img) => {
@@ -67,15 +99,50 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           evented: false, // Clicks pass through the objects behind (if any) or canvas
         });
 
+        canvas.clipPath = undefined;
+
         canvas.add(img);
         canvas.sendObjectToBack(img); // ensure it stays behind design elements
-        canvas.requestRenderAll();
-      })
+        // canvas.requestRenderAll();
+        canvas.add(guideBox);
+      }, {crossOrigin:'anonymous'})
       .catch((error) => {
         console.error('Error loading image for', side.name, ':', error);
       });
 
+      // 4. Event Listeners for Visibility Logic
+      const showGuide = () => {
+        guideBox.set('visible', true);
+        canvas.requestRenderAll();
+      };
 
+      const hideGuide = () => {
+        guideBox.set('visible', false);
+        canvas.requestRenderAll();
+      };
+
+      // Show when an object is selected
+      canvas.on('selection:created', showGuide);
+      canvas.on('selection:updated', showGuide);
+      
+      // Hide when selection is cleared
+      canvas.on('selection:cleared', hideGuide);
+
+      // 5. Enforce Clipping on Added Objects
+      // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
+      canvas.on('object:added', (e) => {
+        const obj = e.target;
+        if (!obj || obj === guideBox || obj.type === 'image') return; // Don't clip the guide or the bg shirt
+
+        // Apply the specific clip area to this object
+        obj.clipPath = new fabric.Rect({
+          left: side.printArea.x,
+          top: side.printArea.y,
+          width: side.printArea.width,
+          height: side.printArea.height,
+          absolutePositioned: true,
+        });
+      })
 
     return () => {
       unregisterCanvas(side.id);
