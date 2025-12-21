@@ -108,23 +108,9 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
           <div className="w-full bg-white shadow-2xl z-100">
             <button
               onClick={handleExitEditMode}
-              className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-lg shadow-lg border border-gray-200 transition flex items-center gap-2"
+              className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold transition flex items-center gap-2"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              Exit Edit Mode
+              완료
             </button>
           </div>
         )}
@@ -136,7 +122,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
         )
         }
 
-        <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : ''} flex flex-col justify-center items-center`}>
+        <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : ''} flex flex-col justify-center items-center `}>
           <div
             ref={containerRef}
             className={`relative ${!isEditMode ? 'touch-pan-y' : ''}`}
@@ -158,8 +144,8 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
             >
               {config.sides.map((side) => (
                 <div
-                  className="flex flex-col items-center gap-4 shrink-0"
-                  style={{ width: '100%' }}
+                  className="flex flex-col items-center shrink-0 w-full"
+                  // style={{ width: '100%' }}
                   key={side.id}
                 >
                   <SingleSideCanvas
