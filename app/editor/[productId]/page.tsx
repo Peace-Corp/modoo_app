@@ -1,0 +1,38 @@
+import ProductDesigner from "@/app/components/canvas/ProductDesigner";
+import { ProductConfig } from "@/types/types";
+
+const mockProductData: ProductConfig = {
+  productId: 'shirt-001',
+  sides: [
+    {
+      id: 'front',
+      name: '앞면',
+      imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/front.png', // Replace with real URL
+    },
+    {
+      id: 'back',
+      name: '뒷면',
+      imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/back.png',
+    },
+    {
+      id: 'sleeve-left',
+      name: '왼쪽',
+      imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/left_sleeve.png',
+    },
+    {
+      id: 'sleeve-right',
+      name: '오른쪽',
+      imageUrl: 'https://obxekwyolrmipwmffhwq.supabase.co/storage/v1/object/public/mockups/tshirt/right_sleeve.png',
+    },
+  ],
+};
+
+
+export default function ProductEditorPage() {
+  return (
+    <div>
+      This is the product editor page
+      <ProductDesigner config={mockProductData} />
+    </div>
+  )
+}
