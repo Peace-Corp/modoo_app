@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { ProductConfig } from "@/types/types";
 import Toolbar from "./Toolbar";
 import { useCanvasStore } from '@/store/useCanvasStore';
+import Header from "../Header";
 
 
 const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSideCanvas'), {
@@ -100,11 +101,11 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-8 text-center">
+    <div className="min-h-screen">
+      <div className="">
         {/* Exit Edit Mode Button */}
         {isEditMode && (
-          <div className="fixed top-4 right-4 z-50">
+          <div className="w-full bg-white shadow-2xl z-100">
             <button
               onClick={handleExitEditMode}
               className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-lg shadow-lg border border-gray-200 transition flex items-center gap-2"
@@ -128,12 +129,14 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
           </div>
         )}
 
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Customizer</h1>
         {!isEditMode && (
-          <p className="text-gray-500 mb-8">Swipe to select a side to edit</p>
-        )}
+          <div className="w-full sticky top-0 bg-gray-300">
+            <Header back={true} />
+          </div>
+        )
+        }
 
-        <div className="max-w-2xl mx-auto overflow-hidden">
+        <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : ''} flex flex-col justify-center items-center`}>
           <div
             ref={containerRef}
             className={`relative ${!isEditMode ? 'touch-pan-y' : ''}`}

@@ -36,7 +36,6 @@ const mockProductData: ProductConfig = {
 export default function ProductEditorPage() {
   return (
     <div>
-      This is the product editor page
       <ProductDesigner config={mockProductData} />
       <EditButton />
     </div>
