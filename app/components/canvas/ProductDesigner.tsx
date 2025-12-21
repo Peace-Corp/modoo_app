@@ -116,13 +116,13 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
         )}
 
         {!isEditMode && (
-          <div className="w-full sticky top-0 bg-gray-300">
+          <div className="w-full sticky top-0 bg-gray-300 z-50">
             <Header back={true} />
           </div>
         )
         }
 
-        <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : ''} flex flex-col justify-center items-center `}>
+        <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : 'bg-[#f3f3f3]'} flex flex-col justify-center items-center `}>
           <div
             ref={containerRef}
             className={`relative ${!isEditMode ? 'touch-pan-y' : ''}`}
@@ -161,7 +161,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
 
           {/* Pagination dots */}
           {!isEditMode && config.sides.length > 1 && (
-            <div className="flex justify-center gap-2 mt-6">
+            <div className="flex justify-center gap-2 pb-3">
               {config.sides.map((side, index) => (
                 <button
                   key={side.id}

@@ -1,6 +1,8 @@
+'use client'
 import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
 import { ProductConfig } from "@/types/types";
+import { useCanvasStore } from "@/store/useCanvasStore";
 
 const mockProductData: ProductConfig = {
   productId: 'shirt-001',
@@ -34,10 +36,26 @@ const mockProductData: ProductConfig = {
 
 
 export default function ProductEditorPage() {
+  const { isEditMode, setEditMode } = useCanvasStore();
   return (
-    <div>
+    <div className="">
       <ProductDesigner config={mockProductData} />
-      <EditButton />
+
+
+
+
+      {/* Bottom Bar */}
+      {!isEditMode && (
+        <div className="w-full fixed bottom-0 left-0 bg-white pb-6 pt-4 flex items-center justify-center px-4 shadow-2xl shadow-black gap-2">
+          <button className="w-full bg-black py-3 text-sm rounded-lg text-white">저장하기</button>
+          <EditButton className="w-full"/>
+        </div>
+      )}
+
+      {/* Product Details */}
+      <div className="text-black">
+        <p>This is the product</p>
+      </div>
     </div>
   )
 }
