@@ -32,7 +32,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeSideId: 'front',
   canvasMap: {},
   isEditMode: false,
-  productColor: '#9CA3AF', // Default mix gray color
+  productColor: '#FFFF', // Default mix gray color
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
