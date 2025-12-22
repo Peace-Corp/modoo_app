@@ -158,10 +158,10 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-      <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl  h-[30vh] flex flex-col px-4">
+      <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl  h-[33vh] flex flex-col px-4">
         {/* Header with Tabs */}
         <div className="shrink-0 sticky top-0 border-b border-gray-100">
-          <div className='py-2 w-10 mx-auto'>
+          <div className='py-3 w-10 mx-auto'>
             <hr className='border-2 border-black/20 rounded-full'/>
           </div>
 

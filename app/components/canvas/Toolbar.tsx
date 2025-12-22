@@ -21,10 +21,12 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     console.log('handleObjectSelection called with:', object?.type);
 
     if (!object) {
+      console.log('Setting selectedObject to null');
       setSelectedObject(null);
       return;
     }
 
+    console.log('Setting selectedObject to:', object.type);
     setSelectedObject(object);
 
     if (object.type === "i-text" || object.type === "text") {
@@ -42,24 +44,31 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     const canvas = getActiveCanvas();
     if (!canvas) return;
 
+    console.log('Setting up canvas event listeners for canvas:', activeSideId);
+
     const handleSelectionCreated = (options: { selected: fabric.FabricObject[] }) => {
+      console.log('selection:created event fired');
       handleObjectSelection(options.selected?.[0] || null);
     };
 
     const handleSelectionUpdated = (options: { selected: fabric.FabricObject[] }) => {
+      console.log('selection:updated event fired');
       handleObjectSelection(options.selected?.[0] || null);
     };
 
     const handleSelectionCleared = () => {
+      console.log('selection:cleared event fired');
       handleObjectSelection(null);
       clearSettings();
     };
 
     const handleObjectModified = (options: { target: fabric.FabricObject }) => {
+      console.log('object:modified event fired');
       handleObjectSelection(options.target || null);
     };
 
     const handleObjectScaling = (options: { target: fabric.FabricObject }) => {
+      console.log('object:scaling event fired');
       handleObjectSelection(options.target || null);
     };
 
@@ -70,6 +79,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     canvas.on("object:scaling", handleObjectScaling);
 
     return () => {
+      console.log('Cleaning up canvas event listeners');
       canvas.off("selection:created", handleSelectionCreated);
       canvas.off("selection:updated", handleSelectionUpdated);
       canvas.off("selection:cleared", handleSelectionCleared);
@@ -85,7 +95,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     const canvas = getActiveCanvas();
     if (!canvas) return; // for error handling
 
-    const text = new fabric.IText('Text', {
+    const text = new fabric.IText('텍스트', {
       left: canvas.width / 2,
       top: canvas.height / 2,
       originX: 'center',
@@ -285,15 +295,12 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
 
 
       {/* Render if selected item is text */}
-      {(() => {
-        console.log('Rendering check - selectedObject:', selectedObject?.type);
-        return selectedObject && selectedObject.type === "i-text" && (
-          <TextStylePanel
-            selectedObject={selectedObject as fabric.IText}
-            onClose={() => setSelectedObject(null)}
-          />
-        );
-      })()}
+      {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
+        <TextStylePanel
+          selectedObject={selectedObject as fabric.IText}
+          onClose={() => setSelectedObject(null)}
+        />
+      )}
 
     </>
   );
