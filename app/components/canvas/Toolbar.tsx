@@ -3,6 +3,7 @@ import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { Plus, TextCursor, Layers, Image, FileImage } from 'lucide-react';
 import { ProductSide } from '@/types/types';
+import TextStylePanel from './TextStylePanel';
 
 interface ToolbarProps {
   sides?: ProductSide[];
@@ -17,6 +18,8 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
   // const canvas = getActiveCanvas();
 
   const handleObjectSelection = (object : fabric.FabricObject | null) => {
+    console.log('handleObjectSelection called with:', object?.type);
+
     if (!object) {
       setSelectedObject(null);
       return;
@@ -25,7 +28,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     setSelectedObject(object);
 
     if (object.type === "i-text" || object.type === "text") {
-      console.log(object.type, 'selected')
+      console.log(object.type, 'selected - should show panel')
       // setColor(object.fill)
     }
   }
@@ -37,40 +40,43 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
 
   useEffect(() => {
     const canvas = getActiveCanvas();
-    if (canvas) {
-      canvas.on("selection:created", (event) => {
-        handleObjectSelection(event.selected[0]);
-      });
+    if (!canvas) return;
 
-      canvas.on("selection:updated", (event) => {
-        handleObjectSelection(event.selected[0]);
-      });
-      
-      canvas.on("selection:cleared", () => {
-        handleObjectSelection(null);
-        clearSettings();
-      });
-
-      canvas.on("object:modified", (event) => {
-        handleObjectSelection(event.target);
-      })
-
-      canvas.on("object:scaling", (event) => {
-        handleObjectSelection(event.target);
-      })
-
-
-      return () => {
-        canvas.off("selection:created", handleObjectSelection);
-        canvas.off("selection:updated", handleObjectSelection);
-        canvas.off("selection:cleared", handleObjectSelection);
-        canvas.off("object:modified", handleObjectSelection);
-        canvas.off("object:scaling", handleObjectSelection);
+    const handleSelectionCreated = (options: { selected: fabric.FabricObject[] }) => {
+      handleObjectSelection(options.selected?.[0] || null);
     };
 
+    const handleSelectionUpdated = (options: { selected: fabric.FabricObject[] }) => {
+      handleObjectSelection(options.selected?.[0] || null);
+    };
 
-    }
-  }, [getActiveCanvas]);
+    const handleSelectionCleared = () => {
+      handleObjectSelection(null);
+      clearSettings();
+    };
+
+    const handleObjectModified = (options: { target: fabric.FabricObject }) => {
+      handleObjectSelection(options.target || null);
+    };
+
+    const handleObjectScaling = (options: { target: fabric.FabricObject }) => {
+      handleObjectSelection(options.target || null);
+    };
+
+    canvas.on("selection:created", handleSelectionCreated);
+    canvas.on("selection:updated", handleSelectionUpdated);
+    canvas.on("selection:cleared", handleSelectionCleared);
+    canvas.on("object:modified", handleObjectModified);
+    canvas.on("object:scaling", handleObjectScaling);
+
+    return () => {
+      canvas.off("selection:created", handleSelectionCreated);
+      canvas.off("selection:updated", handleSelectionUpdated);
+      canvas.off("selection:cleared", handleSelectionCleared);
+      canvas.off("object:modified", handleObjectModified);
+      canvas.off("object:scaling", handleObjectScaling);
+    };
+  }, [activeSideId, getActiveCanvas]);
   
   
 
@@ -92,6 +98,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     canvas.add(text);
     canvas.setActiveObject(text); // set the selected object to the text once created
     canvas.renderAll();  // render the new object
+
+    // Manually trigger selection handler for newly created text
+    handleObjectSelection(text);
   };
 
   const addImage = () => {
@@ -276,13 +285,15 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
 
 
       {/* Render if selected item is text */}
-      {
-        selectedObject && selectedObject.type === "i-text" && (
-          <div className='fixed bottom-0 left-0'>
-            The textbox is slected
-          </div>
-        )
-      }
+      {(() => {
+        console.log('Rendering check - selectedObject:', selectedObject?.type);
+        return selectedObject && selectedObject.type === "i-text" && (
+          <TextStylePanel
+            selectedObject={selectedObject as fabric.IText}
+            onClose={() => setSelectedObject(null)}
+          />
+        );
+      })()}
 
     </>
   );
