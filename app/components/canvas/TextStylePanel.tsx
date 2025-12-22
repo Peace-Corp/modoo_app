@@ -158,28 +158,20 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-      <div className="bg-white border-t border-gray-200 shadow-2xl rounded-t-3xl h-[30vh] flex flex-col">
+      <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl  h-[30vh] flex flex-col px-4">
         {/* Header with Tabs */}
-        <div className="shrink-0 sticky top-0 bg-white border-b border-gray-100">
-          <div className="flex items-center justify-between p-4 pb-2">
-            <h3 className="text-lg font-semibold">텍스트 스타일</h3>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="text-gray-500 hover:text-gray-700 text-sm"
-              >
-                닫기
-              </button>
-            )}
+        <div className="shrink-0 sticky top-0 border-b border-gray-100">
+          <div className='py-2 w-10 mx-auto'>
+            <hr className='border-2 border-black/20 rounded-full'/>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 px-4 pb-2">
+          <div className="flex">
             <button
               onClick={() => setActiveTab('font')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+              className={`flex-1 py-2 px-4 text-sm font-medium ${
                 activeTab === 'font'
-                  ? 'bg-black text-white'
+                  ? 'bg-black text-white rounded-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -187,9 +179,9 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
             </button>
             <button
               onClick={() => setActiveTab('colors')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+              className={`flex-1 py-2 px-4 text-sm font-medium ${
                 activeTab === 'colors'
-                  ? 'bg-black text-white'
+                  ? 'bg-black text-white rounded-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -197,9 +189,9 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
             </button>
             <button
               onClick={() => setActiveTab('spacing')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+              className={`flex-1 py-2 px-4 text-sm font-medium ${
                 activeTab === 'spacing'
-                  ? 'bg-black text-white'
+                  ? 'bg-black text-white rounded-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >

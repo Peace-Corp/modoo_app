@@ -133,6 +133,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           top: height / 2,
           selectable: false, // Users should not be able move the t-shirt itself
           evented: false, // Clicks pass through the objects behind (if any) or canvas
+          lockMovementX: true, // Prevent any horizontal movement
+          lockMovementY: true, // Prevent any vertical movement
+          lockRotation: true, // Prevent rotation
+          lockScalingX: true, // Prevent scaling
+          lockScalingY: true, // Prevent scaling
+          hasControls: false, // Remove all controls
+          hasBorders: false, // Remove borders
+          data: { id: 'background-product-image' }, // Custom data to identify this as the background
         });
 
         // Store reference to the product image
@@ -218,7 +226,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
       canvas.on('object:added', (e) => {
         const obj = e.target;
-        if (!obj || obj === guideBox || obj === productImageRef.current) return; // Don't clip the guide or the bg shirt
+        // Skip guide boxes, snap lines, and background product image
+        // @ts-expect-error - Checking custom data property
+        if (!obj || obj.excludeFromExport || (obj.data?.id === 'background-product-image')) return;
 
         // Apply the specific clip area to this object (using values relative to product image)
         // @ts-expect-error - Custom property
@@ -290,8 +300,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       // Skip guide boxes and snap lines
       if (obj.excludeFromExport) return;
 
-      // Skip the product background image (stored in ref)
-      if (obj === productImageRef.current) return;
+      // Skip the product background image (check by ID)
+      // @ts-expect-error - Checking custom data property
+      if (obj.data?.id === 'background-product-image') {
+        // Ensure background stays locked regardless of edit mode
+        obj.selectable = false;
+        obj.evented = false;
+        return;
+      }
 
       // Make all other objects (including user-added images) selectable/editable
       obj.selectable = isEdit;
