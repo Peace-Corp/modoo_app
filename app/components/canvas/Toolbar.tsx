@@ -266,7 +266,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
           {/* Plus button */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`size-12 ${isExpanded ? "bg-black text-white" : "bg-white text-black"} shadow-xl rounded-full flex items-center justify-center hover:bg-gray-800 transition-all duration-300`}
+            className={`size-12 ${isExpanded ? "bg-black text-white" : "bg-white text-black"} shadow-xl rounded-full flex items-center justify-center hover:bg-gray-200 transition-all duration-300`}
             aria-label={isExpanded ? 'Close menu' : 'Open menu'}
           >
             <Plus className={`${isExpanded ? 'rotate-45' : ''} size-8 transition-all duration-300`}/>
