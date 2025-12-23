@@ -18,20 +18,16 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
   // const canvas = getActiveCanvas();
 
   const handleObjectSelection = (object : fabric.FabricObject | null) => {
-    console.log('handleObjectSelection called with:', object?.type);
+    // console.log('handleObjectSelection called with:', object?.type);
 
     if (!object) {
-      console.log('Setting selectedObject to null');
       setSelectedObject(null);
       return;
     }
 
-    console.log('Setting selectedObject to:', object.type);
     setSelectedObject(object);
 
     if (object.type === "i-text" || object.type === "text") {
-      console.log(object.type, 'selected - should show panel')
-      // setColor(object.fill)
     }
   }
 
@@ -42,34 +38,37 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
 
   useEffect(() => {
     const canvas = getActiveCanvas();
-    if (!canvas) return;
+    if (!canvas) {
+      setSelectedObject(null);
+      return;
+    }
 
-    console.log('Setting up canvas event listeners for canvas:', activeSideId);
+    // Clear any existing selection when switching canvases
+    setSelectedObject(null);
 
     const handleSelectionCreated = (options: { selected: fabric.FabricObject[] }) => {
-      console.log('selection:created event fired');
-      handleObjectSelection(options.selected?.[0] || null);
+      const selected = options.selected?.[0] || canvas.getActiveObject();
+      handleObjectSelection(selected || null);
     };
 
-    const handleSelectionUpdated = (options: { selected: fabric.FabricObject[] }) => {
-      console.log('selection:updated event fired');
-      handleObjectSelection(options.selected?.[0] || null);
+    const handleSelectionUpdated = (options: { selected: fabric.FabricObject[]; deselected: fabric.FabricObject[] }) => {
+      const selected = options.selected?.[0] || canvas.getActiveObject();
+      handleObjectSelection(selected || null);
     };
 
     const handleSelectionCleared = () => {
-      console.log('selection:cleared event fired');
       handleObjectSelection(null);
       clearSettings();
     };
 
-    const handleObjectModified = (options: { target: fabric.FabricObject }) => {
-      console.log('object:modified event fired');
-      handleObjectSelection(options.target || null);
+    const handleObjectModified = (options: { target?: fabric.FabricObject }) => {
+      const target = options.target || canvas.getActiveObject();
+      handleObjectSelection(target || null);
     };
 
-    const handleObjectScaling = (options: { target: fabric.FabricObject }) => {
-      console.log('object:scaling event fired');
-      handleObjectSelection(options.target || null);
+    const handleObjectScaling = (options: { target?: fabric.FabricObject }) => {
+      const target = options.target || canvas.getActiveObject();
+      handleObjectSelection(target || null);
     };
 
     canvas.on("selection:created", handleSelectionCreated);
@@ -86,7 +85,8 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
       canvas.off("object:modified", handleObjectModified);
       canvas.off("object:scaling", handleObjectScaling);
     };
-  }, [activeSideId, getActiveCanvas]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSideId, canvasMap]);
   
   
 
