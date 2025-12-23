@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, Image, FileImage } from 'lucide-react';
+import { Plus, TextCursor, Layers, Image, FileImage, Trash2 } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
 
 interface ToolbarProps {
   sides?: ProductSide[];
+  handleExitEditMode?: () => void;
 }
 
-const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
+const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => {
   const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap } = useCanvasStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -167,6 +168,25 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     setIsModalOpen(false);
   };
 
+  const handleDeleteObject = () => {
+    const canvas = getActiveCanvas();
+    const selectedObject = canvas?.getActiveObject();
+    const selectedObjects = canvas?.getActiveObjects();
+
+    if (selectedObjects && selectedObjects.length > 0) {
+    // Remove all selected objects
+    selectedObjects.forEach(obj => canvas?.remove(obj));
+    // Discard the selection after removal
+    canvas?.discardActiveObject()
+    canvas?.renderAll();
+  } else if (selectedObject) {
+    // Remove a single selected object
+    canvas?.remove(selectedObject);
+    canvas?.renderAll();
+  }
+    
+  }
+
   // Generate canvas previews when modal is open
   const canvasPreviews = useMemo(() => {
     if (!isModalOpen) return {};
@@ -193,6 +213,26 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
 
   return (
     <>
+
+      {/* Exit Edit Mode Button */}
+        {isEditMode && (
+          <div className="w-full bg-white shadow-md z-100 fixed top-0 left-0 flex items-center justify-between px-4">
+            <button
+              onClick={handleExitEditMode}
+              className="py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold transition flex items-center gap-2"
+            >
+              완료
+            </button>
+
+            {selectedObject && (
+              <button onClick={handleDeleteObject}>
+                <Trash2 className='text-red-400 font-extralight' />
+              </button>
+            )}
+          </div>
+        )}
+
+
       {/* Modal for side selection */}
       {isModalOpen && (
         <div
