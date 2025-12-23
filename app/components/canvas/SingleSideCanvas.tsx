@@ -45,6 +45,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     canvasRef.current = canvas;
 
+    fabric.InteractiveFabricObject.ownDefaults = {
+    ...fabric.InteractiveFabricObject.ownDefaults,
+    cornerStyle: 'circle',
+    cornerColor: 'lightblue',
+    padding: 6,
+    transparentCorners: false,
+    borderColor: 'blue',
+    borderScaleFactor: 1,
+}
+
     // Register this canvas to the global store
     registerCanvas(side.id, canvas)
 
