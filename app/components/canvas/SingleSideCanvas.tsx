@@ -78,7 +78,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         selectable: false,
         evented: false,
         visible: false, // Hidden by default
-        excludeFromExport: true // Don't save this in the image
+        excludeFromExport: true, // Don't save this in the image
+        data: {id: 'center-line'}
       }
     )
     canvas.add(verticalSnapLine)
@@ -110,7 +111,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       selectable: false,     // Users cannot click/move the border itself
       evented: false,        // Clicks pass through it
       visible: false,        // Hidden by default
-      excludeFromExport: true // Don't include this box in the final saved image
+      excludeFromExport: true, // Don't include this box in the final saved image
+      data: {id: 'visual-guide-box'}
     });
 
     canvas.add(guideBox);

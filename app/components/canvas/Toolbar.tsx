@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, Image, FileImage, Trash2 } from 'lucide-react';
+import { Plus, TextCursor, Layers, Image, FileImage, Trash2, RefreshCcw } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
 
@@ -183,8 +183,23 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
     // Remove a single selected object
     canvas?.remove(selectedObject);
     canvas?.renderAll();
+    }
   }
-    
+
+  const handleResetCanvas = () => {
+    const canvas = getActiveCanvas();
+
+    if (!canvas) return;
+
+    canvas.getObjects().forEach((obj) => {
+      const objData = obj.get('data') as { id?: string } | undefined;
+      // remove all objects except for background image, center guide line, visual guide box
+      if (objData?.id !== 'background-product-image' && objData?.id !== 'center-line' && objData?.id !== 'visual-guide-box') {
+        canvas.remove(obj)
+      }
+    })
+
+    canvas.renderAll();
   }
 
   // Generate canvas previews when modal is open
@@ -224,11 +239,16 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
               완료
             </button>
 
-            {selectedObject && (
-              <button onClick={handleDeleteObject}>
-                <Trash2 className='text-red-400 font-extralight' />
+            <div className='flex items-center gap-3'>
+              <button onClick={handleResetCanvas}>
+                <RefreshCcw className='text-black/80 font-extralight' />
               </button>
-            )}
+              {selectedObject && (
+                <button onClick={handleDeleteObject}>
+                  <Trash2 className='text-red-400 font-extralight' />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
