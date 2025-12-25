@@ -1,9 +1,22 @@
 import Header from "@/app/components/Header";
 import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
-import { Heart, Star } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+import { Product } from "@/types/types";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient();
+
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching products:', error);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 space-y-2">
       {/* Header */}
@@ -22,9 +35,15 @@ export default function HomePage() {
           <p className="text-black font-bold">인기 급상승</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <ProductCard key={i}/>
-          ))}
+          {products && products.length > 0 ? (
+            products.map((product) => (
+              <ProductCard key={product.id} product={product as Product}/>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              상품이 없습니다
+            </div>
+          )}
         </div>
       </section>
 
