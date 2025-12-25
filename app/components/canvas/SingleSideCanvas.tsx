@@ -1,9 +1,11 @@
 
 'use client'
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import * as fabric from "fabric";
 import { ProductSide } from '@/types/types';
 import { useCanvasStore } from '@/store/useCanvasStore';
+import ScaleBox from './ScaleBox';
+import { pixelsToMm, formatMm } from '@/lib/canvasUtils';
 
 
 interface SingleSideCanvasProps {
@@ -25,6 +27,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const productImageRef = useRef<fabric.FabricImage | null>(null);
 
   const { registerCanvas, unregisterCanvas, productColor } = useCanvasStore();
+
+  // Scale box state
+  const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
+  const [scaleBoxDimensions, setScaleBoxDimensions] = useState({
+    width: '0mm',
+    height: '0mm',
+  });
+  const [scaleBoxPosition, setScaleBoxPosition] = useState({ x: 0, y: 0 });
 
   // Update isEdit ref when prop changes
   useEffect(() => {
@@ -49,7 +59,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     ...fabric.InteractiveFabricObject.ownDefaults,
     cornerStyle: 'circle',
     cornerColor: 'lightblue',
-    padding: 6,
     transparentCorners: false,
     borderColor: 'blue',
     borderScaleFactor: 1,
@@ -216,6 +225,38 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         console.error('Error loading image for', side.name, ':', error);
       });
 
+      // Helper function to update scale box with object dimensions
+      const updateScaleBox = (obj: fabric.FabricObject | fabric.ActiveSelection) => {
+        // Get the print area width for conversion
+        // @ts-expect-error - Custom property
+        const printWidth = canvas.printAreaWidth || side.printArea.width;
+
+        // Get object's bounding box dimensions (includes scale and rotation)
+        const boundingRect = obj.getBoundingRect();
+        const objWidth = boundingRect.width;
+        const objHeight = boundingRect.height;
+
+        // Convert to mm (assuming t-shirt print area is 475mm wide)
+        const widthMm = pixelsToMm(objWidth, printWidth, 475);
+        const heightMm = pixelsToMm(objHeight, printWidth, 475);
+
+        // Get object center for positioning the scale box
+        const objCenter = obj.getCenterPoint();
+
+        setScaleBoxDimensions({
+          width: formatMm(widthMm),
+          height: formatMm(heightMm),
+        });
+
+        // Position below the object's bounding box with some padding
+        setScaleBoxPosition({
+          x: objCenter.x,
+          y: boundingRect.top + boundingRect.height + 10,
+        });
+
+        setScaleBoxVisible(true);
+      };
+
       // 4. Event Listeners for Visibility Logic
       const showGuide = () => {
         guideBox.set('visible', true);
@@ -228,11 +269,29 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       };
 
       // Show when an object is selected
-      canvas.on('selection:created', showGuide);
-      canvas.on('selection:updated', showGuide);
-      
+      canvas.on('selection:created', () => {
+        showGuide();
+        // Get the active object (which could be a single object or ActiveSelection for multiple)
+        const activeObject = canvas.getActiveObject();
+        if (activeObject) {
+          updateScaleBox(activeObject);
+        }
+      });
+
+      canvas.on('selection:updated', () => {
+        showGuide();
+        // Get the active object (which could be a single object or ActiveSelection for multiple)
+        const activeObject = canvas.getActiveObject();
+        if (activeObject) {
+          updateScaleBox(activeObject);
+        }
+      });
+
       // Hide when selection is cleared
-      canvas.on('selection:cleared', hideGuide);
+      canvas.on('selection:cleared', () => {
+        hideGuide();
+        setScaleBoxVisible(false);
+      });
 
       // 5. Enforce Clipping on Added Objects
       // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
@@ -267,9 +326,31 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
       const snapThreshold = 10;
 
+      // Update scale box during object transformations
+      canvas.on('object:scaling', (e) => {
+        if (e.target) {
+          updateScaleBox(e.target);
+        }
+      });
+
+      canvas.on('object:rotating', (e) => {
+        if (e.target) {
+          updateScaleBox(e.target);
+        }
+      });
+
+      canvas.on('object:modified', (e) => {
+        if (e.target) {
+          updateScaleBox(e.target);
+        }
+      });
+
       canvas.on('object:moving', (e) => {
         const obj = e.target;
         if (!obj) return; // for error handling if there is no object
+
+        // Update scale box position during movement
+        updateScaleBox(obj);
 
         const objCenter = obj.getCenterPoint();
 
@@ -355,8 +436,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   }, [productColor]);
 
   return (
-    <div className="">
+    <div className="relative">
       <canvas ref={canvasEl}/>
+      <ScaleBox
+        width={scaleBoxDimensions.width}
+        height={scaleBoxDimensions.height}
+        position={scaleBoxPosition}
+        visible={scaleBoxVisible}
+      />
     </div>
   )
 }
