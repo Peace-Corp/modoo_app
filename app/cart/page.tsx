@@ -4,9 +4,20 @@ import { useCartStore } from '@/store/useCartStore';
 import Header from '@/app/components/Header';
 import { Plus, Minus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import DesignEditModal from '@/app/components/DesignEditModal';
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalQuantity, getTotalPrice } = useCartStore();
+  const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Wait for client-side mount to prevent hydration mismatch
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const totalQuantity = getTotalQuantity();
   const totalPrice = getTotalPrice();
@@ -16,6 +27,21 @@ export default function CartPage() {
   const handleCheckout = () => {
     // TODO: Implement checkout logic
     alert('주문하기 기능은 준비 중입니다.');
+  };
+
+  const handleEditDesign = (cartItemId: string) => {
+    setSelectedCartItemId(cartItemId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCartItemId(null);
+  };
+
+  const handleSaveComplete = () => {
+    // Optionally refresh cart items or show success message
+    console.log('Design saved successfully');
   };
 
   return (
@@ -28,11 +54,18 @@ export default function CartPage() {
       {/* Page Title */}
       <div className="bg-white px-4 py-4 border-b border-gray-200">
         <h1 className="text-xl font-bold text-black">장바구니</h1>
-        <p className="text-sm text-gray-500 mt-1">{totalQuantity}개 상품</p>
+        {isMounted && (
+          <p className="text-sm text-gray-500 mt-1">{totalQuantity}개 상품</p>
+        )}
       </div>
 
       {/* Cart Content */}
-      {items.length === 0 ? (
+      {!isMounted ? (
+        // Loading state during hydration
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+        </div>
+      ) : items.length === 0 ? (
         // Empty Cart State
         <div className="flex flex-col items-center justify-center py-20 px-4">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -82,8 +115,11 @@ export default function CartPage() {
               {items.map((item) => (
                 <div key={item.id} className="p-4">
                   <div className="flex gap-4">
-                    {/* Product Thumbnail */}
-                    <div className="w-24 h-24 bg-gray-100 rounded-lg shrink-0 overflow-hidden border border-gray-200">
+                    {/* Product Thumbnail - Clickable */}
+                    <button
+                      onClick={() => handleEditDesign(item.id)}
+                      className="w-24 h-24 bg-gray-100 rounded-lg shrink-0 overflow-hidden border border-gray-200 hover:border-gray-400 transition cursor-pointer"
+                    >
                       {item.thumbnailUrl ? (
                         <img
                           src={item.thumbnailUrl}
@@ -98,26 +134,37 @@ export default function CartPage() {
                           />
                         </div>
                       )}
-                    </div>
+                    </button>
 
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-black mb-1 truncate">
-                            {item.productTitle}
-                          </h3>
-                          <div className="space-y-0.5">
-                            <p className="text-xs text-gray-500">
-                              색상: {item.productColorName}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              사이즈: {item.sizeName}
-                            </p>
+                      <button
+                        onClick={() => handleEditDesign(item.id)}
+                        className="w-full text-left mb-2 cursor-pointer hover:opacity-80 transition"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-black mb-1 truncate">
+                              {item.productTitle}
+                            </h3>
+                            <div className="space-y-0.5">
+                              <p className="text-xs text-gray-500">
+                                색상: {item.productColorName}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                사이즈: {item.sizeName}
+                              </p>
+                            </div>
                           </div>
                         </div>
+                      </button>
+
+                      <div className="flex justify-end mb-2">
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeItem(item.id);
+                          }}
                           className="p-1 hover:bg-gray-100 rounded transition text-gray-400 hover:text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -125,10 +172,13 @@ export default function CartPage() {
                       </div>
 
                       {/* Price and Quantity */}
-                      <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item.id, item.quantity - 1);
+                            }}
                             className="p-1 hover:bg-gray-100 rounded transition"
                           >
                             <Minus className="w-3 h-3" />
@@ -137,7 +187,10 @@ export default function CartPage() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item.id, item.quantity + 1);
+                            }}
                             className="p-1 hover:bg-gray-100 rounded transition"
                           >
                             <Plus className="w-3 h-3" />
@@ -204,6 +257,14 @@ export default function CartPage() {
           </div>
         </div>
       )}
+
+      {/* Design Edit Modal */}
+      <DesignEditModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        cartItemId={selectedCartItemId}
+        onSaveComplete={handleSaveComplete}
+      />
     </div>
   );
 }

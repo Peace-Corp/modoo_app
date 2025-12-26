@@ -14,6 +14,7 @@ export interface CartItemData {
   canvasState: Record<string, string>; // Serialized canvas state for each side
   thumbnailUrl?: string; // Optional thumbnail image
   addedAt: number; // Timestamp
+  savedDesignId?: string; // Reference to the saved design in Supabase
 }
 
 interface CartState {

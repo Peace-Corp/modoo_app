@@ -32,17 +32,28 @@ export default function HeroBanner() {
   return (
     <section className="max-w-7xl mx-auto ">
       <Swiper
-        modules={[Pagination, Autoplay]}
-        spaceBetween={3}
+        modules={[Navigation, Pagination, Autoplay]}
+        spaceBetween={16}
         slidesPerView={1.2}
         centeredSlides={true}
-        navigation
+        navigation={true}
         pagination={{ clickable: true }}
         autoplay={{
           delay: 3000,
           disableOnInteraction: false,
         }}
         loop={true}
+        breakpoints={{
+          640: {
+            slidesPerView: 1.5,
+            spaceBetween: 20,
+          },
+          1024: {
+            slidesPerView: 1,
+            spaceBetween: 0,
+            centeredSlides: false,
+          },
+        }}
         className="h-96"
       >
         {bannerSlides.map((slide) => (

@@ -8,11 +8,14 @@ import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
 import { Share, Plus, Minus } from "lucide-react";
 import { FaStar } from "react-icons/fa";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
 import { saveDesign, SavedDesign } from "@/lib/designService";
+import { addToCartDB } from "@/lib/cartService";
 import SavedDesignsModal from "@/app/components/SavedDesignsModal";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
+import AddToCartModal from "@/app/components/AddToCartModal";
+import { useSearchParams } from "next/navigation";
 
 // Mock color list with hex codes
 const mockColors = [
@@ -31,6 +34,9 @@ interface ProductEditorClientProps {
 }
 
 export default function ProductEditorClient({ product }: ProductEditorClientProps) {
+  const searchParams = useSearchParams();
+  const cartItemId = searchParams.get('cartItemId');
+
   const {
     isEditMode,
     setEditMode,
@@ -41,9 +47,10 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     activeSideId,
     canvasMap,
     canvasVersion,
+    incrementCanvasVersion,
   } = useCanvasStore();
 
-  const { addItem: addToCart } = useCartStore();
+  const { addItem: addToCart, items: cartStoreItems } = useCartStore();
 
   const [saveMessage, setSaveMessage] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -56,6 +63,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddToCartModalOpen, setIsAddToCartModalOpen] = useState(false);
+  const [isLoadingCartItem, setIsLoadingCartItem] = useState(false);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -79,25 +88,25 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     if (!selectedSize || quantity < 1) return;
 
     const sizeName = product.size_options?.find(s => s.id === selectedSize)?.name || selectedSize;
-    const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
-    const canvasState = saveAllCanvasState();
+    // const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
+    // const canvasState = saveAllCanvasState();
 
     // Generate thumbnail from the front canvas (or first available canvas)
-    const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
+    // const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
 
     // Add to global cart store
-    addToCart({
-      productId: product.id,
-      productTitle: product.title,
-      productColor: productColor,
-      productColorName: colorName,
-      sizeId: selectedSize,
-      sizeName: sizeName,
-      quantity: quantity,
-      pricePerItem: pricePerItem,
-      canvasState: canvasState,
-      thumbnailUrl: thumbnail,
-    });
+    // addToCart({
+    //   productId: product.id,
+    //   productTitle: product.title,
+    //   productColor: productColor,
+    //   productColorName: colorName,
+    //   sizeId: selectedSize,
+    //   sizeName: sizeName,
+    //   quantity: quantity,
+    //   pricePerItem: pricePerItem,
+    //   canvasState: canvasState,
+    //   thumbnailUrl: thumbnail,
+    // });
 
     // Also add to local cart items for display
     setCartItems(prev => {
@@ -121,7 +130,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     setQuantity(1);
 
     // Show success message
-    alert(`장바구니에 ${quantity}개가 추가되었습니다.`);
+    // alert(`장바구니에 ${quantity}개가 추가되었습니다.`);
   };
 
   const handleUpdateCartItemQuantity = (sizeId: string, newQuantity: number) => {
@@ -198,6 +207,85 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     setTimeout(() => setSaveMessage(''), 2000);
   };
 
+  // Save design to cart and clear state
+  const handleSaveToCart = async () => {
+    if (cartItems.length === 0) {
+      alert('장바구니에 추가할 상품을 선택해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const canvasState = saveAllCanvasState();
+      const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
+      const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
+
+      // Add all cart items to both Supabase and local storage
+      for (const item of cartItems) {
+        // Save to Supabase
+        const dbCartItem = await addToCartDB({
+          productId: product.id,
+          productTitle: product.title,
+          productColor: productColor,
+          productColorName: colorName,
+          sizeId: item.sizeId,
+          sizeName: item.sizeName,
+          quantity: item.quantity,
+          pricePerItem: pricePerItem,
+          canvasState: canvasState,
+          thumbnailUrl: thumbnail,
+        });
+
+        // Also add to local cart store for offline access
+        addToCart({
+          productId: product.id,
+          productTitle: product.title,
+          productColor: productColor,
+          productColorName: colorName,
+          sizeId: item.sizeId,
+          sizeName: item.sizeName,
+          quantity: item.quantity,
+          pricePerItem: pricePerItem,
+          canvasState: canvasState,
+          thumbnailUrl: thumbnail,
+          savedDesignId: dbCartItem?.saved_design_id,
+        });
+      }
+
+      // Clear local state
+      setCartItems([]);
+      setQuantity(1);
+
+      // Clear canvas state
+      Object.values(canvasMap).forEach((canvas) => {
+        const objectsToRemove = canvas.getObjects().filter(obj => {
+          // Keep guide boxes and snap lines
+          if (obj.excludeFromExport) return false;
+
+          // Keep the background product image by checking its ID
+          // @ts-expect-error - Checking custom data property
+          if (obj.data?.id === 'background-product-image') return false;
+
+          // Remove all other user-added objects
+          return true;
+        });
+        objectsToRemove.forEach(obj => canvas.remove(obj));
+        canvas.requestRenderAll();
+      });
+
+      // Reset product color to default
+      setProductColor('#FFFFFF');
+
+      // Show modal
+      setIsAddToCartModalOpen(true);
+    } catch (error) {
+      console.error('Add to cart failed:', error);
+      alert('장바구니 추가 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Save design to Supabase
   const handleSaveToSupabase = async () => {
     setIsSaving(true);
@@ -246,6 +334,64 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       alert('디자인 불러오기에 실패했습니다.');
     }
   };
+
+  // Load cart item design on mount if cartItemId is provided
+  useEffect(() => {
+    const loadCartItemDesign = async () => {
+      if (!cartItemId) return;
+
+      // Find the cart item
+      const cartItem = cartStoreItems.find(item => item.id === cartItemId);
+      if (!cartItem) {
+        console.error('Cart item not found:', cartItemId);
+        return;
+      }
+
+      setIsLoadingCartItem(true);
+      try {
+        // Wait for canvases to be registered
+        // Check if all canvases are ready
+        const checkCanvasesReady = () => {
+          return product.configuration.every(side => canvasMap[side.id]);
+        };
+
+        // Poll until canvases are ready (with timeout)
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+        while (!checkCanvasesReady() && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+
+        if (!checkCanvasesReady()) {
+          console.error('Canvases not ready after timeout');
+          return;
+        }
+
+        // Restore product color FIRST
+        if (cartItem.productColor) {
+          setProductColor(cartItem.productColor);
+        }
+
+        // Wait for color to be applied
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Then restore canvas state
+        await restoreAllCanvasState(cartItem.canvasState);
+
+        // Increment canvas version to trigger pricing recalculation
+        incrementCanvasVersion();
+
+        console.log('Cart item design loaded successfully');
+      } catch (error) {
+        console.error('Failed to load cart item design:', error);
+      } finally {
+        setIsLoadingCartItem(false);
+      }
+    };
+
+    loadCartItemDesign();
+  }, [cartItemId, cartStoreItems, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
 
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
@@ -505,16 +651,22 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-2">
             <button
-              onClick={handleSaveToSupabase}
-              disabled={isSaving}
+              onClick={handleSaveToCart}
+              disabled={isSaving || cartItems.length === 0}
               className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
             >
-              {isSaving ? '저장 중...' : '저장하기'}
+              {isSaving ? '처리 중...' : '장바구니에 담기'}
             </button>
             <EditButton className="w-full"/>
           </div>
         </div>
       )}
+
+      {/* Add to Cart Modal */}
+      <AddToCartModal
+        isOpen={isAddToCartModalOpen}
+        onClose={() => setIsAddToCartModalOpen(false)}
+      />
 
       {/* Saved Designs Modal */}
       <SavedDesignsModal

@@ -43,7 +43,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
   // Initialize canvas once
   useEffect(() => {
-    if (!canvasEl.current) return; // if the canvas element is not initialized properly pass this code
+    console.log(`[SingleSideCanvas] Initializing canvas for side: ${side.id}`);
+    if (!canvasEl.current) {
+      console.error(`[SingleSideCanvas] Canvas element not found for side: ${side.id}`);
+      return; // if the canvas element is not initialized properly pass this code
+    }
 
     const canvas = new fabric.Canvas(canvasEl.current, {
       width,
@@ -65,7 +69,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 }
 
     // Register this canvas to the global store
+    console.log(`[SingleSideCanvas] Registering canvas for side: ${side.id}`);
     registerCanvas(side.id, canvas)
+    console.log(`[SingleSideCanvas] Canvas registered for side: ${side.id}`);
 
 
     // -- For calculations

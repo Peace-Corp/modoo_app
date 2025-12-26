@@ -10,12 +10,14 @@ interface PricingInfoProps {
 }
 
 export default function PricingInfo({ basePrice, sides }: PricingInfoProps) {
-  const { canvasMap } = useCanvasStore();
+  const { canvasMap, canvasVersion } = useCanvasStore();
 
   // Calculate pricing dynamically whenever canvases change
+  // canvasVersion is included to trigger recalculation when canvas objects are added/removed/modified
   const pricingData = useMemo(() => {
     return calculateAllSidesPricing(canvasMap, sides);
-  }, [canvasMap, sides]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasMap, sides, canvasVersion]);
 
   const totalPrice = basePrice + pricingData.totalAdditionalPrice;
 
