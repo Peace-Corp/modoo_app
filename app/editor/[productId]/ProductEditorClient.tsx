@@ -2,12 +2,13 @@
 import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
 import PricingInfo from "@/app/components/canvas/PricingInfo";
-import { Product, ProductConfig } from "@/types/types";
+import { Product, ProductConfig, CartItem } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import Header from "@/app/components/Header";
 import { Share, Plus, Minus } from "lucide-react";
 import { FaStar } from "react-icons/fa";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
 
 // Mock color list with hex codes
 const mockColors = [
@@ -34,6 +35,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     saveAllCanvasState,
     restoreAllCanvasState,
     activeSideId,
+    canvasMap,
+    canvasVersion,
   } = useCanvasStore();
 
   const [saveMessage, setSaveMessage] = useState('');
@@ -44,6 +47,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       ? product.size_options[0].id
       : '';
   });
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -61,6 +65,48 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const handleDecreaseQuantity = () => {
     setQuantity(prev => Math.max(1, prev - 1));
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedSize || quantity < 1) return;
+
+    const sizeName = product.size_options?.find(s => s.id === selectedSize)?.name || selectedSize;
+
+    setCartItems(prev => {
+      const existingIndex = prev.findIndex(item => item.sizeId === selectedSize);
+
+      if (existingIndex >= 0) {
+        // Update existing item
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + quantity
+        };
+        return updated;
+      } else {
+        // Add new item
+        return [...prev, { sizeId: selectedSize, sizeName, quantity }];
+      }
+    });
+
+    // Reset quantity to 1 after adding
+    setQuantity(1);
+  };
+
+  const handleUpdateCartItemQuantity = (sizeId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      // Remove item if quantity is 0 or less
+      setCartItems(prev => prev.filter(item => item.sizeId !== sizeId));
+    } else {
+      // Update quantity
+      setCartItems(prev =>
+        prev.map(item =>
+          item.sizeId === sizeId
+            ? { ...item, quantity: newQuantity }
+            : item
+        )
+      );
+    }
   };
 
   // Save to localStorage
@@ -117,8 +163,21 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
+  // Calculate price per item including canvas design costs
+  const pricingData = useMemo(() => {
+    return calculateAllSidesPricing(canvasMap, product.configuration);
+  }, [canvasMap, product.configuration, canvasVersion]);
+
+  const pricePerItem = product.base_price + pricingData.totalAdditionalPrice;
+
+  // Calculate total price
+  const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = totalQuantity * pricePerItem;
+  const formattedTotalPrice = totalPrice.toLocaleString('ko-KR');
+  const formattedPricePerItem = pricePerItem.toLocaleString('ko-KR');
+
   return (
-    <div className="">
+    <div className="pb-[400px]">
 
       {/* Test Save/Load Buttons - Fixed in top-right corner */}
       <div className="fixed top-4 right-4 z-100 flex flex-col gap-2 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200">
@@ -178,15 +237,13 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             <p className="text-sm text-black">1개당 <span className="font-bold">{formattedPrice}원</span></p>
             <p className="text-sm text-black/80">배송비 3,000원</p>
           </div>
-
-          {/* Dynamic Pricing Info */}
-          <PricingInfo basePrice={product.base_price} sides={product.configuration} />
-
           {/* Reviews Section */}
           <div className="flex gap-2 text-[.8em]">
             <p className="text-orange-300 flex items-center gap-1"><span><FaStar /></span>4.9</p>
             <p className="underline">리뷰 46</p>
           </div>
+
+
 
           {/* Horizontal Color Selector */}
           <div className="mt-4 overflow-x-auto scrollbar-hide">
@@ -232,34 +289,132 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           )}
 
           {/* Quantity Selector */}
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-sm font-medium">수량</span>
-            <div className="flex items-center gap-3 border border-gray-300 rounded-lg px-2 py-1">
-              <button
-                onClick={handleDecreaseQuantity}
-                disabled={quantity <= 1}
-                className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="min-w-8 text-center font-medium">{quantity}</span>
-              <button
-                onClick={handleIncreaseQuantity}
-                className="p-1 hover:bg-gray-100 rounded transition"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">수량</span>
+              <div className="flex items-center gap-3 border border-gray-300 rounded-lg px-2 py-1">
+                <button
+                  onClick={handleDecreaseQuantity}
+                  disabled={quantity <= 1}
+                  className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="min-w-8 text-center font-medium">{quantity}</span>
+                <button
+                  onClick={handleIncreaseQuantity}
+                  className="p-1 hover:bg-gray-100 rounded transition"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
+            {/* Add Button */}
+            <button
+              onClick={handleAddToCart}
+              className="w-full mt-3 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition"
+            >
+              추가
+            </button>
           </div>
+
+          {/* Dynamic Pricing Info */}
+          <PricingInfo basePrice={product.base_price} sides={product.configuration} />
+
+
+          
+
+          {/* Cart Items List */}
+          {/* {cartItems.length > 0 && (
+            <div className="mt-4 border-t pt-4">
+              <h3 className="text-sm font-medium mb-3">선택한 옵션</h3>
+              <div className="space-y-3">
+                {cartItems.map((item) => (
+                  <div key={item.sizeId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">{item.sizeName}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
+                        <button
+                          onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity - 1)}
+                          className="p-1 hover:bg-gray-100 rounded transition"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="min-w-6 text-center text-sm font-medium">{item.quantity}</span>
+                        <button
+                          onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity + 1)}
+                          className="p-1 hover:bg-gray-100 rounded transition"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )} */}
         </div>
       )}
 
 
       {/* Bottom Bar */}
       {!isEditMode && (
-        <div className="w-full fixed bottom-0 left-0 bg-white pb-6 pt-4 flex items-center justify-center px-4 shadow-2xl shadow-black gap-2">
-          <button className="w-full bg-black py-3 text-sm rounded-lg text-white">저장하기</button>
-          <EditButton className="w-full"/>
+        <div className="w-full fixed bottom-0 left-0 bg-white pb-6 pt-3 px-4 shadow-2xl shadow-black">
+          {/* Cart Items Summary */}
+          {cartItems.length > 0 && (
+            <div className="mb-3 max-h-32 overflow-y-auto">
+              <div className="space-y-2">
+                {cartItems.map((item) => (
+                  <div key={item.sizeId} className="flex items-center justify-between text-sm bg-gray-50 px-3 py-2 rounded">
+                    <span className="font-medium">{item.sizeName}</span>
+                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
+                      <button
+                        onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity - 1)}
+                        className="p-1 hover:bg-gray-100 rounded transition"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="min-w-6 text-center text-xs font-medium">{item.quantity}</span>
+                      <button
+                        onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity + 1)}
+                        className="p-1 hover:bg-gray-100 rounded transition"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Total Price Summary */}
+          {cartItems.length > 0 && (
+            <div className="mb-3 pb-3 border-b border-gray-200">
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                <span>개당 가격 (디자인 포함)</span>
+                <span>{formattedPricePerItem}원</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">총 수량</span>
+                <span className="font-medium">{totalQuantity}개</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="font-medium">총 금액</span>
+                <span className="text-lg font-bold">{formattedTotalPrice}원</span>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-2">
+            <button className="w-full bg-black py-3 text-sm rounded-lg text-white">저장하기</button>
+            <EditButton className="w-full"/>
+          </div>
         </div>
       )}
 

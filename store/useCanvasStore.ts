@@ -21,6 +21,10 @@ interface CanvasState {
 
   getActiveCanvas: () => fabric.Canvas | null;
 
+  // Canvas change tracking
+  canvasVersion: number;
+  incrementCanvasVersion: () => void;
+
   // Serialization methods
   saveAllCanvasState: () => Record<string, string>;
   restoreAllCanvasState: (savedState: Record<string, string>) => Promise<void>;
@@ -33,9 +37,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasMap: {},
   isEditMode: false,
   productColor: '#FFFF', // Default mix gray color
+  canvasVersion: 0,
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
+  incrementCanvasVersion: () => set((state) => ({ canvasVersion: state.canvasVersion + 1 })),
 
   registerCanvas: (id, canvas) => {
     set((state) => {

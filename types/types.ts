@@ -30,6 +30,12 @@ export interface SizeOption {
   label: string;
 }
 
+export interface CartItem {
+  sizeId: string;
+  sizeName: string;
+  quantity: number;
+}
+
 export interface Product {
   id: string;
   title: string;

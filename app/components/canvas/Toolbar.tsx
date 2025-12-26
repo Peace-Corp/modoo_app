@@ -11,7 +11,7 @@ interface ToolbarProps {
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => {
-  const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap } = useCanvasStore();
+  const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap, incrementCanvasVersion } = useCanvasStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
@@ -65,11 +65,15 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
     const handleObjectModified = (options: { target?: fabric.FabricObject }) => {
       const target = options.target || canvas.getActiveObject();
       handleObjectSelection(target || null);
+      // Trigger pricing recalculation when object is modified (scaled, rotated, etc.)
+      incrementCanvasVersion();
     };
 
     const handleObjectScaling = (options: { target?: fabric.FabricObject }) => {
       const target = options.target || canvas.getActiveObject();
       handleObjectSelection(target || null);
+      // Trigger pricing recalculation when object is scaling
+      incrementCanvasVersion();
     };
 
     canvas.on("selection:created", handleSelectionCreated);
@@ -112,6 +116,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
 
     // Manually trigger selection handler for newly created text
     handleObjectSelection(text);
+
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
   };
 
   const addImage = () => {
@@ -153,6 +160,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
           canvas.add(img);
           canvas.setActiveObject(img);
           canvas.renderAll();
+
+          // Trigger pricing recalculation
+          incrementCanvasVersion();
         });
       };
 
@@ -179,10 +189,14 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
     // Discard the selection after removal
     canvas?.discardActiveObject()
     canvas?.renderAll();
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
   } else if (selectedObject) {
     // Remove a single selected object
     canvas?.remove(selectedObject);
     canvas?.renderAll();
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
     }
   }
 
@@ -200,6 +214,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
     })
 
     canvas.renderAll();
+
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
   }
 
   // Generate canvas previews when modal is open
