@@ -7,6 +7,30 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import DesignEditModal from '@/app/components/DesignEditModal';
 
+// Group items by saved design ID
+interface GroupedCartItem {
+  savedDesignId: string;
+  thumbnailUrl?: string;
+  productTitle: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productTitle: string;
+    productColor: string;
+    productColorName: string;
+    sizeId: string;
+    sizeName: string;
+    quantity: number;
+    pricePerItem: number;
+    canvasState: Record<string, string>;
+    thumbnailUrl?: string;
+    addedAt: number;
+    savedDesignId?: string;
+  }>;
+  totalQuantity: number;
+  totalPrice: number;
+}
+
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalQuantity, getTotalPrice } = useCartStore();
   const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
@@ -18,6 +42,29 @@ export default function CartPage() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Group items by savedDesignId
+  const groupedItems: GroupedCartItem[] = items.reduce((acc, item) => {
+    const designId = item.savedDesignId || item.id; // Fallback to item.id if no savedDesignId
+    const existingGroup = acc.find(g => g.savedDesignId === designId);
+
+    if (existingGroup) {
+      existingGroup.items.push(item);
+      existingGroup.totalQuantity += item.quantity;
+      existingGroup.totalPrice += item.pricePerItem * item.quantity;
+    } else {
+      acc.push({
+        savedDesignId: designId,
+        thumbnailUrl: item.thumbnailUrl,
+        productTitle: item.productTitle,
+        items: [item],
+        totalQuantity: item.quantity,
+        totalPrice: item.pricePerItem * item.quantity,
+      });
+    }
+
+    return acc;
+  }, [] as GroupedCartItem[]);
 
   const totalQuantity = getTotalQuantity();
   const totalPrice = getTotalPrice();
@@ -100,7 +147,7 @@ export default function CartPage() {
           <div className="bg-white mb-4">
             {/* Clear All Button */}
             <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-              <span className="text-sm text-gray-600">전체 {items.length}개</span>
+              <span className="text-sm text-gray-600">전체 {groupedItems.length}개 디자인</span>
               <button
                 onClick={clearCart}
                 className="text-sm text-gray-500 hover:text-red-600 transition flex items-center gap-1"
@@ -110,27 +157,27 @@ export default function CartPage() {
               </button>
             </div>
 
-            {/* Items */}
+            {/* Grouped Items */}
             <div className="divide-y divide-gray-100">
-              {items.map((item) => (
-                <div key={item.id} className="p-4">
+              {groupedItems.map((group) => (
+                <div key={group.savedDesignId} className="p-4">
                   <div className="flex gap-4">
                     {/* Product Thumbnail - Clickable */}
                     <button
-                      onClick={() => handleEditDesign(item.id)}
+                      onClick={() => handleEditDesign(group.items[0].id)}
                       className="w-24 h-24 bg-gray-100 rounded-lg shrink-0 overflow-hidden border border-gray-200 hover:border-gray-400 transition cursor-pointer"
                     >
-                      {item.thumbnailUrl ? (
+                      {group.thumbnailUrl ? (
                         <img
-                          src={item.thumbnailUrl}
-                          alt={item.productTitle}
+                          src={group.thumbnailUrl}
+                          alt={group.productTitle}
                           className="w-full h-full object-contain"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <div
                             className="w-16 h-16 rounded"
-                            style={{ backgroundColor: item.productColor }}
+                            style={{ backgroundColor: group.items[0].productColor }}
                           />
                         </div>
                       )}
@@ -139,72 +186,74 @@ export default function CartPage() {
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
                       <button
-                        onClick={() => handleEditDesign(item.id)}
+                        onClick={() => handleEditDesign(group.items[0].id)}
                         className="w-full text-left mb-2 cursor-pointer hover:opacity-80 transition"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <h3 className="font-medium text-black mb-1 truncate">
-                              {item.productTitle}
+                              {group.productTitle}
                             </h3>
-                            <div className="space-y-0.5">
-                              <p className="text-xs text-gray-500">
-                                색상: {item.productColorName}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                사이즈: {item.sizeName}
-                              </p>
-                            </div>
                           </div>
                         </div>
                       </button>
 
-                      <div className="flex justify-end mb-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeItem(item.id);
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded transition text-gray-400 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      {/* Options List */}
+                      <div className="space-y-2 mb-2">
+                        {group.items.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-gray-500">
+                                {item.productColorName} / {item.sizeName}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 border border-gray-300 rounded px-1.5 py-0.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateQuantity(item.id, item.quantity - 1);
+                                  }}
+                                  className="hover:bg-gray-100 rounded"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="min-w-6 text-center font-medium">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateQuantity(item.id, item.quantity + 1);
+                                  }}
+                                  className="hover:bg-gray-100 rounded"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeItem(item.id);
+                                }}
+                                className="p-0.5 hover:bg-gray-100 rounded transition text-gray-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
 
-                      {/* Price and Quantity */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateQuantity(item.id, item.quantity - 1);
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded transition"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="min-w-8 text-center text-sm font-medium">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateQuantity(item.id, item.quantity + 1);
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded transition"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
+                      {/* Total Price for this design */}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <span className="text-sm text-gray-600">
+                          총 {group.totalQuantity}개
+                        </span>
                         <div className="text-right">
                           <p className="text-sm font-bold text-black">
-                            {(item.pricePerItem * item.quantity).toLocaleString('ko-KR')}원
+                            {group.totalPrice.toLocaleString('ko-KR')}원
                           </p>
-                          {item.quantity > 1 && (
-                            <p className="text-xs text-gray-500">
-                              {item.pricePerItem.toLocaleString('ko-KR')}원 × {item.quantity}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>

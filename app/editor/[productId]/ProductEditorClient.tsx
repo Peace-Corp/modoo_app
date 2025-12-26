@@ -220,9 +220,12 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
       const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
 
+      // Save design once and reuse for all cart items
+      let sharedDesignId: string | undefined;
+
       // Add all cart items to both Supabase and local storage
       for (const item of cartItems) {
-        // Save to Supabase
+        // Save to Supabase - first item creates the design, rest reuse it
         const dbCartItem = await addToCartDB({
           productId: product.id,
           productTitle: product.title,
@@ -234,7 +237,13 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           pricePerItem: pricePerItem,
           canvasState: canvasState,
           thumbnailUrl: thumbnail,
+          savedDesignId: sharedDesignId, // Reuse design for subsequent items
         });
+
+        // Store the design ID from the first item
+        if (!sharedDesignId && dbCartItem?.saved_design_id) {
+          sharedDesignId = dbCartItem.saved_design_id;
+        }
 
         // Also add to local cart store for offline access
         addToCart({
@@ -248,7 +257,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           pricePerItem: pricePerItem,
           canvasState: canvasState,
           thumbnailUrl: thumbnail,
-          savedDesignId: dbCartItem?.saved_design_id,
+          savedDesignId: sharedDesignId, // All items share the same design ID
         });
       }
 

@@ -271,16 +271,23 @@ export default function DesignEditModal({
         return;
       }
 
-      // Update the local cart item by removing and re-adding with updated values
-      state.removeItem(cartItemId);
-      state.addItem({
-        ...cartItem,
-        productColor,
-        productColorName: colorName,
-        canvasState,
-        thumbnailUrl: thumbnail,
-        pricePerItem: newPricePerItem, // Update with recalculated price
-      });
+      // Find all cart items with the same savedDesignId
+      const itemsToUpdate = state.items.filter(
+        (item) => item.savedDesignId === cartItem.savedDesignId
+      );
+
+      // Update all items with the same design
+      for (const item of itemsToUpdate) {
+        state.removeItem(item.id);
+        state.addItem({
+          ...item,
+          productColor,
+          productColorName: colorName,
+          canvasState,
+          thumbnailUrl: thumbnail,
+          pricePerItem: newPricePerItem, // Update with recalculated price
+        });
+      }
 
       alert('디자인이 성공적으로 저장되었습니다!');
       if (onSaveComplete) {
@@ -293,7 +300,7 @@ export default function DesignEditModal({
     } finally {
       setIsSaving(false);
     }
-  }, [cartItemId, saveAllCanvasState, canvasMap, productColor, onSaveComplete, handleClose]);
+  }, [cartItemId, saveAllCanvasState, canvasMap, productColor, onSaveComplete, handleClose, productConfig, basePrice]);
 
   if (!isOpen) return null;
 

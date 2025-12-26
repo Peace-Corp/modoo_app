@@ -3,6 +3,7 @@ import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
+import Image from "next/image";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -106,23 +107,29 @@ export default async function HomePage() {
 
 function CategoriesSection() {
   const categories = [
-    "의류",
-    "신발",
-    "가방",
-    "액세서리",
-    "뷰티",
-    "스포츠",
-    "전자제품",
-    "가구"
+    { name: "티셔츠", icon: "/icons/tshirt.png" },
+    { name: "후디", icon: "/icons/hoodie.png" },
+    { name: "자켓", icon: "/icons/jacket.png" },
+    { name: "티셔츠", icon: "/icons/tshirt.png" },
+    { name: "후디", icon: "/icons/hoodie.png" },
+    { name: "자켓", icon: "/icons/jacket.png" },
   ];
 
   return (
     <section className="max-w-7xl mx-auto pt-5">
         <div className="flex gap-4 overflow-x-auto px-4">
           {categories.map((category, i) => (
-            <div key={i} className="flex flex-col items-center gap-2">
-              <div className="size-16 bg-gray-300 rounded-full" />
-              <p className="text-sm text-gray-700">{category}</p>
+            <div key={i} className="flex flex-col items-center gap-2 min-w-fit">
+              <div className="size-16 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
+                <Image
+                  src={category.icon}
+                  alt={category.name}
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
+              </div>
+              <p className="text-sm text-gray-700">{category.name}</p>
             </div>
           ))}
         </div>

@@ -29,11 +29,12 @@ export interface AddToCartParams {
   pricePerItem: number;
   canvasState: Record<string, string>;
   thumbnailUrl?: string;
+  savedDesignId?: string; // Optional: reuse existing design instead of creating new one
 }
 
 /**
  * Add item to cart in Supabase
- * Saves the design first, then creates a cart item referencing that design
+ * Saves the design first (or reuses existing design), then creates a cart item referencing that design
  */
 export async function addToCartDB(params: AddToCartParams): Promise<CartItemData | null> {
   const supabase = createClient();
@@ -47,25 +48,34 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
       throw new Error('User must be authenticated to add items to cart');
     }
 
-    // First, save the design to get a design ID
-    const designData: SaveDesignData = {
-      productId: params.productId,
-      title: `${params.productTitle} - Cart Item`,
-      productColor: params.productColor,
-      canvasState: params.canvasState,
-    };
+    let designId: string;
 
-    const savedDesign = await saveDesign(designData);
+    // If savedDesignId is provided, reuse it; otherwise create a new design
+    if (params.savedDesignId) {
+      designId = params.savedDesignId;
+    } else {
+      // First, save the design to get a design ID
+      const designData: SaveDesignData = {
+        productId: params.productId,
+        title: `${params.productTitle} - Cart Item`,
+        productColor: params.productColor,
+        canvasState: params.canvasState,
+      };
 
-    if (!savedDesign) {
-      throw new Error('Failed to save design');
+      const savedDesign = await saveDesign(designData);
+
+      if (!savedDesign) {
+        throw new Error('Failed to save design');
+      }
+
+      designId = savedDesign.id;
     }
 
     // Then, create the cart item with the design reference
     const cartItemData = {
       user_id: user.id,
       product_id: params.productId,
-      saved_design_id: savedDesign.id,
+      saved_design_id: designId,
       product_title: params.productTitle,
       product_color: params.productColor,
       product_color_name: params.productColorName,
