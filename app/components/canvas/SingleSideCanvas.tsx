@@ -167,6 +167,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Store reference to the product image
         productImageRef.current = img;
 
+        // Apply initial color filter
+        img.filters = [];
+        const initialColorFilter = new fabric.filters.BlendColor({
+          color: productColor,
+          mode: 'multiply',
+          alpha: 1,
+        });
+        img.filters.push(initialColorFilter);
+        img.applyFilters();
+
         canvas.clipPath = undefined;
 
         canvas.add(img);
@@ -384,6 +394,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       canvas.dispose();
       canvasRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [side, height, width, registerCanvas, unregisterCanvas]);
 
   // Separate effect to update selection state when isEdit changes
@@ -422,16 +433,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     // Remove any existing filters
     productImage.filters = [];
 
-    // Apply color overlay filter if color is not white
-    if (productColor && productColor !== '#FFFFFF') {
-      const colorFilter = new fabric.filters.BlendColor({
-        color: productColor,
-        mode: 'multiply',
-        alpha: 0.5, // Adjust opacity of the color overlay
-      });
+    const colorFilter = new fabric.filters.BlendColor({
+      color: productColor,
+      mode: 'multiply',
+      alpha: 1, // Adjust opacity of the color overlay
+    });
 
-      productImage.filters.push(colorFilter);
-    }
+    productImage.filters.push(colorFilter);
+    // Apply color overlay filter if color is not white
+    // if (productColor && productColor !== '#FFFFFF') {
+    // }
 
     // Apply the filters and render
     productImage.applyFilters();

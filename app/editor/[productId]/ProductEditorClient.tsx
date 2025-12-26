@@ -12,8 +12,8 @@ import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
 
 // Mock color list with hex codes
 const mockColors = [
-  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
   { id: 'white', name: '화이트', hex: '#FFFFFF' },
+  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
   { id: 'black', name: '블랙', hex: '#000000' },
   { id: 'navy', name: '네이비', hex: '#1E3A8A' },
   { id: 'red', name: '레드', hex: '#EF4444' },
