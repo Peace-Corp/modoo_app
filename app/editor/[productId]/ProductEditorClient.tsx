@@ -4,16 +4,20 @@ import EditButton from "@/app/components/canvas/EditButton";
 import PricingInfo from "@/app/components/canvas/PricingInfo";
 import { Product, ProductConfig, CartItem } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
+import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
 import { Share, Plus, Minus } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { useState, useMemo } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
+import { saveDesign, SavedDesign } from "@/lib/designService";
+import SavedDesignsModal from "@/app/components/SavedDesignsModal";
+import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 
 // Mock color list with hex codes
 const mockColors = [
-  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
   { id: 'white', name: '화이트', hex: '#FFFFFF' },
+  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
   { id: 'black', name: '블랙', hex: '#000000' },
   { id: 'navy', name: '네이비', hex: '#1E3A8A' },
   { id: 'red', name: '레드', hex: '#EF4444' },
@@ -39,6 +43,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     canvasVersion,
   } = useCanvasStore();
 
+  const { addItem: addToCart } = useCartStore();
+
   const [saveMessage, setSaveMessage] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<string>(() => {
@@ -48,6 +54,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       : '';
   });
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -71,7 +79,27 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     if (!selectedSize || quantity < 1) return;
 
     const sizeName = product.size_options?.find(s => s.id === selectedSize)?.name || selectedSize;
+    const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
+    const canvasState = saveAllCanvasState();
 
+    // Generate thumbnail from the front canvas (or first available canvas)
+    const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
+
+    // Add to global cart store
+    addToCart({
+      productId: product.id,
+      productTitle: product.title,
+      productColor: productColor,
+      productColorName: colorName,
+      sizeId: selectedSize,
+      sizeName: sizeName,
+      quantity: quantity,
+      pricePerItem: pricePerItem,
+      canvasState: canvasState,
+      thumbnailUrl: thumbnail,
+    });
+
+    // Also add to local cart items for display
     setCartItems(prev => {
       const existingIndex = prev.findIndex(item => item.sizeId === selectedSize);
 
@@ -91,6 +119,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
     // Reset quantity to 1 after adding
     setQuantity(1);
+
+    // Show success message
+    alert(`장바구니에 ${quantity}개가 추가되었습니다.`);
   };
 
   const handleUpdateCartItemQuantity = (sizeId: string, newQuantity: number) => {
@@ -139,11 +170,17 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       }
 
       const fullState = JSON.parse(savedData);
-      await restoreAllCanvasState(fullState.canvases);
 
+      // Restore product color FIRST, before canvas state
       if (fullState.productColor) {
         setProductColor(fullState.productColor);
       }
+
+      // Wait a brief moment for the color to be applied to all canvases
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Then restore canvas state
+      await restoreAllCanvasState(fullState.canvases);
 
       setSaveMessage('✓ Loaded!');
       setTimeout(() => setSaveMessage(''), 2000);
@@ -159,6 +196,55 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     localStorage.removeItem('canvas-design-test');
     setSaveMessage('✓ Cleared!');
     setTimeout(() => setSaveMessage(''), 2000);
+  };
+
+  // Save design to Supabase
+  const handleSaveToSupabase = async () => {
+    setIsSaving(true);
+    try {
+      const canvasState = saveAllCanvasState();
+
+      const savedDesign = await saveDesign({
+        productId: product.id,
+        productColor,
+        canvasState,
+        title: `${product.title} - ${new Date().toLocaleDateString('ko-KR')}`,
+      });
+
+      if (savedDesign) {
+        alert('디자인이 성공적으로 저장되었습니다!');
+      } else {
+        alert('디자인 저장에 실패했습니다. 로그인이 필요할 수 있습니다.');
+      }
+    } catch (error) {
+      console.error('Save to Supabase failed:', error);
+      alert('디자인 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Load design from Supabase
+  const handleLoadDesign = async (design: SavedDesign) => {
+    try {
+      // Restore product color FIRST, before canvas state
+      // This ensures the color filter is applied when the canvas objects are restored
+      const colorSelections = design.color_selections as { productColor?: string } | null;
+      if (colorSelections?.productColor) {
+        setProductColor(colorSelections.productColor);
+      }
+
+      // Wait a brief moment for the color to be applied to all canvases
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Then restore canvas state
+      await restoreAllCanvasState(design.canvas_state as Record<string, string>);
+
+      alert('디자인이 성공적으로 불러와졌습니다!');
+    } catch (error) {
+      console.error('Failed to load design:', error);
+      alert('디자인 불러오기에 실패했습니다.');
+    }
   };
 
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
@@ -177,10 +263,10 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const formattedPricePerItem = pricePerItem.toLocaleString('ko-KR');
 
   return (
-    <div className="pb-[400px]">
+    <div className="">
 
       {/* Test Save/Load Buttons - Fixed in top-right corner */}
-      <div className="fixed top-4 right-4 z-100 flex flex-col gap-2 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200">
+      {/* <div className="fixed top-4 right-4 z-100 flex flex-col gap-2 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200">
         <div className="text-xs font-bold text-gray-700 mb-1">Test Controls</div>
         <button
           onClick={handleSave}
@@ -200,12 +286,18 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         >
           Clear Storage
         </button>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded font-medium transition"
+        >
+          Load from DB
+        </button>
         {saveMessage && (
           <div className="text-xs text-center font-medium text-gray-700 mt-1">
             {saveMessage}
           </div>
         )}
-      </div>
+      </div> */}
 
       {/* Header */}
         {!isEditMode && (
@@ -221,7 +313,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
       {/* Product Details */}
       {!isEditMode && (
-        <div className="text-black bg-white p-4 mb-24 flex flex-col gap-1">
+        <div className="text-black bg-white p-4 mb-24 flex flex-col gap-1 pb-100">
           {/* First Section */}
           <div className="w-full flex justify-between">
             <div className="">
@@ -412,12 +504,24 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-2">
-            <button className="w-full bg-black py-3 text-sm rounded-lg text-white">저장하기</button>
+            <button
+              onClick={handleSaveToSupabase}
+              disabled={isSaving}
+              className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            >
+              {isSaving ? '저장 중...' : '저장하기'}
+            </button>
             <EditButton className="w-full"/>
           </div>
         </div>
       )}
 
+      {/* Saved Designs Modal */}
+      <SavedDesignsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSelectDesign={handleLoadDesign}
+      />
 
     </div>
 

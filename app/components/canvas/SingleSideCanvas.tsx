@@ -26,7 +26,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const isEditRef = useRef(isEdit);
   const productImageRef = useRef<fabric.FabricImage | null>(null);
 
-  const { registerCanvas, unregisterCanvas, productColor } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded } = useCanvasStore();
 
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
@@ -172,6 +172,21 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.add(img);
         canvas.sendObjectToBack(img); // ensure it stays behind design elements
 
+        // Apply initial color filter using the current productColor from store
+        const currentColor = useCanvasStore.getState().productColor;
+        img.filters = [];
+        const initialColorFilter = new fabric.filters.BlendColor({
+          color: currentColor,
+          mode: 'multiply',
+          alpha: 1,
+        });
+        img.filters.push(initialColorFilter);
+        img.applyFilters();
+
+        // Mark image as loaded
+        markImageLoaded(side.id);
+        canvas.requestRenderAll();
+
         // Calculate print area position relative to the product image
         // Scale the print area dimensions to match the image scale
         const scaledPrintW = side.printArea.width * scale;
@@ -219,7 +234,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.printCenterX = printCenterX;
 
         canvas.add(guideBox);
-        canvas.requestRenderAll();
       })
       .catch((error) => {
         console.error('Error loading image for', side.name, ':', error);
@@ -384,7 +398,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       canvas.dispose();
       canvasRef.current = null;
     };
-  }, [side, height, width, registerCanvas, unregisterCanvas]);
+  }, [side, height, width, registerCanvas, unregisterCanvas, markImageLoaded]);
 
   // Separate effect to update selection state when isEdit changes
   useEffect(() => {
@@ -415,26 +429,28 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   // Effect to apply color filter when productColor changes
   useEffect(() => {
     const canvas = canvasRef.current;
-    const productImage = productImageRef.current;
+    if (!canvas) return;
 
-    if (!canvas || !productImage) return;
+    // Find all objects with id 'background-product-image' and apply color filter
+    canvas.forEachObject((obj) => {
+      // @ts-expect-error - Checking custom data property
+      if (obj.data?.id === 'background-product-image' && obj.type === 'image') {
+        const imgObj = obj as fabric.FabricImage;
 
-    // Remove any existing filters
-    productImage.filters = [];
+        // Remove any existing filters
+        imgObj.filters = [];
 
-    // Apply color overlay filter if color is not white
-    if (productColor && productColor !== '#FFFFFF') {
-      const colorFilter = new fabric.filters.BlendColor({
-        color: productColor,
-        mode: 'multiply',
-        alpha: 0.5, // Adjust opacity of the color overlay
-      });
+        const colorFilter = new fabric.filters.BlendColor({
+          color: productColor,
+          mode: 'multiply',
+          alpha: 1, // Adjust opacity of the color overlay
+        });
 
-      productImage.filters.push(colorFilter);
-    }
+        imgObj.filters.push(colorFilter);
+        imgObj.applyFilters();
+      }
+    });
 
-    // Apply the filters and render
-    productImage.applyFilters();
     canvas.requestRenderAll();
   }, [productColor]);
 
