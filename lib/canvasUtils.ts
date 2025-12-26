@@ -7,13 +7,13 @@
  *
  * @param pixelValue - The value in canvas pixels
  * @param canvasPrintAreaWidth - The width of the print area in canvas pixels
- * @param realWorldWidth - The real-world width in millimeters (e.g., 475mm for t-shirt)
+ * @param realWorldWidth - The real-world width in millimeters from product data (e.g., 250mm for t-shirt print area)
  * @returns The value in millimeters
  */
 export function pixelsToMm(
   pixelValue: number,
   canvasPrintAreaWidth: number,
-  realWorldWidth: number = 475
+  realWorldWidth: number
 ): number {
   const mmPerPixel = realWorldWidth / canvasPrintAreaWidth;
   return pixelValue * mmPerPixel;
@@ -24,13 +24,13 @@ export function pixelsToMm(
  *
  * @param mmValue - The value in millimeters
  * @param canvasPrintAreaWidth - The width of the print area in canvas pixels
- * @param realWorldWidth - The real-world width in millimeters (e.g., 475mm for t-shirt)
+ * @param realWorldWidth - The real-world width in millimeters from product data (e.g., 250mm for t-shirt print area)
  * @returns The value in canvas pixels
  */
 export function mmToPixels(
   mmValue: number,
   canvasPrintAreaWidth: number,
-  realWorldWidth: number = 475
+  realWorldWidth: number
 ): number {
   const pixelsPerMm = canvasPrintAreaWidth / realWorldWidth;
   return mmValue * pixelsPerMm;

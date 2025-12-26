@@ -1,10 +1,11 @@
 'use client'
 import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
+import PricingInfo from "@/app/components/canvas/PricingInfo";
 import { Product, ProductConfig } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import Header from "@/app/components/Header";
-import { Share } from "lucide-react";
+import { Share, Plus, Minus } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { useState } from "react";
 
@@ -36,6 +37,13 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   } = useCanvasStore();
 
   const [saveMessage, setSaveMessage] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    // Initialize selected size to first available option
+    return product.size_options && product.size_options.length > 0
+      ? product.size_options[0].id
+      : '';
+  });
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -45,6 +53,14 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const handleColorChange = (color: string) => {
     setProductColor(color);
+  };
+
+  const handleIncreaseQuantity = () => {
+    setQuantity(prev => prev + 1);
+  };
+
+  const handleDecreaseQuantity = () => {
+    setQuantity(prev => Math.max(1, prev - 1));
   };
 
   // Save to localStorage
@@ -162,6 +178,10 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             <p className="text-sm text-black">1개당 <span className="font-bold">{formattedPrice}원</span></p>
             <p className="text-sm text-black/80">배송비 3,000원</p>
           </div>
+
+          {/* Dynamic Pricing Info */}
+          <PricingInfo basePrice={product.base_price} sides={product.configuration} />
+
           {/* Reviews Section */}
           <div className="flex gap-2 text-[.8em]">
             <p className="text-orange-300 flex items-center gap-1"><span><FaStar /></span>4.9</p>
@@ -186,6 +206,49 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
                   <span className="text-xs">{color.name}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Size Selector */}
+          {product.size_options && product.size_options.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium mb-2">사이즈</h3>
+              <div className="flex gap-2 flex-wrap">
+                {product.size_options.map((size) => (
+                  <button
+                    key={size.id}
+                    onClick={() => setSelectedSize(size.id)}
+                    className={`px-4 py-2 border rounded-lg text-sm font-medium transition ${
+                      selectedSize === size.id
+                        ? 'border-black bg-black text-white'
+                        : 'border-gray-300 bg-white text-black hover:border-gray-400'
+                    }`}
+                  >
+                    {size.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quantity Selector */}
+          <div className="mt-4 flex items-center justify-between">
+            <span className="text-sm font-medium">수량</span>
+            <div className="flex items-center gap-3 border border-gray-300 rounded-lg px-2 py-1">
+              <button
+                onClick={handleDecreaseQuantity}
+                disabled={quantity <= 1}
+                className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="min-w-8 text-center font-medium">{quantity}</span>
+              <button
+                onClick={handleIncreaseQuantity}
+                className="p-1 hover:bg-gray-100 rounded transition"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>

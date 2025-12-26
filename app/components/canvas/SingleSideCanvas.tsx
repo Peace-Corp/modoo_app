@@ -231,14 +231,17 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // @ts-expect-error - Custom property
         const printWidth = canvas.printAreaWidth || side.printArea.width;
 
+        // Get real-life print area width from product data, fallback to 250mm for t-shirts
+        const realWorldWidth = side.realLifeDimensions?.printAreaWidthMm || 250;
+
         // Get object's bounding box dimensions (includes scale and rotation)
         const boundingRect = obj.getBoundingRect();
         const objWidth = boundingRect.width;
         const objHeight = boundingRect.height;
 
-        // Convert to mm (assuming t-shirt print area is 475mm wide)
-        const widthMm = pixelsToMm(objWidth, printWidth, 475);
-        const heightMm = pixelsToMm(objHeight, printWidth, 475);
+        // Convert to mm using real-life dimensions from product data
+        const widthMm = pixelsToMm(objWidth, printWidth, realWorldWidth);
+        const heightMm = pixelsToMm(objHeight, printWidth, realWorldWidth);
 
         // Get object center for positioning the scale box
         const objCenter = obj.getCenterPoint();
