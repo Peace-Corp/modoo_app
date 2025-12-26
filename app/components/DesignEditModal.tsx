@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, Save } from 'lucide-react';
 import ProductDesigner from './canvas/ProductDesigner';
+import EditButton from './canvas/EditButton';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { ProductConfig } from '@/types/types';
 import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
@@ -29,6 +30,7 @@ export default function DesignEditModal({
     restoreAllCanvasState,
     canvasMap,
     setEditMode,
+    isEditMode,
   } = useCanvasStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -181,8 +183,8 @@ export default function DesignEditModal({
         const canvasState = pendingData.design.canvas_state as Record<string, string>;
         await restoreAllCanvasState(canvasState);
 
-        // Enable edit mode
-        setEditMode(true);
+        // Start in view mode (edit mode will be enabled when user clicks the Edit button)
+        setEditMode(false);
 
         console.log('Design restored successfully');
 
@@ -297,27 +299,29 @@ export default function DesignEditModal({
 
   return (
     <div className="fixed inset-0 z-[200] bg-white">
-      {/* Header */}
-      <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
-        <div className="flex items-center justify-between px-4 py-3">
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
-            disabled={isSaving}
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <h2 className="text-lg font-bold">디자인 편집</h2>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:bg-gray-400"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? '저장 중...' : '저장'}
-          </button>
+      {/* Header - only show when NOT in edit mode */}
+      {!isEditMode && (
+        <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
+              disabled={isSaving}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-bold">디자인 편집</h2>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:bg-gray-400"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Loading State */}
       {isLoading ? (
@@ -328,12 +332,17 @@ export default function DesignEditModal({
           </div>
         </div>
       ) : productConfig ? (
-        <>
+        <div className={isEditMode ? 'h-screen' : 'h-[calc(100vh-64px)]'}>
           {/* Product Designer */}
-          <div className="h-[calc(100vh-64px)] overflow-y-auto">
-            <ProductDesigner config={productConfig as ProductConfig} />
-          </div>
-        </>
+          <ProductDesigner config={productConfig as ProductConfig} />
+
+          {/* Edit Button - show only when NOT in edit mode */}
+          {!isEditMode && (
+            <div className="flex justify-center py-4">
+              <EditButton />
+            </div>
+          )}
+        </div>
       ) : null}
     </div>
   );
