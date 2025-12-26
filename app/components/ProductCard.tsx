@@ -1,23 +1,43 @@
 import { Heart, Star } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import { Product } from "@/types/types";
 
-export default function ProductCard() {
+interface ProductCardProps {
+  product: Product;
+}
+
+export default function ProductCard({ product }: ProductCardProps) {
+  const formattedPrice = product.base_price.toLocaleString('ko-KR');
+  const firstSideImage = product.configuration[0]?.imageUrl;
+
   return (
-    <Link href={'editor/1'} className="bg-white rounded-sm overflow-hidden shadow-sm">
+    <Link href={`/editor/${product.id}`} className="bg-white rounded-sm overflow-hidden shadow-sm">
       {/* Product Image */}
-      <div className="aspect-4/5 bg-gray-300 animate-pulse relative">
-        <button className="absolute right-2 bottom-2 p-2 bg-white rounded-full">
+      <div className="aspect-4/5 bg-gray-100 relative">
+        {firstSideImage && (
+          <Image
+            src={firstSideImage}
+            alt={product.title}
+            fill
+            className="object-contain"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+          />
+        )}
+        <button className="absolute right-2 bottom-2 p-2 bg-white rounded-full hover:bg-gray-50 transition-colors">
           <Heart size={18}/>
         </button>
       </div>
       {/* Product Details */}
       <div className="p-2">
-        {/* Brand Name */}
-        <p className="text-black text-xs font-bold">발렌시아가</p>
+        {/* Category */}
+        {product.category && (
+          <p className="text-black text-xs font-bold capitalize">{product.category}</p>
+        )}
         {/* Product Name */}
-        <p className="text-sm">티셔츠</p>
+        <p className="text-sm">{product.title}</p>
         {/* Pricing */}
-        <p className="font-bold">20,000원</p>
+        <p className="font-bold">{formattedPrice}원</p>
         <p className="text-xs">200개 이상 구매시</p>
         <div className="text-[.6em] flex items-center gap-0.5">
           <Star size={10} className="text-orange-400"/>

@@ -1,23 +1,106 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, Image, FileImage } from 'lucide-react';
+import { Plus, TextCursor, Layers, Image, FileImage, Trash2, RefreshCcw } from 'lucide-react';
 import { ProductSide } from '@/types/types';
+import TextStylePanel from './TextStylePanel';
 
 interface ToolbarProps {
   sides?: ProductSide[];
+  handleExitEditMode?: () => void;
 }
 
-const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
-  const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap } = useCanvasStore();
+const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => {
+  const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap, incrementCanvasVersion } = useCanvasStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
+  const [color, setColor] = useState("");
+  // const canvas = getActiveCanvas();
+
+  const handleObjectSelection = (object : fabric.FabricObject | null) => {
+    // console.log('handleObjectSelection called with:', object?.type);
+
+    if (!object) {
+      setSelectedObject(null);
+      return;
+    }
+
+    setSelectedObject(object);
+
+    if (object.type === "i-text" || object.type === "text") {
+    }
+  }
+
+  // Resetting states
+  const clearSettings = () => {
+    setColor("");
+  }
+
+  useEffect(() => {
+    const canvas = getActiveCanvas();
+    if (!canvas) {
+      setSelectedObject(null);
+      return;
+    }
+
+    // Clear any existing selection when switching canvases
+    setSelectedObject(null);
+
+    const handleSelectionCreated = (options: { selected: fabric.FabricObject[] }) => {
+      const selected = options.selected?.[0] || canvas.getActiveObject();
+      handleObjectSelection(selected || null);
+    };
+
+    const handleSelectionUpdated = (options: { selected: fabric.FabricObject[]; deselected: fabric.FabricObject[] }) => {
+      const selected = options.selected?.[0] || canvas.getActiveObject();
+      handleObjectSelection(selected || null);
+    };
+
+    const handleSelectionCleared = () => {
+      handleObjectSelection(null);
+      clearSettings();
+    };
+
+    const handleObjectModified = (options: { target?: fabric.FabricObject }) => {
+      const target = options.target || canvas.getActiveObject();
+      handleObjectSelection(target || null);
+      // Trigger pricing recalculation when object is modified (scaled, rotated, etc.)
+      incrementCanvasVersion();
+    };
+
+    const handleObjectScaling = (options: { target?: fabric.FabricObject }) => {
+      const target = options.target || canvas.getActiveObject();
+      handleObjectSelection(target || null);
+      // Trigger pricing recalculation when object is scaling
+      incrementCanvasVersion();
+    };
+
+    canvas.on("selection:created", handleSelectionCreated);
+    canvas.on("selection:updated", handleSelectionUpdated);
+    canvas.on("selection:cleared", handleSelectionCleared);
+    canvas.on("object:modified", handleObjectModified);
+    canvas.on("object:scaling", handleObjectScaling);
+
+    return () => {
+      console.log('Cleaning up canvas event listeners');
+      canvas.off("selection:created", handleSelectionCreated);
+      canvas.off("selection:updated", handleSelectionUpdated);
+      canvas.off("selection:cleared", handleSelectionCleared);
+      canvas.off("object:modified", handleObjectModified);
+      canvas.off("object:scaling", handleObjectScaling);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSideId, canvasMap]);
+  
+  
+
 
   const addText = () => {
     const canvas = getActiveCanvas();
     if (!canvas) return; // for error handling
 
-    const text = new fabric.IText('Text', {
+    const text = new fabric.IText('텍스트', {
       left: canvas.width / 2,
       top: canvas.height / 2,
       originX: 'center',
@@ -30,6 +113,12 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     canvas.add(text);
     canvas.setActiveObject(text); // set the selected object to the text once created
     canvas.renderAll();  // render the new object
+
+    // Manually trigger selection handler for newly created text
+    handleObjectSelection(text);
+
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
   };
 
   const addImage = () => {
@@ -71,6 +160,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
           canvas.add(img);
           canvas.setActiveObject(img);
           canvas.renderAll();
+
+          // Trigger pricing recalculation
+          incrementCanvasVersion();
         });
       };
 
@@ -85,6 +177,47 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
     setActiveSide(sideId);
     setIsModalOpen(false);
   };
+
+  const handleDeleteObject = () => {
+    const canvas = getActiveCanvas();
+    const selectedObject = canvas?.getActiveObject();
+    const selectedObjects = canvas?.getActiveObjects();
+
+    if (selectedObjects && selectedObjects.length > 0) {
+    // Remove all selected objects
+    selectedObjects.forEach(obj => canvas?.remove(obj));
+    // Discard the selection after removal
+    canvas?.discardActiveObject()
+    canvas?.renderAll();
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
+  } else if (selectedObject) {
+    // Remove a single selected object
+    canvas?.remove(selectedObject);
+    canvas?.renderAll();
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
+    }
+  }
+
+  const handleResetCanvas = () => {
+    const canvas = getActiveCanvas();
+
+    if (!canvas) return;
+
+    canvas.getObjects().forEach((obj) => {
+      const objData = obj.get('data') as { id?: string } | undefined;
+      // remove all objects except for background image, center guide line, visual guide box
+      if (objData?.id !== 'background-product-image' && objData?.id !== 'center-line' && objData?.id !== 'visual-guide-box') {
+        canvas.remove(obj)
+      }
+    })
+
+    canvas.renderAll();
+
+    // Trigger pricing recalculation
+    incrementCanvasVersion();
+  }
 
   // Generate canvas previews when modal is open
   const canvasPreviews = useMemo(() => {
@@ -112,6 +245,31 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
 
   return (
     <>
+
+      {/* Exit Edit Mode Button */}
+        {isEditMode && (
+          <div className="w-full bg-white shadow-md z-100 fixed top-0 left-0 flex items-center justify-between px-4">
+            <button
+              onClick={handleExitEditMode}
+              className="py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold transition flex items-center gap-2"
+            >
+              완료
+            </button>
+
+            <div className='flex items-center gap-3'>
+              <button onClick={handleResetCanvas}>
+                <RefreshCcw className='text-black/80 font-extralight' />
+              </button>
+              {selectedObject && (
+                <button onClick={handleDeleteObject}>
+                  <Trash2 className='text-red-400 font-extralight' />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+
       {/* Modal for side selection */}
       {isModalOpen && (
         <div
@@ -163,8 +321,10 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
         </div>
       )}
 
+
+      {/* Default Toolbar render only when no object is selected */}
       {/* Center button for side selection */}
-      {sides.length > 0 && (
+      {sides.length > 0 && !selectedObject && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
           <button
             onClick={() => setIsModalOpen(true)}
@@ -175,40 +335,50 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [] }) => {
           </button>
         </div>
       )}
+      {!selectedObject && 
+        <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-50">
+          {/* Inner buttons - expand upwards */}
+          <div className={`flex flex-col gap-2 transition-all duration-700 overflow-hidden ${
+            isExpanded ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0'
+          }`}>
+            <button
+              onClick={addText}
+            >
+              <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
+                <TextCursor />
+              </div>
+              <p className='text-xs'>텍스트</p>
+            </button>
+            <button
+              onClick={addImage}
+            >
+              <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
+                <FileImage />
+              </div>
+              <p className='text-xs'>이미지</p>
+            </button>
+          </div>
 
-      {/* Right-side toolbar */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-50">
-        {/* Inner buttons - expand upwards */}
-        <div className={`flex flex-col gap-2 transition-all duration-700 overflow-hidden ${
-          isExpanded ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0'
-        }`}>
+          {/* Plus button */}
           <button
-            onClick={addText}
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`size-12 ${isExpanded ? "bg-black text-white" : "bg-white text-black"} shadow-xl rounded-full flex items-center justify-center hover:bg-gray-200 transition-all duration-300`}
+            aria-label={isExpanded ? 'Close menu' : 'Open menu'}
           >
-            <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
-              <TextCursor />
-            </div>
-            <p className='text-xs'>텍스트</p>
-          </button>
-          <button
-            onClick={addImage}
-          >
-            <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
-              <FileImage />
-            </div>
-            <p className='text-xs'>이미지</p>
+            <Plus className={`${isExpanded ? 'rotate-45' : ''} size-8 transition-all duration-300`}/>
           </button>
         </div>
+      }
 
-        {/* Plus button */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={`size-12 ${isExpanded ? "bg-black text-white" : "bg-white text-black"} shadow-xl rounded-full flex items-center justify-center hover:bg-gray-800 transition-all duration-300`}
-          aria-label={isExpanded ? 'Close menu' : 'Open menu'}
-        >
-          <Plus className={`${isExpanded ? 'rotate-45' : ''} size-8 transition-all duration-300`}/>
-        </button>
-      </div>
+
+      {/* Render if selected item is text */}
+      {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
+        <TextStylePanel
+          selectedObject={selectedObject as fabric.IText}
+          onClose={() => setSelectedObject(null)}
+        />
+      )}
+
     </>
   );
 }

@@ -103,17 +103,6 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
   return (
     <div className={isEditMode ? "min-h-screen" : ""}>
       <div className="">
-        {/* Exit Edit Mode Button */}
-        {isEditMode && (
-          <div className="w-full bg-white shadow-2xl z-100">
-            <button
-              onClick={handleExitEditMode}
-              className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold transition flex items-center gap-2"
-            >
-              완료
-            </button>
-          </div>
-        )}
 
         <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : 'bg-[#f3f3f3]'} flex flex-col justify-center items-center `}>
           <div
@@ -175,7 +164,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
       </div>
 
       {/* Toolbar - shows only in edit mode */}
-      <Toolbar sides={config.sides} />
+      <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} />
     </div>
   );
 };

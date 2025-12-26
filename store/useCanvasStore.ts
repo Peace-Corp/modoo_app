@@ -21,6 +21,10 @@ interface CanvasState {
 
   getActiveCanvas: () => fabric.Canvas | null;
 
+  // Canvas change tracking
+  canvasVersion: number;
+  incrementCanvasVersion: () => void;
+
   // Serialization methods
   saveAllCanvasState: () => Record<string, string>;
   restoreAllCanvasState: (savedState: Record<string, string>) => Promise<void>;
@@ -32,10 +36,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeSideId: 'front',
   canvasMap: {},
   isEditMode: false,
-  productColor: '#9CA3AF', // Default mix gray color
+  productColor: '#FFFF', // Default mix gray color
+  canvasVersion: 0,
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
+  incrementCanvasVersion: () => set((state) => ({ canvasVersion: state.canvasVersion + 1 })),
 
   registerCanvas: (id, canvas) => {
     set((state) => {
@@ -70,16 +76,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         // Exclude guide boxes and snap lines
         if (obj.excludeFromExport) return false;
 
-        // Exclude the background product image (it's always the bottom-most image)
-        // User-added images will be on top of it
-        if (obj.type === 'image') {
-          // Check if this is the background by seeing if it's at the bottom
-          const objects = canvas.getObjects();
-          const imageIndex = objects.indexOf(obj);
-          // If it's the first image object, it's likely the background
-          const firstImageIndex = objects.findIndex(o => o.type === 'image');
-          return imageIndex !== firstImageIndex;
-        }
+        // Exclude the background product image by checking its ID
+        // @ts-expect-error - Checking custom data property
+        if (obj.data?.id === 'background-product-image') return false;
 
         return true;
       });
@@ -118,14 +117,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           // Keep guide boxes and snap lines
           if (obj.excludeFromExport) return false;
 
-          // Keep the background product image (it's the first/bottom-most image)
-          if (obj.type === 'image') {
-            const objects = canvas.getObjects();
-            const imageIndex = objects.indexOf(obj);
-            const firstImageIndex = objects.findIndex(o => o.type === 'image');
-            // Remove user-added images (not the first one)
-            return imageIndex !== firstImageIndex;
-          }
+          // Keep the background product image by checking its ID
+          // @ts-expect-error - Checking custom data property
+          if (obj.data?.id === 'background-product-image') return false;
 
           // Remove all other user-added objects
           return true;
@@ -149,10 +143,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                   selectable: isEditMode,
                   evented: isEditMode
                 });
-
-                if (fabricObj.type === 'image') {
-                  console.log('Restored image - selectable:', fabricObj.selectable, 'evented:', fabricObj.evented, 'isEditMode:', isEditMode);
-                }
               }
             });
             canvas.requestRenderAll();
@@ -180,13 +170,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       // Exclude guide boxes and snap lines
       if (obj.excludeFromExport) return false;
 
-      // Exclude the background product image (it's always the bottom-most image)
-      if (obj.type === 'image') {
-        const objects = canvas.getObjects();
-        const imageIndex = objects.indexOf(obj);
-        const firstImageIndex = objects.findIndex(o => o.type === 'image');
-        return imageIndex !== firstImageIndex;
-      }
+      // Exclude the background product image by checking its ID
+      // @ts-expect-error - Checking custom data property
+      if (obj.data?.id === 'background-product-image') return false;
 
       return true;
     });
@@ -221,14 +207,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         // Keep guide boxes and snap lines
         if (obj.excludeFromExport) return false;
 
-        // Keep the background product image (it's the first/bottom-most image)
-        if (obj.type === 'image') {
-          const objects = canvas.getObjects();
-          const imageIndex = objects.indexOf(obj);
-          const firstImageIndex = objects.findIndex(o => o.type === 'image');
-          // Remove user-added images (not the first one)
-          return imageIndex !== firstImageIndex;
-        }
+        // Keep the background product image by checking its ID
+        // @ts-expect-error - Checking custom data property
+        if (obj.data?.id === 'background-product-image') return false;
 
         // Remove all other user-added objects
         return true;

@@ -1,8 +1,12 @@
+'use client'
 import { ArrowLeft, Menu, ShoppingBasket } from "lucide-react";
 import CartButton from "./CartButton";
+import { useRouter } from "next/navigation";
 
 
 export default function Header({back=false} : {back? : boolean}) {
+  const router = useRouter()
+
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -10,7 +14,7 @@ export default function Header({back=false} : {back? : boolean}) {
             {/* If back is enabled show the back button instead */}
             {
               back ? (
-                <button className="">
+                <button className="" onClick={() => router.back()}>
                   <ArrowLeft className="text-gray-700 size-6"/>
                 </button>
               ) :
