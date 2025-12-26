@@ -25,6 +25,11 @@ interface CanvasState {
   canvasVersion: number;
   incrementCanvasVersion: () => void;
 
+  // Image loading tracking
+  imageLoadedMap: Record<string, boolean>;
+  markImageLoaded: (id: string) => void;
+  isImageLoaded: (id: string) => boolean;
+
   // Serialization methods
   saveAllCanvasState: () => Record<string, string>;
   restoreAllCanvasState: (savedState: Record<string, string>) => Promise<void>;
@@ -35,6 +40,7 @@ interface CanvasState {
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeSideId: 'front',
   canvasMap: {},
+  imageLoadedMap: {},
   isEditMode: false,
   productColor: '#FFFFFF', // Default mix gray color
   canvasVersion: 0,
@@ -42,6 +48,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
   incrementCanvasVersion: () => set((state) => ({ canvasVersion: state.canvasVersion + 1 })),
+
+  markImageLoaded: (id) => {
+    set((state) => ({
+      imageLoadedMap: { ...state.imageLoadedMap, [id]: true }
+    }));
+  },
+
+  isImageLoaded: (id) => {
+    const { imageLoadedMap } = get();
+    return imageLoadedMap[id] || false;
+  },
 
   registerCanvas: (id, canvas) => {
     set((state) => {
@@ -54,8 +71,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   unregisterCanvas: (id) => {
     set((state) => {
       const newMap = { ...state.canvasMap };
+      const newImageLoadedMap = { ...state.imageLoadedMap };
       delete newMap[id];
-      return { canvasMap: newMap };
+      delete newImageLoadedMap[id];
+      return { canvasMap: newMap, imageLoadedMap: newImageLoadedMap };
     })
   },
 

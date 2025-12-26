@@ -1,0 +1,209 @@
+'use client';
+
+import { useCartStore } from '@/store/useCartStore';
+import Header from '@/app/components/Header';
+import { Plus, Minus, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+
+export default function CartPage() {
+  const { items, removeItem, updateQuantity, clearCart, getTotalQuantity, getTotalPrice } = useCartStore();
+
+  const totalQuantity = getTotalQuantity();
+  const totalPrice = getTotalPrice();
+  const deliveryFee = items.length > 0 ? 3000 : 0;
+  const finalTotal = totalPrice + deliveryFee;
+
+  const handleCheckout = () => {
+    // TODO: Implement checkout logic
+    alert('주문하기 기능은 준비 중입니다.');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
+        <Header back={true} />
+      </div>
+
+      {/* Page Title */}
+      <div className="bg-white px-4 py-4 border-b border-gray-200">
+        <h1 className="text-xl font-bold text-black">장바구니</h1>
+        <p className="text-sm text-gray-500 mt-1">{totalQuantity}개 상품</p>
+      </div>
+
+      {/* Cart Content */}
+      {items.length === 0 ? (
+        // Empty Cart State
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <svg
+              className="w-12 h-12 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-lg font-medium text-gray-900 mb-2">장바구니가 비어있습니다</h2>
+          <p className="text-sm text-gray-500 mb-6 text-center">
+            원하는 상품을 담아보세요
+          </p>
+          <Link
+            href="/home"
+            className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
+          >
+            상품 보러가기
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Cart Items List */}
+          <div className="bg-white mb-4">
+            {/* Clear All Button */}
+            <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+              <span className="text-sm text-gray-600">전체 {items.length}개</span>
+              <button
+                onClick={clearCart}
+                className="text-sm text-gray-500 hover:text-red-600 transition flex items-center gap-1"
+              >
+                <Trash2 className="w-4 h-4" />
+                전체삭제
+              </button>
+            </div>
+
+            {/* Items */}
+            <div className="divide-y divide-gray-100">
+              {items.map((item) => (
+                <div key={item.id} className="p-4">
+                  <div className="flex gap-4">
+                    {/* Product Thumbnail */}
+                    <div className="w-24 h-24 bg-gray-100 rounded-lg shrink-0 overflow-hidden border border-gray-200">
+                      {item.thumbnailUrl ? (
+                        <img
+                          src={item.thumbnailUrl}
+                          alt={item.productTitle}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div
+                            className="w-16 h-16 rounded"
+                            style={{ backgroundColor: item.productColor }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Item Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-black mb-1 truncate">
+                            {item.productTitle}
+                          </h3>
+                          <div className="space-y-0.5">
+                            <p className="text-xs text-gray-500">
+                              색상: {item.productColorName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              사이즈: {item.sizeName}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="p-1 hover:bg-gray-100 rounded transition text-gray-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Price and Quantity */}
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="p-1 hover:bg-gray-100 rounded transition"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="min-w-8 text-center text-sm font-medium">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            className="p-1 hover:bg-gray-100 rounded transition"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-black">
+                            {(item.pricePerItem * item.quantity).toLocaleString('ko-KR')}원
+                          </p>
+                          {item.quantity > 1 && (
+                            <p className="text-xs text-gray-500">
+                              {item.pricePerItem.toLocaleString('ko-KR')}원 × {item.quantity}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Price Summary */}
+          <div className="bg-white p-4 mb-24">
+            <h2 className="font-medium text-black mb-3">결제 금액</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">상품 금액</span>
+                <span className="text-black">{totalPrice.toLocaleString('ko-KR')}원</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">배송비</span>
+                <span className="text-black">{deliveryFee.toLocaleString('ko-KR')}원</span>
+              </div>
+              <div className="h-px bg-gray-200 my-3"></div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-black">총 결제금액</span>
+                <span className="text-xl font-bold text-black">
+                  {finalTotal.toLocaleString('ko-KR')}원
+                </span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Bottom Fixed Bar */}
+      {items.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-xs text-gray-500">총 {totalQuantity}개</p>
+              <p className="text-lg font-bold text-black">
+                {finalTotal.toLocaleString('ko-KR')}원
+              </p>
+            </div>
+            <button
+              onClick={handleCheckout}
+              className="px-8 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
+            >
+              주문하기
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
