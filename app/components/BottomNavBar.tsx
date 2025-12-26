@@ -40,7 +40,7 @@ export default function BottomNavBar() {
     {
       id: 'designs',
       label: '나의 디자인',
-      href: '/custom',
+      href: '/home/designs',
       icon: (
         <PlusCircle />
       ),

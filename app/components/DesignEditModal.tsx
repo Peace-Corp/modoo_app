@@ -1,14 +1,27 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Save } from 'lucide-react';
 import ProductDesigner from './canvas/ProductDesigner';
 import EditButton from './canvas/EditButton';
+import PricingInfo from './canvas/PricingInfo';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { ProductConfig } from '@/types/types';
 import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
 import { createClient } from '@/lib/supabase-client';
 import { calculateAllSidesPricing } from '@/app/utils/canvasPricing';
+
+// Mock color list with hex codes
+const mockColors = [
+  { id: 'white', name: '화이트', hex: '#FFFFFF' },
+  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
+  { id: 'black', name: '블랙', hex: '#000000' },
+  { id: 'navy', name: '네이비', hex: '#1E3A8A' },
+  { id: 'red', name: '레드', hex: '#EF4444' },
+  { id: 'pink', name: '핑크', hex: '#F9A8D4' },
+  { id: 'green', name: '그린', hex: '#22C55E' },
+  { id: 'yellow', name: '옐로우', hex: '#FACC15' },
+];
 
 interface DesignEditModalProps {
   isOpen: boolean;
@@ -31,6 +44,7 @@ export default function DesignEditModal({
     canvasMap,
     setEditMode,
     isEditMode,
+    canvasVersion,
   } = useCanvasStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +52,16 @@ export default function DesignEditModal({
   const [productConfig, setProductConfig] = useState<ProductConfig | null>(null);
   const [basePrice, setBasePrice] = useState<number>(0);
   const [hasRestoredDesign, setHasRestoredDesign] = useState(false);
+
+  // Calculate pricing data
+  const pricingData = useMemo(() => {
+    if (!productConfig) return { totalAdditionalPrice: 0, sidePricing: [] };
+    return calculateAllSidesPricing(canvasMap, productConfig.sides);
+  }, [canvasMap, productConfig, canvasVersion]);
+
+  const handleColorChange = (color: string) => {
+    setProductColor(color);
+  };
 
   // Load the cart item design when modal opens
   useEffect(() => {
@@ -244,8 +268,8 @@ export default function DesignEditModal({
       // Generate new thumbnail
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
 
-      // Get color name (you might want to pass this as a prop or derive it)
-      const colorName = 'Custom Color'; // TODO: Get actual color name
+      // Get color name from mockColors
+      const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
 
       // Recalculate pricing based on updated design
       const pricing = productConfig
@@ -339,14 +363,44 @@ export default function DesignEditModal({
           </div>
         </div>
       ) : productConfig ? (
-        <div className={isEditMode ? 'h-screen' : 'h-[calc(100vh-64px)]'}>
+        <div className={isEditMode ? 'h-screen' : 'overflow-y-auto'}>
           {/* Product Designer */}
           <ProductDesigner config={productConfig as ProductConfig} />
 
-          {/* Edit Button - show only when NOT in edit mode */}
+          {/* Color Selector and Pricing - show only when NOT in edit mode */}
           {!isEditMode && (
-            <div className="flex justify-center py-4">
-              <EditButton />
+            <div className="bg-white p-4 pb-24">
+              {/* Horizontal Color Selector */}
+              <div className="mb-4">
+                <h3 className="text-sm font-medium mb-3">제품 색상</h3>
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-3 pb-2">
+                    {mockColors.map((color) => (
+                      <button
+                        key={color.id}
+                        onClick={() => handleColorChange(color.hex)}
+                        className="shrink-0 flex flex-col items-center gap-2"
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full border-2 ${
+                            productColor === color.hex ? 'border-black' : 'border-gray-300'
+                          }`}
+                          style={{ backgroundColor: color.hex }}
+                        ></div>
+                        <span className="text-xs">{color.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic Pricing Info */}
+              <PricingInfo basePrice={basePrice} sides={productConfig.sides} />
+
+              {/* Edit Button */}
+              <div className="mt-4">
+                <EditButton />
+              </div>
             </div>
           )}
         </div>
