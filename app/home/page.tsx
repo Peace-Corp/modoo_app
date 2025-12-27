@@ -1,9 +1,10 @@
 import Header from "@/app/components/Header";
 import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
+import CategoryButton from "@/app/components/CategoryButton";
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
-import Image from "next/image";
+import { CATEGORIES } from "@/lib/categories";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -31,7 +32,7 @@ export default async function HomePage() {
       <CategoriesSection />
 
       {/* Featured Products Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
         <div className="flex items-center justify-between mb-4">
           <p className="text-black font-bold">인기 급상승</p>
         </div>
@@ -106,31 +107,16 @@ export default async function HomePage() {
 }
 
 function CategoriesSection() {
-  const categories = [
-    { name: "티셔츠", icon: "/icons/tshirt.png" },
-    { name: "후디", icon: "/icons/hoodie.png" },
-    { name: "자켓", icon: "/icons/jacket.png" },
-    { name: "티셔츠", icon: "/icons/tshirt.png" },
-    { name: "후디", icon: "/icons/hoodie.png" },
-    { name: "자켓", icon: "/icons/jacket.png" },
-  ];
-
   return (
-    <section className="max-w-7xl mx-auto pt-5">
-        <div className="flex gap-4 overflow-x-auto px-4">
-          {categories.map((category, i) => (
-            <div key={i} className="flex flex-col items-center gap-2 min-w-fit">
-              <div className="size-16 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
-                <Image
-                  src={category.icon}
-                  alt={category.name}
-                  width={48}
-                  height={48}
-                  className="object-contain"
-                />
-              </div>
-              <p className="text-sm text-gray-700">{category.name}</p>
-            </div>
+    <section className="max-w-7xl mx-auto py-2">
+        <div className="flex gap-2 overflow-x-auto px-4">
+          {CATEGORIES.map((category) => (
+            <CategoryButton
+              key={category.key}
+              name={category.name}
+              icon={category.icon}
+              href={`/home/search?category=${encodeURIComponent(category.key)}`}
+            />
           ))}
         </div>
       </section>

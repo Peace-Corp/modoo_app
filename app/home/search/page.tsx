@@ -1,28 +1,43 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, X, SlidersHorizontal } from "lucide-react";
 import Header from "@/app/components/Header";
 import ProductCard from "@/app/components/ProductCard";
+import CategoryButton from "@/app/components/CategoryButton";
 import { Product } from "@/types/types";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-client";
+import { CATEGORIES, getCategoryIcon } from "@/lib/categories";
 
 export default function SearchPage() {
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get('category');
+
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>(categoryFromUrl || "전체");
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
   // Get unique categories from products
-  const categories = ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
+  // const uniqueCategories = Array.from(new Set(products.map(p => p.category).filter((c): c is string => Boolean(c))));
+  // const categories: string[] = ["전체", ...uniqueCategories];
+
+  // Update selected category when URL param changes
+  useEffect(() => {
+    if (categoryFromUrl) {
+      setSelectedCategory(categoryFromUrl);
+    }
+  }, [categoryFromUrl]);
 
   // Fetch products on mount
   useEffect(() => {
     async function fetchProducts() {
       setIsLoading(true);
-      const supabase = await createClient();
+      const supabase = createClient();
 
       const { data, error } = await supabase
         .from('products')
@@ -55,7 +70,7 @@ export default function SearchPage() {
     }
 
     // Filter by category
-    if (selectedCategory !== "all") {
+    if (selectedCategory !== "전체") {
       result = result.filter(product => product.category === selectedCategory);
     }
 
@@ -72,7 +87,7 @@ export default function SearchPage() {
 
       {/* Search Section */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           {/* Search Bar */}
           <div className="relative">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -110,70 +125,87 @@ export default function SearchPage() {
             <div className="mt-4 pb-2 border-t pt-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">카테고리</h3>
               <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
+                {CATEGORIES.map((category) => (
                   <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
+                    key={category.key}
+                    onClick={() => setSelectedCategory(category.key)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedCategory === category
+                      selectedCategory === category.key
                         ? "bg-blue-600 text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    {category === "all" ? "전체" : category}
+                    {category.name}
                   </button>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Results Count */}
-          <div className="mt-4 text-sm text-gray-600">
-            {isLoading ? (
-              <p>로딩 중...</p>
-            ) : (
-              <p>
-                {filteredProducts.length}개의 상품
-                {searchQuery && ` "${searchQuery}" 검색 결과`}
-              </p>
-            )}
+        {/* Categories Section */}
+        <section className="max-w-7xl py-2">
+          <div className="flex gap-2 overflow-x-auto">
+            {CATEGORIES.map((category) => (
+              <CategoryButton
+                key={category.key}
+                name={category.name}
+                icon={getCategoryIcon(category.key)}
+                onClick={() => setSelectedCategory(category.key)}
+                isActive={selectedCategory === category.key}
+              />
+            ))}
           </div>
+        </section>
+
         </div>
       </div>
 
-      {/* Products Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-sm overflow-hidden shadow-sm">
-                <div className="aspect-4/5 bg-gray-200 animate-pulse" />
-                <div className="p-2 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-5 bg-gray-200 rounded animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <Search size={64} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              검색 결과가 없습니다
-            </h3>
-            <p className="text-gray-500">
-              다른 검색어를 시도하거나 필터를 조정해보세요
+      {/* Content Container */}
+      <div className="px-2">
+        {/* Results Count */}
+        <div className="mt-4 text-sm text-gray-600">
+          {isLoading ? (
+            <p>로딩 중...</p>
+          ) : (
+            <p>
+              {filteredProducts.length}개의 상품
+              {searchQuery && ` "${searchQuery}" 검색 결과`}
             </p>
-          </div>
-        )}
-      </section>
+          )}
+        </div>
+        {/* Products Grid */}
+        <section className="max-w-7xl mx-auto py-2">
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-sm overflow-hidden shadow-sm">
+                  <div className="aspect-4/5 bg-gray-200 animate-pulse" />
+                  <div className="p-2 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-5 bg-gray-200 rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <Search size={64} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                검색 결과가 없습니다
+              </h3>
+              <p className="text-gray-500">
+                다른 검색어를 시도하거나 필터를 조정해보세요
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
