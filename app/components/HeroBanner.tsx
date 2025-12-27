@@ -49,18 +49,23 @@ const bannerSlides = [
 export default function HeroBanner() {
   return (
     <section className="max-w-7xl mx-auto ">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .hero-swiper .swiper-slide {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            transform: scale(0.95);
+          }
+          .hero-swiper .swiper-slide-active {
+            transform: scale(1);
+            opacity: 1;
+          }
+        `
+      }} />
       <Swiper
         modules={[Autoplay]}
-        spaceBetween={10}
         slidesPerView={1.3}
         centeredSlides={true}
-        // navigation={true}
-        // pagination={{ clickable: true }}
-        // autoplay={{
-        //   delay: 3000,
-        //   disableOnInteraction: false,
-        // }}
-        // loop={true}
+        initialSlide={1}
         breakpoints={{
           640: {
             slidesPerView: 1.5,
@@ -72,7 +77,7 @@ export default function HeroBanner() {
             centeredSlides: false,
           },
         }}
-        className="h-96"
+        className="h-96 hero-swiper"
       >
         {bannerSlides.map((slide) => (
           <SwiperSlide key={slide.id}>
