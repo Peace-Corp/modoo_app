@@ -1,0 +1,179 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Search, X, SlidersHorizontal } from "lucide-react";
+import Header from "@/app/components/Header";
+import ProductCard from "@/app/components/ProductCard";
+import { Product } from "@/types/types";
+import { createClient } from "@/lib/supabase";
+
+export default function SearchPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Get unique categories from products
+  const categories = ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
+
+  // Fetch products on mount
+  useEffect(() => {
+    async function fetchProducts() {
+      setIsLoading(true);
+      const supabase = await createClient();
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching products:', error);
+      } else {
+        setProducts(data as Product[] || []);
+        setFilteredProducts(data as Product[] || []);
+      }
+      setIsLoading(false);
+    }
+
+    fetchProducts();
+  }, []);
+
+  // Filter products based on search query and category
+  useEffect(() => {
+    let result = products;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      result = result.filter(product =>
+        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== "all") {
+      result = result.filter(product => product.category === selectedCategory);
+    }
+
+    setFilteredProducts(result);
+  }, [searchQuery, selectedCategory, products]);
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+
+      {/* Search Section */}
+      <div className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <Search size={20} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="상품 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-20 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div className="absolute inset-y-0 right-3 flex items-center gap-2">
+              {searchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={20} />
+                </button>
+              )}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  showFilters ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <SlidersHorizontal size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Section */}
+          {showFilters && (
+            <div className="mt-4 pb-2 border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">카테고리</h3>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      selectedCategory === category
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {category === "all" ? "전체" : category}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Results Count */}
+          <div className="mt-4 text-sm text-gray-600">
+            {isLoading ? (
+              <p>로딩 중...</p>
+            ) : (
+              <p>
+                {filteredProducts.length}개의 상품
+                {searchQuery && ` "${searchQuery}" 검색 결과`}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Products Grid */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-sm overflow-hidden shadow-sm">
+                <div className="aspect-4/5 bg-gray-200 animate-pulse" />
+                <div className="p-2 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-5 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <Search size={64} className="mx-auto text-gray-300 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              검색 결과가 없습니다
+            </h3>
+            <p className="text-gray-500">
+              다른 검색어를 시도하거나 필터를 조정해보세요
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

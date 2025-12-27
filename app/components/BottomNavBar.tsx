@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { PlusCircle } from 'lucide-react';
 import CartButton from './CartButton';
 
@@ -14,7 +14,7 @@ type NavItem = {
 };
 
 export default function BottomNavBar() {
-  const [activeTab, setActiveTab] = useState('home');
+  const pathname = usePathname();
 
   const navItems: NavItem[] = [
     {
@@ -48,7 +48,7 @@ export default function BottomNavBar() {
     {
       id: 'mypage',
       label: '마이페이지',
-      href: '/my-page',
+      href: '/home/my-page',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -56,6 +56,14 @@ export default function BottomNavBar() {
       ),
     },
   ];
+
+  // Helper function to check if a nav item is active
+  const isActive = (href: string) => {
+    if (href === '/home') {
+      return pathname === '/home';
+    }
+    return pathname?.startsWith(href);
+  };
 
   return (
     <nav className="w-full fixed bottom-0 left-0 bg-white border-t border-gray-200 shadow-lg z-50 rounded-t-xl pb-3">
@@ -65,9 +73,8 @@ export default function BottomNavBar() {
             <Link
               key={item.id}
               href={item.href}
-              onClick={() => setActiveTab(item.id)}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                activeTab === item.id
+                isActive(item.href)
                   ? 'text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
@@ -81,12 +88,7 @@ export default function BottomNavBar() {
 
           {/* Cart button using CartButton component */}
           <div
-            onClick={() => setActiveTab('cart')}
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              activeTab === 'cart'
-                ? 'text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className="flex flex-col items-center justify-center flex-1 h-full transition-colors text-gray-600 hover:text-gray-900"
           >
             <CartButton />
           </div>

@@ -24,6 +24,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           />
         )}
+        {/* Favorite Button */}
         <button className="absolute right-2 bottom-2 p-2 bg-white rounded-full hover:bg-gray-50 transition-colors">
           <Heart size={18}/>
         </button>
