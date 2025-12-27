@@ -1,11 +1,17 @@
 'use client';
 
-import { useCartStore } from '@/store/useCartStore';
 import Header from '@/app/components/Header';
 import { Plus, Minus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import DesignEditModal from '@/app/components/DesignEditModal';
+import {
+  getCartItemsWithDesigns,
+  removeCartItem,
+  updateCartItemQuantity,
+  clearCart as clearCartDB,
+  type CartItemWithDesign
+} from '@/lib/cartService';
 
 // Group items by saved design ID
 interface GroupedCartItem {
@@ -13,64 +19,63 @@ interface GroupedCartItem {
   thumbnailUrl?: string;
   productTitle: string;
   designName?: string;
-  items: Array<{
-    id: string;
-    productId: string;
-    productTitle: string;
-    productColor: string;
-    productColorName: string;
-    sizeId: string;
-    sizeName: string;
-    quantity: number;
-    pricePerItem: number;
-    canvasState: Record<string, string>;
-    thumbnailUrl?: string;
-    addedAt: number;
-    savedDesignId?: string;
-    designName?: string;
-  }>;
+  items: CartItemWithDesign[];
   totalQuantity: number;
   totalPrice: number;
 }
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, clearCart, getTotalQuantity, getTotalPrice } = useCartStore();
+  const [items, setItems] = useState<CartItemWithDesign[]>([]);
   const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Wait for client-side mount to prevent hydration mismatch
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Fetch cart items from Supabase
+  const fetchCartItems = async () => {
+    setIsLoading(true);
+    try {
+      const cartItems = await getCartItemsWithDesigns();
+      setItems(cartItems);
+    } catch (error) {
+      console.error('Error fetching cart items:', error);
+    } finally {
+      setIsLoading(false);
+      setIsMounted(true);
+    }
+  };
+
+  // Initial fetch
   useEffect(() => {
-    setIsMounted(true);
+    fetchCartItems();
   }, []);
 
-  // Group items by savedDesignId
-  const groupedItems: GroupedCartItem[] = items.reduce((acc, item) => {
-    const designId = item.savedDesignId || item.id; // Fallback to item.id if no savedDesignId
-    const existingGroup = acc.find(g => g.savedDesignId === designId);
+  // Group items by saved_design_id
+  const groupedItems: GroupedCartItem[] = items.reduce((acc: GroupedCartItem[], item: CartItemWithDesign) => {
+    const designId = item.saved_design_id || item.id; // Fallback to item.id if no saved_design_id
+    const existingGroup = acc.find((g: GroupedCartItem) => g.savedDesignId === designId);
 
     if (existingGroup) {
       existingGroup.items.push(item);
       existingGroup.totalQuantity += item.quantity;
-      existingGroup.totalPrice += item.pricePerItem * item.quantity;
+      existingGroup.totalPrice += item.price_per_item * item.quantity;
     } else {
       acc.push({
-        savedDesignId: designId,
-        thumbnailUrl: item.thumbnailUrl,
-        productTitle: item.productTitle,
+        savedDesignId: designId!,
+        thumbnailUrl: item.thumbnail_url,
+        productTitle: item.product_title,
         designName: item.designName,
         items: [item],
         totalQuantity: item.quantity,
-        totalPrice: item.pricePerItem * item.quantity,
+        totalPrice: item.price_per_item * item.quantity,
       });
     }
 
     return acc;
   }, [] as GroupedCartItem[]);
 
-  const totalQuantity = getTotalQuantity();
-  const totalPrice = getTotalPrice();
+  const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = items.reduce((total, item) => total + item.price_per_item * item.quantity, 0);
   const deliveryFee = items.length > 0 ? 3000 : 0;
   const finalTotal = totalPrice + deliveryFee;
 
@@ -90,8 +95,42 @@ export default function CartPage() {
   };
 
   const handleSaveComplete = () => {
-    // Optionally refresh cart items or show success message
-    console.log('Design saved successfully');
+    // Refresh cart items after design update
+    fetchCartItems();
+  };
+
+  // Handle removing an item from cart
+  const handleRemoveItem = async (itemId: string) => {
+    const success = await removeCartItem(itemId);
+    if (success) {
+      // Refresh cart items
+      await fetchCartItems();
+    }
+  };
+
+  // Handle updating item quantity
+  const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      // Remove item if quantity is 0 or less
+      await handleRemoveItem(itemId);
+    } else {
+      const result = await updateCartItemQuantity(itemId, newQuantity);
+      if (result) {
+        // Refresh cart items
+        await fetchCartItems();
+      }
+    }
+  };
+
+  // Handle clearing all cart items
+  const handleClearCart = async () => {
+    const confirmed = confirm('장바구니를 비우시겠습니까?');
+    if (confirmed) {
+      const success = await clearCartDB();
+      if (success) {
+        await fetchCartItems();
+      }
+    }
   };
 
   return (
@@ -152,7 +191,7 @@ export default function CartPage() {
             <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
               <span className="text-sm text-gray-600">전체 {groupedItems.length}개 디자인</span>
               <button
-                onClick={clearCart}
+                onClick={handleClearCart}
                 className="text-sm text-gray-500 hover:text-red-600 transition flex items-center gap-1"
               >
                 <Trash2 className="w-4 h-4" />
@@ -180,7 +219,7 @@ export default function CartPage() {
                         <div className="w-full h-full flex items-center justify-center">
                           <div
                             className="w-16 h-16 rounded"
-                            style={{ backgroundColor: group.items[0].productColor }}
+                            style={{ backgroundColor: group.items[0].product_color }}
                           />
                         </div>
                       )}
@@ -189,7 +228,7 @@ export default function CartPage() {
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
                       <button
-                        onClick={() => handleEditDesign(group.items[0].id)}
+                        onClick={() => handleEditDesign(group.items[0].id!)}
                         className="w-full text-left mb-2 cursor-pointer hover:opacity-80 transition"
                       >
                         <div className="flex justify-between items-start">
@@ -212,7 +251,7 @@ export default function CartPage() {
                           <div key={item.id} className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2 flex-1">
                               <span className="text-gray-500">
-                                {item.productColorName} / {item.sizeName}
+                                {item.product_color_name} / {item.size_name}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -220,7 +259,7 @@ export default function CartPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    updateQuantity(item.id, item.quantity - 1);
+                                    handleUpdateQuantity(item.id!, item.quantity - 1);
                                   }}
                                   className="hover:bg-gray-100 rounded"
                                 >
@@ -232,7 +271,7 @@ export default function CartPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    updateQuantity(item.id, item.quantity + 1);
+                                    handleUpdateQuantity(item.id!, item.quantity + 1);
                                   }}
                                   className="hover:bg-gray-100 rounded"
                                 >
@@ -242,7 +281,7 @@ export default function CartPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  removeItem(item.id);
+                                  handleRemoveItem(item.id!);
                                 }}
                                 className="p-0.5 hover:bg-gray-100 rounded transition text-gray-400 hover:text-red-600"
                               >

@@ -137,6 +137,57 @@ export async function getCartItems(): Promise<CartItemData[]> {
   }
 }
 
+export interface CartItemWithDesign extends CartItemData {
+  designName?: string;
+  canvasState?: Record<string, string>;
+}
+
+/**
+ * Get all cart items with their associated design data for the current user
+ */
+export async function getCartItemsWithDesigns(): Promise<CartItemWithDesign[]> {
+  const supabase = createClient();
+
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.error('User not authenticated:', userError);
+      return [];
+    }
+
+    const { data: cartItems, error } = await supabase
+      .from('cart_items')
+      .select(`
+        *,
+        saved_designs:saved_design_id (
+          id,
+          title,
+          canvas_state
+        )
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching cart items:', error);
+      throw error;
+    }
+
+    // Transform the data to include design information
+    const itemsWithDesigns: CartItemWithDesign[] = (cartItems || []).map((item) => ({
+      ...item,
+      designName: (item as { saved_designs?: { title?: string } }).saved_designs?.title,
+      canvasState: (item as { saved_designs?: { canvas_state?: Record<string, string> } }).saved_designs?.canvas_state,
+    }));
+
+    return itemsWithDesigns;
+  } catch (error) {
+    console.error('Failed to fetch cart items with designs:', error);
+    return [];
+  }
+}
+
 /**
  * Update cart item quantity
  */
