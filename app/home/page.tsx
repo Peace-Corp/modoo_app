@@ -29,7 +29,10 @@ export default async function HomePage() {
       <HeroBanner />
 
       {/* Categories */}
-      <CategoriesSection />
+      <div className="w-full pt-2">
+        <h2 className="px-4 font-bold">카테고리</h2>
+        <CategoriesSection />
+      </div>
 
       {/* Featured Products Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">

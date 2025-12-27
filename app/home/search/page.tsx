@@ -18,7 +18,7 @@ export default function SearchPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>(categoryFromUrl || "전체");
+  const [selectedCategory, setSelectedCategory] = useState<string>(categoryFromUrl || "all");
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -70,7 +70,7 @@ export default function SearchPage() {
     }
 
     // Filter by category
-    if (selectedCategory !== "전체") {
+    if (selectedCategory !== "all") {
       result = result.filter(product => product.category === selectedCategory);
     }
 
@@ -148,7 +148,7 @@ export default function SearchPage() {
               <CategoryButton
                 key={category.key}
                 name={category.name}
-                icon={getCategoryIcon(category.key)}
+                icon={category.icon}
                 onClick={() => setSelectedCategory(category.key)}
                 isActive={selectedCategory === category.key}
               />

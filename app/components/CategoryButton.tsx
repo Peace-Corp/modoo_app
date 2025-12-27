@@ -29,15 +29,15 @@ export default function CategoryButton({ name, icon, onClick, href, isActive = f
         isActive ? 'opacity-100' : 'opacity-70 hover:opacity-100'
       }`}
     >
-      <div className={`size-12 rounded-lg flex items-center justify-center overflow-hidden  transition-colors ${
-        isActive ? 'ring-2 ring-blue-500 box-content' : ''
+      <div className={`size-12 rounded-lg flex items-center justify-center transition-colors ${
+        isActive ? 'ring-1 ring-blue-500 box-content' : ''
       }`}>
         {icon ? (
           <Image
             src={icon}
             alt={name}
             width={40}
-            height={48}
+            height={40}
             className="object-contain"
           />
         ) : (
