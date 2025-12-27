@@ -71,24 +71,33 @@ export default function DesignEditModal({
       setIsLoading(true);
       setHasRestoredDesign(false); // Reset restoration flag
       try {
-        // Get cart item from local storage via the cart store
-        // We need to import and use the cart store to get the item
-        const { useCartStore } = await import('@/store/useCartStore');
-        const cartItems = useCartStore.getState().items;
-        const cartItem = cartItems.find((item) => item.id === cartItemId);
+        // Fetch cart item directly from Supabase
+        const supabase = createClient();
+        const { data: cartItem, error: cartError } = await supabase
+          .from('cart_items')
+          .select('*')
+          .eq('id', cartItemId)
+          .single();
 
-        if (!cartItem || !cartItem.savedDesignId) {
+        if (cartError || !cartItem) {
+          console.error('Failed to fetch cart item:', cartError);
           alert('디자인을 불러올 수 없습니다.');
           onClose();
           return;
         }
 
-        // Fetch the design from Supabase using savedDesignId
-        const supabase = createClient();
+        if (!cartItem.saved_design_id) {
+          console.error('Cart item has no saved_design_id');
+          alert('디자인을 불러올 수 없습니다.');
+          onClose();
+          return;
+        }
+
+        // Fetch the design from Supabase using saved_design_id
         const { data: design, error: designError } = await supabase
           .from('saved_designs')
           .select('*')
-          .eq('id', cartItem.savedDesignId)
+          .eq('id', cartItem.saved_design_id)
           .single();
 
         if (designError || !design) {
@@ -102,7 +111,7 @@ export default function DesignEditModal({
         const { data: product, error: productError } = await supabase
           .from('products')
           .select('*')
-          .eq('id', cartItem.productId)
+          .eq('id', cartItem.product_id)
           .single();
 
         if (productError || !product) {
@@ -196,8 +205,8 @@ export default function DesignEditModal({
         console.log('All canvases ready, restoring design...');
 
         // Restore product color
-        if (pendingData.cartItem.productColor) {
-          setProductColor(pendingData.cartItem.productColor);
+        if (pendingData.cartItem.product_color) {
+          setProductColor(pendingData.cartItem.product_color);
         }
 
         // Wait for color to be applied
@@ -252,12 +261,16 @@ export default function DesignEditModal({
 
     setIsSaving(true);
     try {
-      // Get cart item from local storage
-      const { useCartStore } = await import('@/store/useCartStore');
-      const state = useCartStore.getState();
-      const cartItem = state.items.find((item) => item.id === cartItemId);
+      // Get cart item from Supabase
+      const supabase = createClient();
+      const { data: cartItem, error: cartError } = await supabase
+        .from('cart_items')
+        .select('*')
+        .eq('id', cartItemId)
+        .single();
 
-      if (!cartItem || !cartItem.savedDesignId) {
+      if (cartError || !cartItem || !cartItem.saved_design_id) {
+        console.error('Error fetching cart item:', cartError);
         alert('장바구니 항목을 찾을 수 없습니다.');
         return;
       }
@@ -279,7 +292,6 @@ export default function DesignEditModal({
       const newPricePerItem = basePrice + pricing.totalAdditionalPrice;
 
       // Update the design in Supabase
-      const supabase = createClient();
       const { error: updateError } = await supabase
         .from('saved_designs')
         .update({
@@ -287,7 +299,7 @@ export default function DesignEditModal({
           color_selections: { productColor },
           updated_at: new Date().toISOString(),
         })
-        .eq('id', cartItem.savedDesignId);
+        .eq('id', cartItem.saved_design_id);
 
       if (updateError) {
         console.error('Error updating design:', updateError);
@@ -295,22 +307,34 @@ export default function DesignEditModal({
         return;
       }
 
-      // Find all cart items with the same savedDesignId
-      const itemsToUpdate = state.items.filter(
-        (item) => item.savedDesignId === cartItem.savedDesignId
-      );
+      // Find all cart items with the same saved_design_id
+      const { data: itemsToUpdate, error: fetchError } = await supabase
+        .from('cart_items')
+        .select('*')
+        .eq('saved_design_id', cartItem.saved_design_id);
 
-      // Update all items with the same design
-      for (const item of itemsToUpdate) {
-        state.removeItem(item.id);
-        state.addItem({
-          ...item,
-          productColor,
-          productColorName: colorName,
-          canvasState,
-          thumbnailUrl: thumbnail,
-          pricePerItem: newPricePerItem, // Update with recalculated price
-        });
+      if (fetchError) {
+        console.error('Error fetching items to update:', fetchError);
+      }
+
+      // Update all cart items with the same design
+      if (itemsToUpdate && itemsToUpdate.length > 0) {
+        for (const item of itemsToUpdate) {
+          const { error: updateItemError } = await supabase
+            .from('cart_items')
+            .update({
+              product_color: productColor,
+              product_color_name: colorName,
+              thumbnail_url: thumbnail,
+              price_per_item: newPricePerItem,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+
+          if (updateItemError) {
+            console.error('Error updating cart item:', updateItemError);
+          }
+        }
       }
 
       alert('디자인이 성공적으로 저장되었습니다!');

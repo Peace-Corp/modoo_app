@@ -64,15 +64,6 @@ function calculateObjectsBoundingBox(canvas: fabric.Canvas): { width: number; he
 }
 
 /**
- * Convert canvas pixels to mm based on print area dimensions
- * Uses the real-life dimensions from product data for accurate conversion
- */
-function pixelsToMm(pixels: number, canvasPrintAreaWidth: number, realWorldPrintAreaWidth: number): number {
-  const mmPerPixel = realWorldPrintAreaWidth / canvasPrintAreaWidth;
-  return pixels * mmPerPixel;
-}
-
-/**
  * Determine the pricing category based on dimensions in mm
  */
 function getPricingCategory(widthMm: number, heightMm: number): number {
@@ -102,8 +93,8 @@ export function calculateSidePricing(
   canvas: fabric.Canvas,
   sideId: string,
   sideName: string,
-  printAreaWidthPixels?: number,
-  printAreaWidthMm?: number
+  imageWidthPixels?: number,
+  productWidthMm?: number
 ): SidePricing {
   const boundingBox = calculateObjectsBoundingBox(canvas);
 
@@ -116,14 +107,21 @@ export function calculateSidePricing(
     };
   }
 
-  // Get print area dimensions for conversion
+  // Get the scaled product image width on the canvas
+  // This is the width of the entire product image as displayed on the canvas
   // @ts-expect-error - Custom property
-  const canvasPrintAreaWidth = canvas.printAreaWidth || printAreaWidthPixels || 300;
-  const realWorldPrintAreaWidth = printAreaWidthMm || 250; // Default to 250mm for t-shirts
+  const scaledImageWidth = canvas.scaledImageWidth || imageWidthPixels || 500;
 
-  // Convert pixels to mm using real-life dimensions
-  const widthMm = pixelsToMm(boundingBox.width, canvasPrintAreaWidth, realWorldPrintAreaWidth);
-  const heightMm = pixelsToMm(boundingBox.height, canvasPrintAreaWidth, realWorldPrintAreaWidth);
+  // Get the real-world product width in mm
+  const realWorldProductWidth = productWidthMm || 500; // Default to 500mm for t-shirts
+
+  // Calculate pixel-to-mm ratio based on the product dimensions, not print area
+  // This is more accurate as it's based on the actual product image scale
+  const pixelToMmRatio = realWorldProductWidth / scaledImageWidth;
+
+  // Convert object dimensions to mm using the product-based ratio
+  const widthMm = boundingBox.width * pixelToMmRatio;
+  const heightMm = boundingBox.height * pixelToMmRatio;
 
   const additionalPrice = getPricingCategory(widthMm, heightMm);
 
@@ -147,8 +145,7 @@ export function calculateAllSidesPricing(
   sides: Array<{
     id: string;
     name: string;
-    printArea?: { width: number };
-    realLifeDimensions?: { printAreaWidthMm: number };
+    realLifeDimensions?: { productWidthMm: number };
   }>
 ): {
   sidePricing: SidePricing[];
@@ -160,12 +157,16 @@ export function calculateAllSidesPricing(
   sides.forEach(side => {
     const canvas = canvasMap[side.id];
     if (canvas) {
+      // Get the original image width from the canvas
+      // @ts-expect-error - Custom property
+      const imageWidth = canvas.originalImageWidth;
+
       const pricing = calculateSidePricing(
         canvas,
         side.id,
         side.name,
-        side.printArea?.width,
-        side.realLifeDimensions?.printAreaWidthMm
+        imageWidth,
+        side.realLifeDimensions?.productWidthMm
       );
       sidePricing.push(pricing);
       totalAdditionalPrice += pricing.additionalPrice;

@@ -3,14 +3,18 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-client';
 import { Product } from '@/types/types';
-import { Edit, Eye, EyeOff, Plus, Package } from 'lucide-react';
+import { Edit, Eye, EyeOff, Plus, Package, Edit2 } from 'lucide-react';
 import PrintAreaEditor from './PrintAreaEditor';
+import ProductEditor from './ProductEditor';
+
+type EditorMode = 'print-area' | 'full-edit' | null;
 
 export default function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [editorMode, setEditorMode] = useState<EditorMode>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -54,12 +58,25 @@ export default function ProductsTab() {
     }
   };
 
-  const handleProductUpdate = (updatedProduct: Product) => {
-    setProducts(products.map(p =>
-      p.id === updatedProduct.id ? updatedProduct : p
-    ));
+  const handleProductSave = (savedProduct: Product) => {
+    if (isCreatingNew) {
+      // Add new product to list
+      setProducts([savedProduct, ...products]);
+    } else {
+      // Update existing product
+      setProducts(products.map(p =>
+        p.id === savedProduct.id ? savedProduct : p
+      ));
+    }
     setSelectedProduct(null);
-    setIsEditing(false);
+    setEditorMode(null);
+    setIsCreatingNew(false);
+  };
+
+  const handleCancel = () => {
+    setSelectedProduct(null);
+    setEditorMode(null);
+    setIsCreatingNew(false);
   };
 
   if (loading) {
@@ -70,15 +87,24 @@ export default function ProductsTab() {
     );
   }
 
-  if (isEditing && selectedProduct) {
+  // Show Print Area Editor
+  if (editorMode === 'print-area' && selectedProduct) {
     return (
       <PrintAreaEditor
         product={selectedProduct}
-        onSave={handleProductUpdate}
-        onCancel={() => {
-          setIsEditing(false);
-          setSelectedProduct(null);
-        }}
+        onSave={handleProductSave}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  // Show Product Editor (for creating or full editing)
+  if (editorMode === 'full-edit' || isCreatingNew) {
+    return (
+      <ProductEditor
+        product={selectedProduct}
+        onSave={handleProductSave}
+        onCancel={handleCancel}
       />
     );
   }
@@ -91,7 +117,13 @@ export default function ProductsTab() {
           <h2 className="text-2xl font-bold text-gray-900">제품 관리</h2>
           <p className="text-gray-500 mt-1">총 {products.length}개의 제품</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button
+          onClick={() => {
+            setIsCreatingNew(true);
+            setSelectedProduct(null);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           <Plus className="w-5 h-5" />
           새 제품 추가
         </button>
@@ -162,16 +194,28 @@ export default function ProductsTab() {
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setIsEditing(true);
-                      }}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                      인쇄 영역 편집
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setEditorMode('full-edit');
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        편집
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setEditorMode('print-area');
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                        인쇄 영역
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
