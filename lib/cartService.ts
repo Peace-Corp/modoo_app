@@ -30,6 +30,7 @@ export interface AddToCartParams {
   canvasState: Record<string, string>;
   thumbnailUrl?: string;
   savedDesignId?: string; // Optional: reuse existing design instead of creating new one
+  designName?: string; // Optional: custom name for the design
 }
 
 /**
@@ -57,7 +58,7 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
       // First, save the design to get a design ID
       const designData: SaveDesignData = {
         productId: params.productId,
-        title: `${params.productTitle} - Cart Item`,
+        title: params.designName || `${params.productTitle} - Cart Item`,
         productColor: params.productColor,
         canvasState: params.canvasState,
       };

@@ -207,13 +207,17 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     setTimeout(() => setSaveMessage(''), 2000);
   };
 
-  // Save design to cart and clear state
-  const handleSaveToCart = async () => {
+  // Open modal to get design name
+  const handleAddToCartClick = () => {
     if (cartItems.length === 0) {
       alert('장바구니에 추가할 상품을 선택해주세요.');
       return;
     }
+    setIsAddToCartModalOpen(true);
+  };
 
+  // Save design to cart and clear state
+  const handleSaveToCart = async (designName: string) => {
     setIsSaving(true);
     try {
       const canvasState = saveAllCanvasState();
@@ -238,6 +242,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           canvasState: canvasState,
           thumbnailUrl: thumbnail,
           savedDesignId: sharedDesignId, // Reuse design for subsequent items
+          designName: designName, // Use the custom design name
         });
 
         // Store the design ID from the first item
@@ -284,12 +289,10 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
       // Reset product color to default
       setProductColor('#FFFFFF');
-
-      // Show modal
-      setIsAddToCartModalOpen(true);
     } catch (error) {
       console.error('Add to cart failed:', error);
       alert('장바구니 추가 중 오류가 발생했습니다.');
+      throw error; // Re-throw to prevent success modal from showing
     } finally {
       setIsSaving(false);
     }
@@ -660,7 +663,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-2">
             <button
-              onClick={handleSaveToCart}
+              onClick={handleAddToCartClick}
               disabled={isSaving || cartItems.length === 0}
               className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
             >
@@ -675,6 +678,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       <AddToCartModal
         isOpen={isAddToCartModalOpen}
         onClose={() => setIsAddToCartModalOpen(false)}
+        onConfirm={handleSaveToCart}
+        isSaving={isSaving}
       />
 
       {/* Saved Designs Modal */}
