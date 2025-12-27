@@ -17,6 +17,8 @@ export interface ProductSide {
     printAreaHeightMm: number;  // Real-world height of print area in mm
     productWidthMm: number;     // Real-world width of the entire product mockup in mm
   };
+  // Zoom scale for the canvas (1.0 = 100%, 0.5 = 50%, 2.0 = 200%)
+  zoomScale?: number;
 }
 
 export interface ProductConfig {

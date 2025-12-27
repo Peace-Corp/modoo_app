@@ -2,10 +2,43 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag } from 'lucide-react';
+import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag, Shield } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { createClient } from '@/lib/supabase-client';
+
+// Menu Items Data
+type MenuItem = {
+  icon?: React.ComponentType<{ className?: string }>;
+  label: string;
+  href: string;
+  badge?: string | null;
+};
+
+const adminMenuItems: MenuItem[] = [
+  { icon: Shield, label: '관리자 페이지', href: '/admin', badge: null },
+];
+
+const shoppingMenuItems: MenuItem[] = [
+  { icon: Package, label: '주문 내역', href: '/home/my-page/orders', badge: null },
+  { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
+  { icon: Heart, label: '찜한 상품', href: '/home/my-page/wishlist', badge: null },
+  { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
+];
+
+const accountMenuItems: MenuItem[] = [
+  { icon: User, label: '회원 정보', href: '/home/my-page/profile', badge: null },
+  { icon: Bell, label: '알림 설정', href: '/home/my-page/notifications', badge: null },
+  { icon: Settings, label: '환경 설정', href: '/home/my-page/settings', badge: null },
+];
+
+const supportMenuItems: MenuItem[] = [
+  { label: '공지사항', href: '/support/notices', badge: 'new' },
+  { label: '자주 묻는 질문', href: '/support/faq', badge: null },
+  { label: '1:1 문의', href: '/support/inquiry', badge: null },
+  { label: '이용약관', href: '/support/terms', badge: null },
+  { label: '개인정보 처리방침', href: '/support/privacy', badge: null },
+];
 
 export default function MyPage() {
   const { user, isAuthenticated, setUser, logout, setLoading } = useAuthStore();
@@ -18,13 +51,21 @@ export default function MyPage() {
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
         if (supabaseUser) {
+          // Fetch user profile with role
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, email, phone_number')
+            .eq('id', supabaseUser.id)
+            .single();
+
           // Set user data from Supabase
           setUser({
             id: supabaseUser.id,
-            email: supabaseUser.email || '',
+            email: supabaseUser.email || profile?.email || '',
             name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
             avatar_url: supabaseUser.user_metadata?.avatar_url,
-            phone: supabaseUser.phone,
+            phone: supabaseUser.phone || profile?.phone_number,
+            role: profile?.role || 'customer',
           });
         } else {
           logout();
@@ -115,6 +156,16 @@ export default function MyPage() {
 
       {/* Menu Sections */}
       <div className="space-y-2">
+        {/* Admin Section - Only show for admin users */}
+        {isAuthenticated && user?.role === 'admin' && (
+          <section className="bg-white">
+            <div className="max-w-7xl mx-auto px-4 py-2">
+              <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">관리자</h3>
+              <MenuList items={adminMenuItems} />
+            </div>
+          </section>
+        )}
+
         {/* Shopping Section */}
         <section className="bg-white">
           <div className="max-w-7xl mx-auto px-4 py-2">
@@ -166,35 +217,6 @@ export default function MyPage() {
     </div>
   );
 }
-
-// Menu Items Data
-type MenuItem = {
-  icon?: React.ComponentType<{ className?: string }>;
-  label: string;
-  href: string;
-  badge?: string | null;
-};
-
-const shoppingMenuItems: MenuItem[] = [
-  { icon: Package, label: '주문 내역', href: '/home/my-page/orders', badge: null },
-  { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
-  { icon: Heart, label: '찜한 상품', href: '/home/my-page/wishlist', badge: null },
-  { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
-];
-
-const accountMenuItems: MenuItem[] = [
-  { icon: User, label: '회원 정보', href: '/home/my-page/profile', badge: null },
-  { icon: Bell, label: '알림 설정', href: '/home/my-page/notifications', badge: null },
-  { icon: Settings, label: '환경 설정', href: '/home/my-page/settings', badge: null },
-];
-
-const supportMenuItems: MenuItem[] = [
-  { label: '공지사항', href: '/support/notices', badge: 'new' },
-  { label: '자주 묻는 질문', href: '/support/faq', badge: null },
-  { label: '1:1 문의', href: '/support/inquiry', badge: null },
-  { label: '이용약관', href: '/support/terms', badge: null },
-  { label: '개인정보 처리방침', href: '/support/privacy', badge: null },
-];
 
 // Menu List Component
 function MenuList({ items }: { items: MenuItem[] }) {

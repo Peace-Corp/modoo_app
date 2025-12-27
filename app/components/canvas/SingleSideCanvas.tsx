@@ -148,8 +148,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           return;
         }
 
+        // Get zoom scale from side configuration (default to 1.0 if not provided)
+        const zoomScale = side.zoomScale || 1.0;
+
         // for changing the scaling of the image based on the canvas's width and height
-        const scale = Math.min(width / imgWidth, height / imgHeight);
+        const baseScale = Math.min(width / imgWidth, height / imgHeight);
+        const scale = baseScale * zoomScale;
 
         img.set({
           scaleX: scale,

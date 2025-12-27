@@ -7,6 +7,7 @@ export interface UserData {
   name?: string;
   avatar_url?: string;
   phone?: string;
+  role?: 'admin' | 'customer';
   created_at?: string;
 }
 

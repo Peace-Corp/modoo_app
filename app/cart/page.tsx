@@ -206,7 +206,7 @@ export default function CartPage() {
                   <div className="flex gap-4">
                     {/* Product Thumbnail - Clickable */}
                     <button
-                      onClick={() => handleEditDesign(group.items[0].id)}
+                      onClick={() => group.items[0]?.id && handleEditDesign(group.items[0].id)}
                       className="w-24 h-24 bg-gray-100 rounded-lg shrink-0 overflow-hidden border border-gray-200 hover:border-gray-400 transition cursor-pointer"
                     >
                       {group.thumbnailUrl ? (

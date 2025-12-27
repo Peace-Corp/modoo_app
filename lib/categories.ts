@@ -13,31 +13,31 @@ export const CATEGORIES: CategoryConfig[] = [
   { name: "후드집업", key: "zipup", icon: "/icons/zipup.png" },
 ];
 
-// export const ALL_CATEGORY = {
-//   name: "전체",
-//   key: "all",
-//   icon: undefined,
-// };
+export const ALL_CATEGORY = {
+  name: "전체",
+  key: "all",
+  icon: undefined,
+};
 
-// // Helper function to get icon by category key
-// export function getCategoryIcon(categoryKey: string): string | undefined {
-//   if (categoryKey === ALL_CATEGORY.key || categoryKey === ALL_CATEGORY.name) {
-//     return undefined;
-//   }
+// Helper function to get icon by category key
+export function getCategoryIcon(categoryKey: string): string | undefined {
+  if (categoryKey === ALL_CATEGORY.key || categoryKey === ALL_CATEGORY.name) {
+    return undefined;
+  }
 
-//   const category = CATEGORIES.find(
-//     (cat) => cat.key === categoryKey || cat.name === categoryKey
-//   );
+  const category = CATEGORIES.find(
+    (cat) => cat.key === categoryKey || cat.name === categoryKey
+  );
 
-//   return category?.icon;
-// }
+  return category?.icon;
+}
 
-// // Helper function to get category name by key
-// export function getCategoryName(categoryKey: string): string {
-//   if (categoryKey === ALL_CATEGORY.key) {
-//     return ALL_CATEGORY.name;
-//   }
+// Helper function to get category name by key
+export function getCategoryName(categoryKey: string): string {
+  if (categoryKey === ALL_CATEGORY.key) {
+    return ALL_CATEGORY.name;
+  }
 
-//   const category = CATEGORIES.find((cat) => cat.key === categoryKey);
-//   return category?.name || categoryKey;
-// }
+  const category = CATEGORIES.find((cat) => cat.key === categoryKey);
+  return category?.name || categoryKey;
+}
