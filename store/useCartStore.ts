@@ -15,6 +15,7 @@ export interface CartItemData {
   thumbnailUrl?: string; // Optional thumbnail image
   addedAt: number; // Timestamp
   savedDesignId?: string; // Reference to the saved design in Supabase
+  designName?: string; // Custom name for the design
 }
 
 interface CartState {

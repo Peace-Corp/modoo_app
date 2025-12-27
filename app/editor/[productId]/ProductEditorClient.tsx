@@ -263,6 +263,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           canvasState: canvasState,
           thumbnailUrl: thumbnail,
           savedDesignId: sharedDesignId, // All items share the same design ID
+          designName: designName, // Custom design name
         });
       }
 

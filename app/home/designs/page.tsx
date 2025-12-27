@@ -113,15 +113,20 @@ export default function DesignsPage() {
                     </div>
 
                     {/* Info */}
-                    <div className="p-3">
-                      <h3 className="font-medium text-sm mb-2 text-left truncate">
-                        {item.productTitle}
+                    <div className="p-3 flex flex-col">
+                      {item.designName && (
+                        <p className="text-xs text-gray-500 truncate text-left">
+                          {item.productTitle}
+                        </p>
+                      )}
+                      <h3 className="font-bold text-md mb-1 text-left truncate">
+                        {item.designName || item.productTitle}
                       </h3>
 
                       {/* Color Options */}
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-1 mb-2">
                         <div
-                          className="w-6 h-6 rounded-full border border-gray-300"
+                          className="size-4 rounded-full border border-gray-300"
                           style={{ backgroundColor: item.productColor }}
                         />
                         <span className="text-xs text-gray-600">

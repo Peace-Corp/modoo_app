@@ -12,6 +12,7 @@ interface GroupedCartItem {
   savedDesignId: string;
   thumbnailUrl?: string;
   productTitle: string;
+  designName?: string;
   items: Array<{
     id: string;
     productId: string;
@@ -26,6 +27,7 @@ interface GroupedCartItem {
     thumbnailUrl?: string;
     addedAt: number;
     savedDesignId?: string;
+    designName?: string;
   }>;
   totalQuantity: number;
   totalPrice: number;
@@ -57,6 +59,7 @@ export default function CartPage() {
         savedDesignId: designId,
         thumbnailUrl: item.thumbnailUrl,
         productTitle: item.productTitle,
+        designName: item.designName,
         items: [item],
         totalQuantity: item.quantity,
         totalPrice: item.pricePerItem * item.quantity,
@@ -192,8 +195,13 @@ export default function CartPage() {
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <h3 className="font-medium text-black mb-1 truncate">
-                              {group.productTitle}
+                              {group.designName || group.productTitle}
                             </h3>
+                            {group.designName && (
+                              <p className="text-xs text-gray-500 truncate">
+                                {group.productTitle}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </button>
