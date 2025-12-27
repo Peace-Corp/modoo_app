@@ -3,16 +3,31 @@
 import { ShoppingBasket } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/store/useCartStore";
+import { useEffect, useState } from "react";
 
 export default function CartButton() {
-  const totalQuantity = useCartStore((state) => state.getTotalQuantity());
+  const [mounted, setMounted] = useState(false);
+  const items = useCartStore((state) => state.items);
+
+  // Count unique designs based on savedDesignId
+  const uniqueDesignCount = items.reduce((acc, item) => {
+    if (item.savedDesignId && !acc.includes(item.savedDesignId)) {
+      acc.push(item.savedDesignId);
+    }
+    return acc;
+  }, [] as string[]).length;
+
+  // Only render cart count after hydration to avoid mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <Link href="/cart" className="relative">
       <ShoppingBasket className="text-gray-700 size-6"/>
-      {totalQuantity > 0 && (
+      {mounted && uniqueDesignCount > 0 && (
         <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-          {totalQuantity > 99 ? '99+' : totalQuantity}
+          {uniqueDesignCount > 99 ? '99+' : uniqueDesignCount}
         </div>
       )}
     </Link>

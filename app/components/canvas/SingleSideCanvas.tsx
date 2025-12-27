@@ -5,7 +5,7 @@ import * as fabric from "fabric";
 import { ProductSide } from '@/types/types';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import ScaleBox from './ScaleBox';
-import { pixelsToMm, formatMm } from '@/lib/canvasUtils';
+import { formatMm } from '@/lib/canvasUtils';
 
 
 interface SingleSideCanvasProps {
@@ -31,6 +31,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
   const [scaleBoxDimensions, setScaleBoxDimensions] = useState({
+    x: '0mm',
+    y: '0mm',
     width: '0mm',
     height: '0mm',
   });
@@ -43,7 +45,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
   // Initialize canvas once
   useEffect(() => {
-    if (!canvasEl.current) return; // if the canvas element is not initialized properly pass this code
+    console.log(`[SingleSideCanvas] Initializing canvas for side: ${side.id}`);
+    if (!canvasEl.current) {
+      console.error(`[SingleSideCanvas] Canvas element not found for side: ${side.id}`);
+      return; // if the canvas element is not initialized properly pass this code
+    }
 
     const canvas = new fabric.Canvas(canvasEl.current, {
       width,
@@ -65,7 +71,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 }
 
     // Register this canvas to the global store
+    console.log(`[SingleSideCanvas] Registering canvas for side: ${side.id}`);
     registerCanvas(side.id, canvas)
+    console.log(`[SingleSideCanvas] Canvas registered for side: ${side.id}`);
 
 
     // -- For calculations
@@ -142,8 +150,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           return;
         }
 
+        // Get zoom scale from side configuration (default to 1.0 if not provided)
+        const zoomScale = side.zoomScale || 1.0;
+
         // for changing the scaling of the image based on the canvas's width and height
-        const scale = Math.min(width / imgWidth, height / imgHeight);
+        const baseScale = Math.min(width / imgWidth, height / imgHeight);
+        const scale = baseScale * zoomScale;
 
         img.set({
           scaleX: scale,
@@ -188,13 +200,23 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.requestRenderAll();
 
         // Calculate print area position relative to the product image
+        // The print area coordinates are in the original image pixel space
+        // We need to scale them and position them relative to the scaled image
+
         // Scale the print area dimensions to match the image scale
         const scaledPrintW = side.printArea.width * scale;
         const scaledPrintH = side.printArea.height * scale;
+        const scaledPrintX = side.printArea.x * scale;
+        const scaledPrintY = side.printArea.y * scale;
 
-        // Center the print area on the canvas
-        const printAreaLeft = (width - scaledPrintW) / 2;
-        const printAreaTop = (height - scaledPrintH) / 2;
+        // Calculate the position of the scaled image on the canvas
+        // The image is centered, so we need to account for that
+        const imageLeft = (width / 2) - (imgWidth * scale / 2);
+        const imageTop = (height / 2) - (imgHeight * scale / 2);
+
+        // Position the print area relative to the image position
+        const printAreaLeft = imageLeft + scaledPrintX;
+        const printAreaTop = imageTop + scaledPrintY;
         const printCenterX = printAreaLeft + (scaledPrintW / 2);
 
         // Update guide box position to be relative to product image
@@ -221,7 +243,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           y2: printAreaTop + scaledPrintH,
         });
 
-        // Store these values for use in event handlers
+        // Store these values for use in event handlers and pricing calculations
         // @ts-expect-error - Adding custom properties to fabric.Canvas for print area tracking
         canvas.printAreaLeft = printAreaLeft;
         // @ts-expect-error - Custom property
@@ -233,6 +255,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // @ts-expect-error - Custom property
         canvas.printCenterX = printCenterX;
 
+        // Store original and scaled image dimensions for accurate pixel-to-mm conversion
+        // @ts-expect-error - Custom property
+        canvas.originalImageWidth = imgWidth;
+        // @ts-expect-error - Custom property
+        canvas.originalImageHeight = imgHeight;
+        // @ts-expect-error - Custom property
+        canvas.scaledImageWidth = imgWidth * scale;
+        // @ts-expect-error - Custom property
+        canvas.scaledImageHeight = imgHeight * scale;
+
         canvas.add(guideBox);
       })
       .catch((error) => {
@@ -241,34 +273,50 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
       // Helper function to update scale box with object dimensions
       const updateScaleBox = (obj: fabric.FabricObject | fabric.ActiveSelection) => {
-        // Get the print area width for conversion
+        // Get the scaled product image width on the canvas
         // @ts-expect-error - Custom property
-        const printWidth = canvas.printAreaWidth || side.printArea.width;
+        const scaledImageWidth = canvas.scaledImageWidth;
+        // @ts-expect-error - Custom property
+        const scaledPrintLeft = canvas.printAreaLeft || 0;
+        // @ts-expect-error - Custom property
+        const scaledPrintTop = canvas.printAreaTop || 0;
 
-        // Get real-life print area width from product data, fallback to 250mm for t-shirts
-        const realWorldWidth = side.realLifeDimensions?.printAreaWidthMm || 250;
+        // Get real-world product width from product data
+        const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500; // Default to 500mm for t-shirts
+
+        // Calculate pixel-to-mm ratio based on the product dimensions, not print area
+        // This matches the calculation in canvasPricing.ts for consistency
+        const pixelToMmRatio = scaledImageWidth ? realWorldProductWidth / scaledImageWidth : 0.25;
 
         // Get object's bounding box dimensions (includes scale and rotation)
+        // These are in the SCALED canvas coordinate system
         const boundingRect = obj.getBoundingRect();
         const objWidth = boundingRect.width;
         const objHeight = boundingRect.height;
 
-        // Convert to mm using real-life dimensions from product data
-        const widthMm = pixelsToMm(objWidth, printWidth, realWorldWidth);
-        const heightMm = pixelsToMm(objHeight, printWidth, realWorldWidth);
+        // Calculate object position relative to print area origin
+        // Both values are in the same coordinate space (scaled canvas pixels)
+        const objX = boundingRect.left - scaledPrintLeft;
+        const objY = boundingRect.top - scaledPrintTop;
 
-        // Get object center for positioning the scale box
-        const objCenter = obj.getCenterPoint();
+        // Convert to mm using the product-based ratio
+        // This ensures consistent measurements with the pricing calculation
+        const widthMm = objWidth * pixelToMmRatio;
+        const heightMm = objHeight * pixelToMmRatio;
+        const xMm = objX * pixelToMmRatio;
+        const yMm = objY * pixelToMmRatio;
 
         setScaleBoxDimensions({
+          x: formatMm(xMm),
+          y: formatMm(yMm),
           width: formatMm(widthMm),
           height: formatMm(heightMm),
         });
 
-        // Position below the object's bounding box with some padding
+        // Position above the object's bounding box at the horizontal center
         setScaleBoxPosition({
-          x: objCenter.x,
-          y: boundingRect.top + boundingRect.height + 10,
+          x: boundingRect.left + boundingRect.width / 2,
+          y: boundingRect.top - 10,
         });
 
         setScaleBoxVisible(true);
@@ -458,6 +506,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     <div className="relative">
       <canvas ref={canvasEl}/>
       <ScaleBox
+        x={scaleBoxDimensions.x}
+        y={scaleBoxDimensions.y}
         width={scaleBoxDimensions.width}
         height={scaleBoxDimensions.height}
         position={scaleBoxPosition}

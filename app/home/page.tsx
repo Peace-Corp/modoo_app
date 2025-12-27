@@ -1,8 +1,10 @@
 import Header from "@/app/components/Header";
 import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
+import CategoryButton from "@/app/components/CategoryButton";
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
+import { CATEGORIES } from "@/lib/categories";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -18,7 +20,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 space-y-2">
+    <div className="min-h-screen bg-gray-50 space-y-2 pb-20">
       {/* Header */}
       <Header />
 
@@ -27,10 +29,13 @@ export default async function HomePage() {
       <HeroBanner />
 
       {/* Categories */}
-      <CategoriesSection />
+      <div className="w-full pt-2">
+        <h2 className="px-4 font-bold">카테고리</h2>
+        <CategoriesSection />
+      </div>
 
       {/* Featured Products Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
         <div className="flex items-center justify-between mb-4">
           <p className="text-black font-bold">인기 급상승</p>
         </div>
@@ -48,7 +53,7 @@ export default async function HomePage() {
       </section>
 
       {/* Deals Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="h-8 w-48 bg-gray-300 rounded animate-pulse" />
           <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
@@ -65,10 +70,10 @@ export default async function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* Brands Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="h-8 w-56 bg-gray-300 rounded mb-6 animate-pulse" />
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -77,7 +82,7 @@ export default async function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white mt-16">
@@ -105,25 +110,16 @@ export default async function HomePage() {
 }
 
 function CategoriesSection() {
-  const categories = [
-    "의류",
-    "신발",
-    "가방",
-    "액세서리",
-    "뷰티",
-    "스포츠",
-    "전자제품",
-    "가구"
-  ];
-
   return (
-    <section className="max-w-7xl mx-auto pt-5">
-        <div className="flex gap-4 overflow-x-auto px-4">
-          {categories.map((category, i) => (
-            <div key={i} className="flex flex-col items-center gap-2">
-              <div className="size-16 bg-gray-300 rounded-full" />
-              <p className="text-sm text-gray-700">{category}</p>
-            </div>
+    <section className="max-w-7xl mx-auto py-2">
+        <div className="flex gap-2 overflow-x-auto px-4">
+          {CATEGORIES.map((category) => (
+            <CategoryButton
+              key={category.key}
+              name={category.name}
+              icon={category.icon}
+              href={`/home/search?category=${encodeURIComponent(category.key)}`}
+            />
           ))}
         </div>
       </section>

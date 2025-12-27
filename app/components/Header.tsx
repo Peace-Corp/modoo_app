@@ -18,8 +18,8 @@ export default function Header({back=false} : {back? : boolean}) {
                   <ArrowLeft className="text-gray-700 size-6"/>
                 </button>
               ) :
-                <button className="">
-                  <Menu className="text-gray-700 size-6"/>
+                <button className="size-6">
+                  {/* <Menu className="text-gray-700 size-6"/> */}
                 </button>
             }
 

@@ -1,0 +1,243 @@
+'use client';
+
+import { useEffect } from 'react';
+import Link from 'next/link';
+import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag, Shield } from 'lucide-react';
+import Header from '@/app/components/Header';
+import { useAuthStore } from '@/store/useAuthStore';
+import { createClient } from '@/lib/supabase-client';
+
+// Menu Items Data
+type MenuItem = {
+  icon?: React.ComponentType<{ className?: string }>;
+  label: string;
+  href: string;
+  badge?: string | null;
+};
+
+const adminMenuItems: MenuItem[] = [
+  { icon: Shield, label: '관리자 페이지', href: '/admin', badge: null },
+];
+
+const shoppingMenuItems: MenuItem[] = [
+  { icon: Package, label: '주문 내역', href: '/home/my-page/orders', badge: null },
+  { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
+  { icon: Heart, label: '찜한 상품', href: '/home/my-page/wishlist', badge: null },
+  { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
+];
+
+const accountMenuItems: MenuItem[] = [
+  { icon: User, label: '회원 정보', href: '/home/my-page/profile', badge: null },
+  { icon: Bell, label: '알림 설정', href: '/home/my-page/notifications', badge: null },
+  { icon: Settings, label: '환경 설정', href: '/home/my-page/settings', badge: null },
+];
+
+const supportMenuItems: MenuItem[] = [
+  { label: '공지사항', href: '/support/notices', badge: 'new' },
+  { label: '자주 묻는 질문', href: '/support/faq', badge: null },
+  { label: '1:1 문의', href: '/support/inquiry', badge: null },
+  { label: '이용약관', href: '/support/terms', badge: null },
+  { label: '개인정보 처리방침', href: '/support/privacy', badge: null },
+];
+
+export default function MyPage() {
+  const { user, isAuthenticated, setUser, logout, setLoading } = useAuthStore();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        if (supabaseUser) {
+          // Fetch user profile with role
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, email, phone_number')
+            .eq('id', supabaseUser.id)
+            .single();
+
+          // Set user data from Supabase
+          setUser({
+            id: supabaseUser.id,
+            email: supabaseUser.email || profile?.email || '',
+            name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
+            avatar_url: supabaseUser.user_metadata?.avatar_url,
+            phone: supabaseUser.phone || profile?.phone_number,
+            role: profile?.role || 'customer',
+          });
+        } else {
+          logout();
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        logout();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [setUser, logout, setLoading]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header */}
+      <Header back={false} />
+
+      {/* Profile Section */}
+      <section className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {isAuthenticated ? (
+            <div className="flex items-center gap-4">
+              {/* Profile Image */}
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.name || 'User'} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-8 h-8 text-gray-500" />
+                )}
+              </div>
+
+              {/* User Info */}
+              <div className="flex-1">
+                <h2 className="text-xl font-bold text-gray-900">{user?.name || '사용자'}</h2>
+                <p className="text-sm text-gray-500">{user?.email}</p>
+              </div>
+
+              {/* Settings Icon */}
+              <Link href="/settings" className="p-2 hover:bg-gray-100 rounded-full">
+                <Settings className="w-5 h-5 text-gray-600" />
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">로그인이 필요합니다</h2>
+                <p className="text-sm text-gray-500">로그인하고 더 많은 기능을 이용하세요</p>
+              </div>
+              <Link
+                href="/login"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                로그인
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Quick Stats */}
+      {isAuthenticated && (
+        <section className="bg-white border-b border-gray-200 mb-2">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="grid grid-cols-4 gap-4">
+              <Link href="/home/my-page/orders" className="flex flex-col items-center gap-1">
+                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xs text-gray-500">주문</div>
+              </Link>
+              <Link href="/home/designs" className="flex flex-col items-center gap-1">
+                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xs text-gray-500">디자인</div>
+              </Link>
+              <Link href="/home/my-page/wishlist" className="flex flex-col items-center gap-1">
+                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xs text-gray-500">찜</div>
+              </Link>
+              <Link href="/home/my-page/reviews" className="flex flex-col items-center gap-1">
+                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xs text-gray-500">리뷰</div>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Menu Sections */}
+      <div className="space-y-2">
+        {/* Admin Section - Only show for admin users */}
+        {isAuthenticated && user?.role === 'admin' && (
+          <section className="bg-white">
+            <div className="max-w-7xl mx-auto px-4 py-2">
+              <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">관리자</h3>
+              <MenuList items={adminMenuItems} />
+            </div>
+          </section>
+        )}
+
+        {/* Shopping Section */}
+        <section className="bg-white">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">쇼핑</h3>
+            <MenuList items={shoppingMenuItems} />
+          </div>
+        </section>
+
+        {/* Account Section */}
+        <section className="bg-white">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">계정</h3>
+            <MenuList items={accountMenuItems} />
+          </div>
+        </section>
+
+        {/* Support Section */}
+        <section className="bg-white">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">고객센터</h3>
+            <MenuList items={supportMenuItems} />
+          </div>
+        </section>
+
+        {/* Logout Button (Only show if logged in) */}
+        {isAuthenticated && (
+          <section className="bg-white">
+            <div className="max-w-7xl mx-auto px-4 py-2">
+              <button
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.auth.signOut();
+                  logout();
+                }}
+                className="w-full flex items-center gap-3 px-2 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="flex-1 text-left font-medium">로그아웃</span>
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* App Version */}
+      <div className="mt-8 text-center pb-4">
+        <p className="text-xs text-gray-400">버전 1.0.0</p>
+      </div>
+    </div>
+  );
+}
+
+// Menu List Component
+function MenuList({ items }: { items: MenuItem[] }) {
+  return (
+    <div className="space-y-1">
+      {items.map((item, index) => (
+        <Link
+          key={index}
+          href={item.href}
+          className="flex items-center gap-3 px-2 py-3 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          {item.icon && <item.icon className="w-5 h-5 text-gray-600" />}
+          <span className="flex-1 text-gray-900">{item.label}</span>
+          {item.badge && (
+            <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+              {item.badge}
+            </span>
+          )}
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </Link>
+      ))}
+    </div>
+  );
+}
