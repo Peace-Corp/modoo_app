@@ -38,6 +38,19 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface ProductColor {
+  id: string;
+  product_id: string;
+  color_id: string;
+  name: string;
+  hex: string;
+  label?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Product {
   id: string;
   title: string;
