@@ -104,7 +104,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
     <div className={isEditMode ? "min-h-screen" : ""}>
       <div className="">
 
-        <div className={`max-w-2xl mx-auto overflow-hidden ${isEditMode ? 'h-screen bg-[#f3f3f3]' : 'bg-[#f3f3f3]'} flex flex-col justify-center items-center `}>
+        <div className={`max-w-2xl mx-auto overflow-hidden transition-all relative duration-300 ${isEditMode ? 'h-screen bg-[#f3f3f3]' : 'h-100 bg-[#f3f3f3]'} flex flex-col justify-center items-center `}>
           <div
             ref={containerRef}
             className={`relative ${!isEditMode ? 'touch-pan-y' : ''}`}
@@ -143,7 +143,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
 
           {/* Pagination dots */}
           {!isEditMode && config.sides.length > 1 && (
-            <div className="flex justify-center gap-2 pb-3">
+            <div className="flex justify-center gap-2 pb-3 absolute bottom-0">
               {config.sides.map((side, index) => (
                 <button
                   key={side.id}
