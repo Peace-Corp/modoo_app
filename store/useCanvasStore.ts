@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as fabric from 'fabric';
+import { extractAllColors } from '@/lib/colorExtractor';
 
 
 interface CanvasState {
@@ -35,6 +36,9 @@ interface CanvasState {
   restoreAllCanvasState: (savedState: Record<string, string>) => Promise<void>;
   saveCanvasState: (id: string) => string | null;
   restoreCanvasState: (id: string, json: string) => Promise<void>;
+
+  // Color extraction methods
+  getCanvasColors: (sensitivity?: number) => Promise<{ colors: string[]; count: number }>;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -261,5 +265,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         resolve();
       }
     });
+  },
+
+  // Get all colors used in canvas objects (excluding background images)
+  getCanvasColors: async (sensitivity: number = 30) => {
+    const { canvasMap } = get();
+    return await extractAllColors(canvasMap, sensitivity);
   },
 }));

@@ -26,7 +26,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const isEditRef = useRef(isEdit);
   const productImageRef = useRef<fabric.FabricImage | null>(null);
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion } = useCanvasStore();
 
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
@@ -387,6 +387,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Make objects selectable based on current edit mode
         obj.selectable = isEditRef.current;
         obj.evented = isEditRef.current;
+
+        // Increment canvas version to trigger updates in components that depend on canvas state
+        incrementCanvasVersion();
       })
 
       const snapThreshold = 10;
@@ -408,6 +411,18 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         if (e.target) {
           updateScaleBox(e.target);
         }
+        // Increment canvas version when object is modified (color, size, etc.)
+        incrementCanvasVersion();
+      });
+
+      // Increment canvas version when object is removed
+      canvas.on('object:removed', (e) => {
+        const obj = e.target;
+        // Skip guide boxes, snap lines, and background product image
+        // @ts-expect-error - Checking custom data property
+        if (!obj || obj.excludeFromExport || (obj.data?.id === 'background-product-image')) return;
+
+        incrementCanvasVersion();
       });
 
       canvas.on('object:moving', (e) => {
@@ -446,7 +461,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       canvas.dispose();
       canvasRef.current = null;
     };
-  }, [side, height, width, registerCanvas, unregisterCanvas, markImageLoaded]);
+  }, [side, height, width, registerCanvas, unregisterCanvas, markImageLoaded, incrementCanvasVersion]);
 
   // Separate effect to update selection state when isEdit changes
   useEffect(() => {

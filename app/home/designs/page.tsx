@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCartStore, CartItemData } from '@/store/useCartStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import DesignEditModal from '@/app/components/DesignEditModal';
 import FavoritesList from '@/app/components/FavoritesList';
 import Image from 'next/image';
@@ -21,7 +23,9 @@ const mockColors = [
 type TabType = 'designs' | 'favorites';
 
 export default function DesignsPage() {
+  const router = useRouter();
   const { items } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabType>('designs');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -80,7 +84,18 @@ export default function DesignsPage() {
       {/* Tab Content */}
       {activeTab === 'designs' ? (
         <div className="p-4">
-          {uniqueDesigns.length === 0 ? (
+          {!isAuthenticated ? (
+            <div className="text-center py-20">
+              <p className="text-gray-500 mb-4">로그인이 필요합니다</p>
+              <p className="text-sm text-gray-400 mb-6">나의 디자인을 확인하려면 로그인해주세요</p>
+              <button
+                onClick={() => router.push('/login')}
+                className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                로그인하기
+              </button>
+            </div>
+          ) : uniqueDesigns.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-gray-500 mb-4">저장된 디자인이 없습니다</p>
               <p className="text-sm text-gray-400">제품을 커스터마이징하고 장바구니에 담아보세요!</p>
