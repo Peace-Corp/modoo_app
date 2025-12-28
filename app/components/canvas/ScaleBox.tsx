@@ -26,7 +26,7 @@ const ScaleBox: React.FC<ScaleBoxProps> = ({ x, y, width, height, position, visi
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: 'translate(-50%, -100%)',
+        transform: 'translate(-50%, 100%)',
       }}
     >
       <div className="bg-black/80 text-white px-3 py-2 rounded-lg shadow-lg backdrop-blur-sm mb-2">
@@ -47,12 +47,12 @@ const ScaleBox: React.FC<ScaleBoxProps> = ({ x, y, width, height, position, visi
       </div>
       {/* Arrow pointing down to object */}
       <div
-        className="absolute left-1/2 bottom-0 w-0 h-0"
+        className="absolute left-1/2 -top-3 w-0 h-0"
         style={{
           transform: 'translate(-50%, 50%)',
           borderLeft: '6px solid transparent',
           borderRight: '6px solid transparent',
-          borderTop: '6px solid rgba(0, 0, 0, 0.8)',
+          borderBottom: '6px solid rgba(0, 0, 0, 0.8)',
         }}
       />
     </div>
