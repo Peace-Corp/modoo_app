@@ -6,6 +6,7 @@ export interface SaveDesignData {
   productColor: string;
   canvasState: Record<string, string>;
   userId?: string;
+  previewImage?: string; // Base64 data URL for preview image
 }
 
 export interface SavedDesign {
@@ -48,6 +49,7 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
         productColor: data.productColor,
       },
       canvas_state: data.canvasState,
+      preview_url: data.previewImage || null, // Save preview image as base64 data URL
     };
 
     // Insert into saved_designs table
@@ -154,6 +156,9 @@ export async function updateDesign(
     }
     if (data.canvasState !== undefined) {
       updateData.canvas_state = data.canvasState;
+    }
+    if (data.previewImage !== undefined) {
+      updateData.preview_url = data.previewImage;
     }
 
     const { data: updatedDesign, error } = await supabase

@@ -33,6 +33,9 @@ interface CartState {
   // Clear entire cart
   clearCart: () => void;
 
+  // Set items from database
+  setItems: (items: CartItemData[]) => void;
+
   // Get total quantity
   getTotalQuantity: () => number;
 
@@ -78,6 +81,10 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         set({ items: [] });
+      },
+
+      setItems: (items) => {
+        set({ items });
       },
 
       getTotalQuantity: () => {
