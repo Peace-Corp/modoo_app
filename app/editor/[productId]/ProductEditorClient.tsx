@@ -223,6 +223,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     try {
       const canvasState = saveAllCanvasState();
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
+      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
       const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
 
       // Save design once and reuse for all cart items
@@ -244,6 +245,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           thumbnailUrl: thumbnail,
           savedDesignId: sharedDesignId, // Reuse design for subsequent items
           designName: designName, // Use the custom design name
+          previewImage: previewImage, // Add preview image for the design
         });
 
         // Store the design ID from the first item
@@ -305,12 +307,14 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     setIsSaving(true);
     try {
       const canvasState = saveAllCanvasState();
+      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
 
       const savedDesign = await saveDesign({
         productId: product.id,
         productColor,
         canvasState,
         title: `${product.title} - ${new Date().toLocaleDateString('ko-KR')}`,
+        previewImage,
       });
 
       if (savedDesign) {

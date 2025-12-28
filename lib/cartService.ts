@@ -31,6 +31,7 @@ export interface AddToCartParams {
   thumbnailUrl?: string;
   savedDesignId?: string; // Optional: reuse existing design instead of creating new one
   designName?: string; // Optional: custom name for the design
+  previewImage?: string; // Optional: preview image for the design (base64 data URL)
 }
 
 /**
@@ -61,6 +62,7 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
         title: params.designName || `${params.productTitle} - Cart Item`,
         productColor: params.productColor,
         canvasState: params.canvasState,
+        previewImage: params.previewImage,
       };
 
       const savedDesign = await saveDesign(designData);
@@ -231,6 +233,7 @@ export async function updateCartItemDesign(
     productColorName: string;
     canvasState: Record<string, string>;
     thumbnailUrl?: string;
+    previewImage?: string;
   }
 ): Promise<boolean> {
   const supabase = createClient();
@@ -253,6 +256,7 @@ export async function updateCartItemDesign(
       productId: cartItem.product_id,
       productColor: designData.productColor,
       canvasState: designData.canvasState,
+      previewImage: designData.previewImage,
     });
 
     if (!updatedDesign) {

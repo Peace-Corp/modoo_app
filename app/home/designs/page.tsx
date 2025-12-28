@@ -24,6 +24,21 @@ interface SavedDesign {
   color_selections: Record<string, Record<string, string>>;
 }
 
+// Raw type from Supabase (product is returned as array)
+interface RawSavedDesign {
+  id: string;
+  title: string | null;
+  preview_url: string | null;
+  created_at: string;
+  updated_at: string;
+  product: {
+    id: string;
+    title: string;
+    base_price: number;
+  }[];
+  color_selections: Record<string, Record<string, string>>;
+}
+
 export default function DesignsPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
@@ -69,7 +84,13 @@ export default function DesignsPage() {
           throw fetchError;
         }
 
-        setDesigns(data || []);
+        // Transform data to match SavedDesign type (product is returned as array)
+        const transformedData = (data as RawSavedDesign[])?.map((design) => ({
+          ...design,
+          product: Array.isArray(design.product) ? design.product[0] : design.product
+        })) || [];
+
+        setDesigns(transformedData);
       } catch (err) {
         console.error('Error fetching designs:', err);
         setError('디자인을 불러오는데 실패했습니다.');
@@ -213,7 +234,7 @@ export default function DesignsPage() {
       <DesignEditModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        cartItemId={selectedItemId}
+        designId={selectedItemId}
         onSaveComplete={() => {
           // Refresh the page to show updated design
           window.location.reload();
