@@ -2,6 +2,7 @@
 import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
 import PricingInfo from "@/app/components/canvas/PricingInfo";
+import ColorInfo from "@/app/components/canvas/ColorInfo";
 import { Product, ProductConfig, CartItem } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
@@ -573,8 +574,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* Dynamic Pricing Info */}
           <PricingInfo basePrice={product.base_price} sides={product.configuration} />
 
-
-          
+          {/* Color Information */}
+          <ColorInfo className="mt-4" />
 
           {/* Cart Items List */}
           {/* {cartItems.length > 0 && (
