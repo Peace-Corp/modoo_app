@@ -377,7 +377,7 @@ export default function DesignEditModal({
           }
         }
       } else if (designId) {
-        // Saving from saved design - just update the design
+        // Saving from saved design - update the design AND all cart items that reference it
         const { error: updateError } = await supabase
           .from('saved_designs')
           .update({
@@ -392,6 +392,36 @@ export default function DesignEditModal({
           console.error('Error updating design:', updateError);
           alert('디자인 저장에 실패했습니다.');
           return;
+        }
+
+        // Find all cart items with this saved_design_id and update them
+        const { data: itemsToUpdate, error: fetchError } = await supabase
+          .from('cart_items')
+          .select('*')
+          .eq('saved_design_id', designId);
+
+        if (fetchError) {
+          console.error('Error fetching cart items to update:', fetchError);
+        }
+
+        // Update all cart items with the same design
+        if (itemsToUpdate && itemsToUpdate.length > 0) {
+          for (const item of itemsToUpdate) {
+            const { error: updateItemError } = await supabase
+              .from('cart_items')
+              .update({
+                product_color: productColor,
+                product_color_name: colorName,
+                thumbnail_url: thumbnail,
+                price_per_item: newPricePerItem,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', item.id);
+
+            if (updateItemError) {
+              console.error('Error updating cart item:', updateItemError);
+            }
+          }
         }
       }
 
