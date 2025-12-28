@@ -11,7 +11,7 @@ import { Share } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
-import { saveDesign, SavedDesign } from "@/lib/designService";
+import { SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import SavedDesignsModal from "@/app/components/SavedDesignsModal";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
@@ -29,24 +29,20 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const {
     isEditMode,
-    setEditMode,
     productColor,
     setProductColor,
     saveAllCanvasState,
     restoreAllCanvasState,
-    activeSideId,
     canvasMap,
     canvasVersion,
     incrementCanvasVersion,
   } = useCanvasStore();
 
   const { addItem: addToCart, items: cartStoreItems } = useCartStore();
-
-  const [saveMessage, setSaveMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
-  const [isLoadingCartItem, setIsLoadingCartItem] = useState(false);
+  const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
 
   // Convert Product to ProductConfig format
@@ -57,64 +53,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const handleColorChange = (color: string) => {
     setProductColor(color);
-  };
-
-  // Save to localStorage
-  const handleSave = () => {
-    try {
-      const canvasState = saveAllCanvasState();
-      const fullState = {
-        canvases: canvasState,
-        productColor,
-        activeSideId,
-      };
-      localStorage.setItem('canvas-design-test', JSON.stringify(fullState));
-      setSaveMessage('✓ Saved!');
-      setTimeout(() => setSaveMessage(''), 2000);
-    } catch (error) {
-      console.error('Save failed:', error);
-      setSaveMessage('✗ Save failed');
-      setTimeout(() => setSaveMessage(''), 2000);
-    }
-  };
-
-  // Load from localStorage
-  const handleLoad = async () => {
-    try {
-      const savedData = localStorage.getItem('canvas-design-test');
-      if (!savedData) {
-        setSaveMessage('✗ No saved data');
-        setTimeout(() => setSaveMessage(''), 2000);
-        return;
-      }
-
-      const fullState = JSON.parse(savedData);
-
-      // Restore product color FIRST, before canvas state
-      if (fullState.productColor) {
-        setProductColor(fullState.productColor);
-      }
-
-      // Wait a brief moment for the color to be applied to all canvases
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Then restore canvas state
-      await restoreAllCanvasState(fullState.canvases);
-
-      setSaveMessage('✓ Loaded!');
-      setTimeout(() => setSaveMessage(''), 2000);
-    } catch (error) {
-      console.error('Load failed:', error);
-      setSaveMessage('✗ Load failed');
-      setTimeout(() => setSaveMessage(''), 2000);
-    }
-  };
-
-  // Clear localStorage
-  const handleClear = () => {
-    localStorage.removeItem('canvas-design-test');
-    setSaveMessage('✓ Cleared!');
-    setTimeout(() => setSaveMessage(''), 2000);
   };
 
   // Open quantity selector modal
@@ -198,34 +136,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       console.error('Add to cart failed:', error);
       alert('장바구니 추가 중 오류가 발생했습니다.');
       throw error; // Re-throw to prevent success modal from showing
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Save design to Supabase
-  const handleSaveToSupabase = async () => {
-    setIsSaving(true);
-    try {
-      const canvasState = saveAllCanvasState();
-      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
-
-      const savedDesign = await saveDesign({
-        productId: product.id,
-        productColor,
-        canvasState,
-        title: `${product.title} - ${new Date().toLocaleDateString('ko-KR')}`,
-        previewImage,
-      });
-
-      if (savedDesign) {
-        alert('디자인이 성공적으로 저장되었습니다!');
-      } else {
-        alert('디자인 저장에 실패했습니다. 로그인이 필요할 수 있습니다.');
-      }
-    } catch (error) {
-      console.error('Save to Supabase failed:', error);
-      alert('디자인 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
