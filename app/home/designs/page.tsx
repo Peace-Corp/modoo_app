@@ -1,42 +1,85 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCartStore, CartItemData } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import DesignEditModal from '@/app/components/DesignEditModal';
 import FavoritesList from '@/app/components/FavoritesList';
 import Image from 'next/image';
-
-// Mock color list with hex codes
-const mockColors = [
-  { id: 'white', name: '화이트', hex: '#FFFFFF' },
-  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
-  { id: 'black', name: '블랙', hex: '#000000' },
-  { id: 'navy', name: '네이비', hex: '#1E3A8A' },
-  { id: 'red', name: '레드', hex: '#EF4444' },
-  { id: 'pink', name: '핑크', hex: '#F9A8D4' },
-  { id: 'green', name: '그린', hex: '#22C55E' },
-  { id: 'yellow', name: '옐로우', hex: '#FACC15' },
-];
+import { createClient } from '@/lib/supabase-client';
 
 type TabType = 'designs' | 'favorites';
 
+interface SavedDesign {
+  id: string;
+  title: string | null;
+  preview_url: string | null;
+  created_at: string;
+  updated_at: string;
+  product: {
+    id: string;
+    title: string;
+    base_price: number;
+  };
+  color_selections: Record<string, Record<string, string>>;
+}
+
 export default function DesignsPage() {
   const router = useRouter();
-  const { items } = useCartStore();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabType>('designs');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [designs, setDesigns] = useState<SavedDesign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Group items by savedDesignId to show unique designs
-  const uniqueDesigns = items.reduce((acc, item) => {
-    if (item.savedDesignId && !acc.some(d => d.savedDesignId === item.savedDesignId)) {
-      acc.push(item);
+  // Fetch designs from database
+  useEffect(() => {
+    async function fetchDesigns() {
+      if (!isAuthenticated || !user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const supabase = createClient();
+
+        const { data, error: fetchError } = await supabase
+          .from('saved_designs')
+          .select(`
+            id,
+            title,
+            preview_url,
+            created_at,
+            updated_at,
+            color_selections,
+            product:products (
+              id,
+              title,
+              base_price
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        setDesigns(data || []);
+      } catch (err) {
+        console.error('Error fetching designs:', err);
+        setError('디자인을 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
     }
-    return acc;
-  }, [] as CartItemData[]);
+
+    fetchDesigns();
+  }, [isAuthenticated, user]);
 
   const handleDesignClick = (itemId: string) => {
     setSelectedItemId(itemId);
@@ -95,28 +138,41 @@ export default function DesignsPage() {
                 로그인하기
               </button>
             </div>
-          ) : uniqueDesigns.length === 0 ? (
+          ) : isLoading ? (
+            <div className="text-center py-20">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+              <p className="text-gray-500 mt-4">디자인을 불러오는 중...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-20">
+              <p className="text-red-500 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : designs.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-gray-500 mb-4">저장된 디자인이 없습니다</p>
               <p className="text-sm text-gray-400">제품을 커스터마이징하고 장바구니에 담아보세요!</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {uniqueDesigns.map((item) => {
-                const colorInfo = mockColors.find(c => c.hex === item.productColor);
-
+              {designs.map((design) => {
                 return (
                   <button
-                    key={item.id}
-                    onClick={() => handleDesignClick(item.id)}
+                    key={design.id}
+                    onClick={() => handleDesignClick(design.id)}
                     className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {/* Thumbnail */}
                     <div className="aspect-square bg-gray-100 relative">
-                      {item.thumbnailUrl ? (
+                      {design.preview_url ? (
                         <Image
-                          src={item.thumbnailUrl}
-                          alt={item.productTitle}
+                          src={design.preview_url}
+                          alt={design.title || design.product.title}
                           fill
                           className="object-cover"
                         />
@@ -129,29 +185,18 @@ export default function DesignsPage() {
 
                     {/* Info */}
                     <div className="p-3 flex flex-col">
-                      {item.designName && (
+                      {design.title && (
                         <p className="text-xs text-gray-500 truncate text-left">
-                          {item.productTitle}
+                          {design.product.title}
                         </p>
                       )}
                       <h3 className="font-bold text-md mb-1 text-left truncate">
-                        {item.designName || item.productTitle}
+                        {design.title || design.product.title}
                       </h3>
-
-                      {/* Color Options */}
-                      <div className="flex items-center gap-1 mb-2">
-                        <div
-                          className="size-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: item.productColor }}
-                        />
-                        <span className="text-xs text-gray-600">
-                          {colorInfo?.name || item.productColorName}
-                        </span>
-                      </div>
 
                       {/* Price */}
                       <p className="text-sm font-bold text-left">
-                        ₩{item.pricePerItem.toLocaleString()}
+                        ₩{design.product.base_price.toLocaleString()}
                       </p>
                     </div>
                   </button>
