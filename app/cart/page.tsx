@@ -1,10 +1,11 @@
 'use client';
 
 import Header from '@/app/components/Header';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import DesignEditModal from '@/app/components/DesignEditModal';
+import QuantityChangeModal from '@/app/components/QuantityChangeModal';
 import {
   getCartItemsWithDesigns,
   removeCartItem,
@@ -12,6 +13,7 @@ import {
   clearCart as clearCartDB,
   type CartItemWithDesign
 } from '@/lib/cartService';
+import { SizeOption } from '@/types/types';
 
 // Group items by saved design ID
 interface GroupedCartItem {
@@ -30,6 +32,10 @@ export default function CartPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [quantityChangeGroup, setQuantityChangeGroup] = useState<GroupedCartItem | null>(null);
+  const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
+  const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
+  const [productSizeOptions, setProductSizeOptions] = useState<Record<string, SizeOption[]>>({});
 
   // Fetch cart items from Supabase
   const fetchCartItems = async () => {
@@ -37,6 +43,30 @@ export default function CartPage() {
     try {
       const cartItems = await getCartItemsWithDesigns();
       setItems(cartItems);
+
+      // Fetch product details for each unique product
+      const uniqueProductIds = [...new Set(cartItems.map(item => item.product_id))];
+      const productOptions: Record<string, SizeOption[]> = {};
+
+      for (const productId of uniqueProductIds) {
+        try {
+          const { createClient } = await import('@/lib/supabase-client');
+          const supabase = createClient();
+          const { data: product, error } = await supabase
+            .from('products')
+            .select('size_options')
+            .eq('id', productId)
+            .single();
+
+          if (!error && product?.size_options) {
+            productOptions[productId] = product.size_options;
+          }
+        } catch (err) {
+          console.error(`Error fetching product ${productId}:`, err);
+        }
+      }
+
+      setProductSizeOptions(productOptions);
     } catch (error) {
       console.error('Error fetching cart items:', error);
     } finally {
@@ -130,6 +160,87 @@ export default function CartPage() {
       if (success) {
         await fetchCartItems();
       }
+    }
+  };
+
+  // Handle opening quantity change modal
+  const handleOpenQuantityChange = (group: GroupedCartItem) => {
+    setQuantityChangeGroup(group);
+    setIsQuantityModalOpen(true);
+  };
+
+  // Handle quantity changes from modal
+  const handleQuantityChanges = async (updates: { itemId?: string; sizeId: string; quantity: number; currentQuantity?: number }[]) => {
+    setIsUpdatingQuantity(true);
+    try {
+      const group = quantityChangeGroup;
+      if (!group) return;
+
+      // Get reference item for design information
+      const referenceItem = group.items[0];
+      if (!referenceItem) return;
+
+      // Update each item
+      for (const update of updates) {
+        if (update.itemId) {
+          // Existing item - update or remove
+          if (update.quantity === 0) {
+            await handleRemoveItem(update.itemId);
+          } else {
+            await updateCartItemQuantity(update.itemId, update.quantity);
+          }
+        } else if (update.quantity > 0) {
+          // New item - add to cart with same design
+          const { createClient } = await import('@/lib/supabase-client');
+          const supabase = createClient();
+
+          // Get the size name from size options
+          const sizeOption = productSizeOptions[referenceItem.product_id]?.find(
+            (s) => s.id === update.sizeId
+          );
+
+          if (!sizeOption) {
+            console.error('Size option not found:', update.sizeId);
+            continue;
+          }
+
+          // Add new cart item with same design
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            throw new Error('User must be authenticated');
+          }
+
+          const newCartItem = {
+            user_id: user.id,
+            product_id: referenceItem.product_id,
+            saved_design_id: referenceItem.saved_design_id,
+            product_title: referenceItem.product_title,
+            product_color: referenceItem.product_color,
+            product_color_name: referenceItem.product_color_name,
+            size_id: update.sizeId,
+            size_name: sizeOption.name,
+            quantity: update.quantity,
+            price_per_item: referenceItem.price_per_item,
+            thumbnail_url: referenceItem.thumbnail_url,
+          };
+
+          const { error } = await supabase
+            .from('cart_items')
+            .insert(newCartItem);
+
+          if (error) {
+            console.error('Error adding new cart item:', error);
+            throw error;
+          }
+        }
+      }
+      // Refresh cart items
+      await fetchCartItems();
+    } catch (error) {
+      console.error('Error updating quantities:', error);
+      alert('수량 변경 중 오류가 발생했습니다.');
+    } finally {
+      setIsUpdatingQuantity(false);
     }
   };
 
@@ -255,29 +366,9 @@ export default function CartPage() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1 border border-gray-300 rounded px-1.5 py-0.5">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateQuantity(item.id!, item.quantity - 1);
-                                  }}
-                                  className="hover:bg-gray-100 rounded"
-                                >
-                                  <Minus className="w-3 h-3" />
-                                </button>
-                                <span className="min-w-6 text-center font-medium">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateQuantity(item.id!, item.quantity + 1);
-                                  }}
-                                  className="hover:bg-gray-100 rounded"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              </div>
+                              <span className="text-gray-700 font-medium">
+                                {item.quantity}개
+                              </span>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -292,16 +383,24 @@ export default function CartPage() {
                         ))}
                       </div>
 
-                      {/* Total Price for this design */}
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <span className="text-sm text-gray-600">
-                          총 {group.totalQuantity}개
-                        </span>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-black">
-                            {group.totalPrice.toLocaleString('ko-KR')}원
-                          </p>
+                      {/* Total Price and Actions */}
+                      <div className="pt-2 border-t border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-600">
+                            총 {group.totalQuantity}개
+                          </span>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-black">
+                              {group.totalPrice.toLocaleString('ko-KR')}원
+                            </p>
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleOpenQuantityChange(group)}
+                          className="w-full py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium"
+                        >
+                          수량 변경
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -361,6 +460,23 @@ export default function CartPage() {
         cartItemId={selectedCartItemId}
         onSaveComplete={handleSaveComplete}
       />
+
+      {/* Quantity Change Modal */}
+      {quantityChangeGroup && (
+        <QuantityChangeModal
+          isOpen={isQuantityModalOpen}
+          onClose={() => {
+            setIsQuantityModalOpen(false);
+            setQuantityChangeGroup(null);
+          }}
+          onConfirm={handleQuantityChanges}
+          items={quantityChangeGroup.items}
+          sizeOptions={productSizeOptions[quantityChangeGroup.items[0]?.product_id] || []}
+          productColorName={quantityChangeGroup.items[0]?.product_color_name || ''}
+          designName={quantityChangeGroup.designName || quantityChangeGroup.productTitle}
+          isSaving={isUpdatingQuantity}
+        />
+      )}
     </div>
   );
 }

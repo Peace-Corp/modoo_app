@@ -43,6 +43,32 @@ export default function QuantitySelectorModal({
     });
   };
 
+  const handleManualQuantityChange = (sizeId: string, value: string) => {
+    // Allow empty string for easier editing
+    if (value === '') {
+      setQuantities(prev => {
+        const { [sizeId]: _, ...rest } = prev;
+        return rest;
+      });
+      return;
+    }
+
+    // Parse the value and ensure it's a valid non-negative integer
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue) || numValue < 0) {
+      return; // Ignore invalid input
+    }
+
+    if (numValue === 0) {
+      setQuantities(prev => {
+        const { [sizeId]: _, ...rest } = prev;
+        return rest;
+      });
+    } else {
+      setQuantities(prev => ({ ...prev, [sizeId]: numValue }));
+    }
+  };
+
   const getTotalQuantity = () => {
     return Object.values(quantities).reduce((sum, qty) => sum + qty, 0);
   };
@@ -168,7 +194,14 @@ export default function QuantitySelectorModal({
                           >
                             <Minus className="w-4 h-4" />
                           </button>
-                          <span className="min-w-8 text-center font-medium">{quantity}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={quantity}
+                            onChange={(e) => handleManualQuantityChange(size.id, e.target.value)}
+                            disabled={isSaving}
+                            className="min-w-12 w-12 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-black transition disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
                           <button
                             onClick={() => handleQuantityChange(size.id, 1)}
                             disabled={isSaving}
