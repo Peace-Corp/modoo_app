@@ -3,7 +3,7 @@ import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
 import PricingInfo from "@/app/components/canvas/PricingInfo";
 import ColorInfo from "@/app/components/canvas/ColorInfo";
-import { Product, ProductConfig, CartItem } from "@/types/types";
+import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
@@ -17,18 +17,7 @@ import SavedDesignsModal from "@/app/components/SavedDesignsModal";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import AddToCartModal from "@/app/components/AddToCartModal";
 import { useSearchParams } from "next/navigation";
-
-// Mock color list with hex codes
-const mockColors = [
-  { id: 'white', name: '화이트', hex: '#FFFFFF' },
-  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
-  { id: 'black', name: '블랙', hex: '#000000' },
-  { id: 'navy', name: '네이비', hex: '#1E3A8A' },
-  { id: 'red', name: '레드', hex: '#EF4444' },
-  { id: 'pink', name: '핑크', hex: '#F9A8D4' },
-  { id: 'green', name: '그린', hex: '#22C55E' },
-  { id: 'yellow', name: '옐로우', hex: '#FACC15' },
-];
+import { createClient } from "@/lib/supabase-client";
 
 interface ProductEditorClientProps {
   product: Product;
@@ -66,6 +55,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddToCartModalOpen, setIsAddToCartModalOpen] = useState(false);
   const [isLoadingCartItem, setIsLoadingCartItem] = useState(false);
+  const [productColors, setProductColors] = useState<ProductColor[]>([]);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -224,7 +214,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       const canvasState = saveAllCanvasState();
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
       const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
-      const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
+      const colorName = productColors.find(c => c.hex === productColor)?.name || '색상';
 
       // Save design once and reuse for all cart items
       let sharedDesignId: string | undefined;
@@ -352,6 +342,30 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       alert('디자인 불러오기에 실패했습니다.');
     }
   };
+
+  // Fetch product colors from database
+  useEffect(() => {
+    const fetchColors = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('product_colors')
+        .select('*')
+        .eq('product_id', product.id)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (error) {
+        console.error('Failed to fetch product colors:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setProductColors(data as ProductColor[]);
+      }
+    };
+
+    fetchColors();
+  }, [product.id]);
 
   // Load cart item design on mount if cartItemId is provided
   useEffect(() => {
@@ -504,7 +518,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* Horizontal Color Selector */}
           <div className="mt-4 overflow-x-auto scrollbar-hide">
             <div className="flex gap-3 pb-2">
-              {mockColors.map((color) => (
+              {productColors.map((color) => (
                 <button
                   key={color.id}
                   onClick={() => handleColorChange(color.hex)}
