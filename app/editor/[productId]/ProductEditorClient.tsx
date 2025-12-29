@@ -290,10 +290,10 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             <p className="text-sm text-black/80">배송비 3,000원</p>
           </div>
           {/* Reviews Section */}
-          <div className="flex gap-2 text-[.8em]">
+          {/* <div className="flex gap-2 text-[.8em]">
             <p className="text-orange-300 flex items-center gap-1"><span><FaStar /></span>4.9</p>
             <p className="underline">리뷰 46</p>
-          </div>
+          </div> */}
 
 
 

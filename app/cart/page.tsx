@@ -110,8 +110,8 @@ export default function CartPage() {
   const finalTotal = totalPrice + deliveryFee;
 
   const handleCheckout = () => {
-    // TODO: Implement checkout logic
-    alert('주문하기 기능은 준비 중입니다.');
+    // Navigate to checkout page
+    window.location.href = '/checkout';
   };
 
   const handleEditDesign = (cartItemId: string) => {
