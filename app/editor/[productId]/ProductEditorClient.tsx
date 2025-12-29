@@ -258,40 +258,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   return (
     <div className="">
 
-      {/* Test Save/Load Buttons - Fixed in top-right corner */}
-      {/* <div className="fixed top-4 right-4 z-100 flex flex-col gap-2 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200">
-        <div className="text-xs font-bold text-gray-700 mb-1">Test Controls</div>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium transition"
-        >
-          Save State
-        </button>
-        <button
-          onClick={handleLoad}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded font-medium transition"
-        >
-          Load State
-        </button>
-        <button
-          onClick={handleClear}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-medium transition"
-        >
-          Clear Storage
-        </button>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded font-medium transition"
-        >
-          Load from DB
-        </button>
-        {saveMessage && (
-          <div className="text-xs text-center font-medium text-gray-700 mt-1">
-            {saveMessage}
-          </div>
-        )}
-      </div> */}
-
       {/* Header */}
         {!isEditMode && (
           <div className="w-full sticky top-0 bg-gray-300 z-50">
@@ -356,39 +322,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
           {/* Color Information */}
           <ColorInfo className="mt-4" />
-
-          {/* Cart Items List */}
-          {/* {cartItems.length > 0 && (
-            <div className="mt-4 border-t pt-4">
-              <h3 className="text-sm font-medium mb-3">선택한 옵션</h3>
-              <div className="space-y-3">
-                {cartItems.map((item) => (
-                  <div key={item.sizeId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <span className="text-sm font-medium">{item.sizeName}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
-                        <button
-                          onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity - 1)}
-                          className="p-1 hover:bg-gray-100 rounded transition"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="min-w-6 text-center text-sm font-medium">{item.quantity}</span>
-                        <button
-                          onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity + 1)}
-                          className="p-1 hover:bg-gray-100 rounded transition"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
         </div>
       )}
 
