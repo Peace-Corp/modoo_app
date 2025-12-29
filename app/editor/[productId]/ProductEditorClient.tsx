@@ -18,6 +18,7 @@ import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
+import ReviewsSection from "@/app/components/ReviewsSection";
 
 interface ProductEditorClientProps {
   product: Product;
@@ -322,6 +323,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
           {/* Color Information */}
           <ColorInfo className="mt-4" />
+
+          {/* Reviews Section */}
+          <ReviewsSection productId={product.id} limit={10} />
         </div>
       )}
 
