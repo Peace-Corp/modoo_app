@@ -2,6 +2,7 @@ import Header from "@/app/components/Header";
 import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
 import CategoryButton from "@/app/components/CategoryButton";
+import ProductionExamples from "@/app/components/ProductionExamples";
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
 import { CATEGORIES } from "@/lib/categories";
@@ -51,6 +52,9 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      {/* Production Examples Section */}
+      <ProductionExamples />
 
       {/* Deals Section */}
       {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

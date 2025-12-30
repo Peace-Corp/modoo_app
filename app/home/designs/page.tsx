@@ -7,6 +7,11 @@ import DesignEditModal from '@/app/components/DesignEditModal';
 import FavoritesList from '@/app/components/FavoritesList';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase-client';
+import QuantitySelectorModal from '@/app/components/QuantitySelectorModal';
+import { addToCartDB } from '@/lib/cartService';
+import { useCartStore } from '@/store/useCartStore';
+import { SizeOption, CartItem, ProductColor } from '@/types/types';
+import { ShoppingCart } from 'lucide-react';
 
 type TabType = 'designs' | 'favorites';
 
@@ -42,12 +47,20 @@ interface RawSavedDesign {
 export default function DesignsPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+  const { addItem: addToCart } = useCartStore();
   const [activeTab, setActiveTab] = useState<TabType>('designs');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Add to cart modal state
+  const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
+  const [selectedDesign, setSelectedDesign] = useState<SavedDesign | null>(null);
+  const [productSizeOptions, setProductSizeOptions] = useState<SizeOption[]>([]);
+  const [productColors, setProductColors] = useState<ProductColor[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch designs from database
   useEffect(() => {
@@ -110,6 +123,116 @@ export default function DesignsPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedItemId(null);
+  };
+
+  // Handle add to cart button click
+  const handleAddToCartClick = async (design: SavedDesign, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening the edit modal
+
+    try {
+      // Fetch product details including size options and colors
+      const supabase = createClient();
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_colors (
+            id,
+            product_id,
+            color_id,
+            name,
+            hex,
+            label,
+            is_active,
+            sort_order,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('id', design.product.id)
+        .single();
+
+      if (productError || !product) {
+        throw new Error('Failed to fetch product details');
+      }
+
+      // Set product data and open modal
+      setSelectedDesign(design);
+      setProductSizeOptions(product.size_options || []);
+      setProductColors(Array.isArray(product.product_colors) ? product.product_colors : []);
+      setIsQuantitySelectorOpen(true);
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+      alert('상품 정보를 불러오는데 실패했습니다.');
+    }
+  };
+
+  // Handle adding to cart with selected sizes/quantities
+  const handleSaveToCart = async (designName: string, selectedItems: CartItem[]) => {
+    if (!selectedDesign) return;
+
+    setIsSaving(true);
+    try {
+      const colorSelections = selectedDesign.color_selections as { productColor?: string } | null;
+      const productColor = colorSelections?.productColor || '#FFFFFF';
+      const colorName = productColors.find(c => c.hex === productColor)?.name || '색상';
+
+      // Fetch the full design data including canvas state
+      const supabase = createClient();
+      const { data: fullDesign, error: designError } = await supabase
+        .from('saved_designs')
+        .select('*')
+        .eq('id', selectedDesign.id)
+        .single();
+
+      if (designError || !fullDesign) {
+        throw new Error('Failed to fetch design data');
+      }
+
+      // Add all cart items using the existing design ID
+      for (const item of selectedItems) {
+        // Save to Supabase - reuse the existing design
+        const dbCartItem = await addToCartDB({
+          productId: selectedDesign.product.id,
+          productTitle: selectedDesign.product.title,
+          productColor: productColor,
+          productColorName: colorName,
+          sizeId: item.sizeId,
+          sizeName: item.sizeName,
+          quantity: item.quantity,
+          pricePerItem: selectedDesign.product.base_price, // Use base price for now
+          canvasState: fullDesign.canvas_state,
+          thumbnailUrl: selectedDesign.preview_url || undefined,
+          savedDesignId: selectedDesign.id, // Reuse existing design
+          designName: designName,
+          previewImage: selectedDesign.preview_url || undefined,
+        });
+
+        // Also add to local cart store
+        if (dbCartItem) {
+          addToCart({
+            productId: selectedDesign.product.id,
+            productTitle: selectedDesign.product.title,
+            productColor: productColor,
+            productColorName: colorName,
+            sizeId: item.sizeId,
+            sizeName: item.sizeName,
+            quantity: item.quantity,
+            pricePerItem: selectedDesign.product.base_price,
+            canvasState: fullDesign.canvas_state,
+            thumbnailUrl: selectedDesign.preview_url || undefined,
+            savedDesignId: selectedDesign.id,
+            designName: designName,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Add to cart failed:', error);
+      alert('장바구니 추가 중 오류가 발생했습니다.');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -183,13 +306,15 @@ export default function DesignsPage() {
             <div className="grid grid-cols-2 gap-4">
               {designs.map((design) => {
                 return (
-                  <button
+                  <div
                     key={design.id}
-                    onClick={() => handleDesignClick(design.id)}
                     className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                   >
-                    {/* Thumbnail */}
-                    <div className="aspect-square bg-gray-100 relative">
+                    {/* Thumbnail - Clickable to edit */}
+                    <button
+                      onClick={() => handleDesignClick(design.id)}
+                      className="w-full aspect-square bg-gray-100 relative"
+                    >
                       {design.preview_url ? (
                         <Image
                           src={design.preview_url}
@@ -202,25 +327,39 @@ export default function DesignsPage() {
                           <span className="text-gray-400">No Image</span>
                         </div>
                       )}
-                    </div>
+                    </button>
 
                     {/* Info */}
-                    <div className="p-3 flex flex-col">
-                      {design.title && (
-                        <p className="text-xs text-gray-500 truncate text-left">
-                          {design.product.title}
-                        </p>
-                      )}
-                      <h3 className="font-bold text-md mb-1 text-left truncate">
-                        {design.title || design.product.title}
-                      </h3>
+                    <div className="p-3 flex flex-col gap-2">
+                      <button
+                        onClick={() => handleDesignClick(design.id)}
+                        className="text-left"
+                      >
+                        {design.title && (
+                          <p className="text-xs text-gray-500 truncate">
+                            {design.product.title}
+                          </p>
+                        )}
+                        <h3 className="font-bold text-md mb-1 truncate">
+                          {design.title || design.product.title}
+                        </h3>
 
-                      {/* Price */}
-                      <p className="text-sm font-bold text-left">
-                        ₩{design.product.base_price.toLocaleString()}
-                      </p>
+                        {/* Price */}
+                        <p className="text-sm font-bold">
+                          ₩{design.product.base_price.toLocaleString()}
+                        </p>
+                      </button>
+
+                      {/* Add to Cart Button */}
+                      <button
+                        onClick={(e) => handleAddToCartClick(design, e)}
+                        className="w-full py-2 px-3 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>장바구니에 담기</span>
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -239,6 +378,17 @@ export default function DesignsPage() {
           // Refresh the page to show updated design
           window.location.reload();
         }}
+      />
+
+      {/* Quantity Selector Modal */}
+      <QuantitySelectorModal
+        isOpen={isQuantitySelectorOpen}
+        onClose={() => setIsQuantitySelectorOpen(false)}
+        onConfirm={handleSaveToCart}
+        sizeOptions={productSizeOptions}
+        pricePerItem={selectedDesign?.product.base_price || 0}
+        isSaving={isSaving}
+        defaultDesignName={selectedDesign?.title || selectedDesign?.product.title || ''}
       />
     </div>
   );
