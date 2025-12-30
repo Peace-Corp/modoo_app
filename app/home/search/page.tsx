@@ -4,12 +4,11 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, X, SlidersHorizontal } from "lucide-react";
-import Header from "@/app/components/Header";
 import ProductCard from "@/app/components/ProductCard";
 import CategoryButton from "@/app/components/CategoryButton";
 import { Product } from "@/types/types";
 import { createClient } from "@/lib/supabase-client";
-import { CATEGORIES, getCategoryIcon } from "@/lib/categories";
+import { CATEGORIES } from "@/lib/categories";
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -143,7 +142,7 @@ export default function SearchPage() {
           )}
         {/* Categories Section */}
         <section className="max-w-7xl py-2">
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="flex gap-2 overflow-x-auto p-1">
             {CATEGORIES.map((category) => (
               <CategoryButton
                 key={category.key}
