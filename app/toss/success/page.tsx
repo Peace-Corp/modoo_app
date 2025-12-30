@@ -3,13 +3,11 @@
 
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCartStore } from "@/store/useCartStore";
-import { useAuthStore } from "@/store/useAuthStore";
+import { clearCart } from "@/lib/cartService";
 
 function WidgetSuccessPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { clearCart } = useCartStore();
 
   useEffect(() => {
     async function confirm() {
@@ -62,7 +60,7 @@ function WidgetSuccessPageContent() {
     }
 
     confirm();
-  }, [searchParams, router, clearCart]);
+  }, [searchParams, router]);
 
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
