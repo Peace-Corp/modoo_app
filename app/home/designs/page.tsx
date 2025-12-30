@@ -21,10 +21,10 @@ interface SavedDesign {
   preview_url: string | null;
   created_at: string;
   updated_at: string;
+  price_per_item: number;
   product: {
     id: string;
     title: string;
-    base_price: number;
   };
   color_selections: Record<string, Record<string, string>>;
 }
@@ -36,10 +36,10 @@ interface RawSavedDesign {
   preview_url: string | null;
   created_at: string;
   updated_at: string;
+  price_per_item: number;
   product: {
     id: string;
     title: string;
-    base_price: number;
   }[];
   color_selections: Record<string, Record<string, string>>;
 }
@@ -84,10 +84,10 @@ export default function DesignsPage() {
             created_at,
             updated_at,
             color_selections,
+            price_per_item,
             product:products (
               id,
-              title,
-              base_price
+              title
             )
           `)
           .eq('user_id', user.id)
@@ -200,7 +200,7 @@ export default function DesignsPage() {
           sizeId: item.sizeId,
           sizeName: item.sizeName,
           quantity: item.quantity,
-          pricePerItem: selectedDesign.product.base_price, // Use base price for now
+          pricePerItem: selectedDesign.price_per_item, // Use base price for now
           canvasState: fullDesign.canvas_state,
           thumbnailUrl: selectedDesign.preview_url || undefined,
           savedDesignId: selectedDesign.id, // Reuse existing design
@@ -218,7 +218,7 @@ export default function DesignsPage() {
             sizeId: item.sizeId,
             sizeName: item.sizeName,
             quantity: item.quantity,
-            pricePerItem: selectedDesign.product.base_price,
+            pricePerItem: selectedDesign.price_per_item,
             canvasState: fullDesign.canvas_state,
             thumbnailUrl: selectedDesign.preview_url || undefined,
             savedDesignId: selectedDesign.id,
@@ -346,7 +346,7 @@ export default function DesignsPage() {
 
                         {/* Price */}
                         <p className="text-sm font-bold">
-                          ₩{design.product.base_price.toLocaleString()}
+                          ₩{design.price_per_item.toLocaleString()}
                         </p>
                       </button>
 
@@ -386,7 +386,7 @@ export default function DesignsPage() {
         onClose={() => setIsQuantitySelectorOpen(false)}
         onConfirm={handleSaveToCart}
         sizeOptions={productSizeOptions}
-        pricePerItem={selectedDesign?.product.base_price || 0}
+        pricePerItem={selectedDesign?.price_per_item || 0}
         isSaving={isSaving}
         defaultDesignName={selectedDesign?.title || selectedDesign?.product.title || ''}
       />

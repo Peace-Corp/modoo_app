@@ -63,6 +63,7 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
         productColor: params.productColor,
         canvasState: params.canvasState,
         previewImage: params.previewImage,
+        pricePerItem: params.pricePerItem,
       };
 
       const savedDesign = await saveDesign(designData);
