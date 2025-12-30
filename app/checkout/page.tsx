@@ -8,6 +8,7 @@ import {
   getCartItemsWithDesigns,
   type CartItemWithDesign
 } from '@/lib/cartService';
+import TossPaymentWidget from '../components/toss/TossPaymentWidget';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -542,6 +543,54 @@ export default function CheckoutPage() {
           </button>
         </div>
       </div>
+
+      <div className='w-full px-4'>
+                    {/* Toss Payment Widget */}
+                      <TossPaymentWidget
+                        amount={finalTotal}
+                        orderId={`assjndas98asd`}
+                        orderName={`test order`}
+                        customerEmail={customerInfo.email}
+                        customerName={customerInfo.name}
+                        customerMobilePhone={customerInfo.phone}
+                        successUrl={window.location.origin + "/toss/success"}
+                        failUrl={window.location.origin + "/toss/fail"}
+                        enableCoupon={false}
+                        onReady={() => console.log("Toss payment widget ready")}
+                        onError={(error) => {
+                          console.error("Toss payment error:", error);
+                          alert(`결제 위젯 오류: ${error.message}`);
+                        }}
+                        // onBeforePaymentRequest={() => {
+                        //   // Prepare address string (legacy field for backward compatibility)
+                        //   const fullAddress = deliveryMethod !== "팬미팅현장수령"
+                        //     ? `[${zipCode}] ${address} ${addressDetail}`.trim()
+                        //     : null;
+                        //   // Prepare order data to be used after payment confirmation
+                        //   const orderData = {
+                        //     id: orderId,
+                        //     name: name,
+                        //     email: email,
+                        //     phone_num: phone,
+                        //     address: fullAddress,
+                        //     country_code: deliveryMethod === "해외배송" ? country : null,
+                        //     state: deliveryMethod === "해외배송" ? state : null,
+                        //     city: deliveryMethod === "해외배송" ? city : null,
+                        //     postal_code: deliveryMethod !== "팬미팅현장수령" ? zipCode : null,
+                        //     address_line_1: deliveryMethod !== "팬미팅현장수령" ? address : null,
+                        //     address_line_2: deliveryMethod !== "팬미팅현장수령" ? addressDetail : null,
+                        //     delivery_method: deliveryMethod,
+                        //     total_amount: finalTotal,
+                        //   };
+                        //   // Store in sessionStorage for use in success page
+                        //   sessionStorage.setItem('pendingTossOrder', JSON.stringify({
+                        //     orderData,
+                        //     cartItems
+                        //   }));
+                        //   console.log('Order data stored for Toss payment');
+                        // }}
+                      />
+                  </div>
 
       {/* Bottom Fixed Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
