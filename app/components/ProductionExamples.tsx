@@ -151,9 +151,9 @@ export default function ProductionExamples() {
             <Link
               key={example.id+idx} // for unique id
               href={`/product/${example.product_id}`}
-              className="group flex-shrink-0 w-[280px] sm:w-[320px] bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              className="group shrink-0 w-50 sm:w-[320px] bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+              <div className="relative aspect-4/3 w-full overflow-hidden bg-gray-100">
                 <Image
                   src={example.image_url}
                   alt={example.title}
@@ -175,7 +175,7 @@ export default function ProductionExamples() {
 
           {/* Loading indicator */}
           {loading && (
-            <div className="flex-shrink-0 w-[280px] sm:w-[320px] flex items-center justify-center">
+            <div className="shrink-0 w-70 sm:w-[320px] flex items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
           )}
@@ -184,14 +184,14 @@ export default function ProductionExamples() {
           {hasMore && (
             <div
               ref={loadMoreRef}
-              className="flex-shrink-0 w-4"
+              className="shrink-0 w-4"
               aria-hidden="true"
             />
           )}
 
           {/* End message */}
           {!hasMore && examples.length > 0 && (
-            <div className="flex-shrink-0 w-[200px] flex items-center justify-center text-gray-500 text-sm">
+            <div className="shrink-0 w-50 flex items-center justify-center text-gray-500 text-sm">
               모든 사례를 확인했습니다
             </div>
           )}
