@@ -2,77 +2,69 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
-import Header from '../components/Header'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+
+  const { login, signUp, signInWithOAuth, isLoading } = useAuthStore()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        })
+        const result = await signUp(email, password)
 
-        if (error) throw error
-
-        if (data.user) {
-          setError('Check your email for the confirmation link!')
+        if (!result.success) {
+          setError(result.error || 'Sign up failed')
+          return
         }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
 
-        if (error) throw error
-
-        if (data.session) {
+        if (result.needsEmailConfirmation) {
+          setError('Check your email for the confirmation link!')
+        } else {
+          // User is auto-confirmed, redirect to home
           router.push('/home')
           router.refresh()
         }
+      } else {
+        const result = await login(email, password)
+
+        if (!result.success) {
+          setError(result.error || 'Login failed')
+          return
+        }
+
+        // Login successful, redirect to home
+        router.push('/home')
+        router.refresh()
       }
     } catch (err) {
       const error = err as Error
       setError(error.message || 'An error occurred during authentication')
-    } finally {
-      setLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setLoading(true)
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
+      const result = await signInWithOAuth('google')
 
-      if (error) throw error
+      if (!result.success) {
+        setError(result.error || 'Google sign in failed')
+      }
+      // OAuth will redirect automatically
     } catch (err) {
       const error = err as Error
       setError(error.message || 'An error occurred with Google sign in')
-      setLoading(false)
     }
   }
 
@@ -158,10 +150,10 @@ export default function LoginPage() {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoading}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? (
+              {isLoading ? (
                 <span className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

@@ -11,13 +11,14 @@ import { Share } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
-import { saveDesign, SavedDesign } from "@/lib/designService";
+import { SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import SavedDesignsModal from "@/app/components/SavedDesignsModal";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
+import ReviewsSection from "@/app/components/ReviewsSection";
 
 interface ProductEditorClientProps {
   product: Product;
@@ -29,24 +30,20 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const {
     isEditMode,
-    setEditMode,
     productColor,
     setProductColor,
     saveAllCanvasState,
     restoreAllCanvasState,
-    activeSideId,
     canvasMap,
     canvasVersion,
     incrementCanvasVersion,
   } = useCanvasStore();
 
   const { addItem: addToCart, items: cartStoreItems } = useCartStore();
-
-  const [saveMessage, setSaveMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
-  const [isLoadingCartItem, setIsLoadingCartItem] = useState(false);
+  const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
 
   // Convert Product to ProductConfig format
@@ -57,64 +54,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const handleColorChange = (color: string) => {
     setProductColor(color);
-  };
-
-  // Save to localStorage
-  const handleSave = () => {
-    try {
-      const canvasState = saveAllCanvasState();
-      const fullState = {
-        canvases: canvasState,
-        productColor,
-        activeSideId,
-      };
-      localStorage.setItem('canvas-design-test', JSON.stringify(fullState));
-      setSaveMessage('✓ Saved!');
-      setTimeout(() => setSaveMessage(''), 2000);
-    } catch (error) {
-      console.error('Save failed:', error);
-      setSaveMessage('✗ Save failed');
-      setTimeout(() => setSaveMessage(''), 2000);
-    }
-  };
-
-  // Load from localStorage
-  const handleLoad = async () => {
-    try {
-      const savedData = localStorage.getItem('canvas-design-test');
-      if (!savedData) {
-        setSaveMessage('✗ No saved data');
-        setTimeout(() => setSaveMessage(''), 2000);
-        return;
-      }
-
-      const fullState = JSON.parse(savedData);
-
-      // Restore product color FIRST, before canvas state
-      if (fullState.productColor) {
-        setProductColor(fullState.productColor);
-      }
-
-      // Wait a brief moment for the color to be applied to all canvases
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Then restore canvas state
-      await restoreAllCanvasState(fullState.canvases);
-
-      setSaveMessage('✓ Loaded!');
-      setTimeout(() => setSaveMessage(''), 2000);
-    } catch (error) {
-      console.error('Load failed:', error);
-      setSaveMessage('✗ Load failed');
-      setTimeout(() => setSaveMessage(''), 2000);
-    }
-  };
-
-  // Clear localStorage
-  const handleClear = () => {
-    localStorage.removeItem('canvas-design-test');
-    setSaveMessage('✓ Cleared!');
-    setTimeout(() => setSaveMessage(''), 2000);
   };
 
   // Open quantity selector modal
@@ -198,34 +137,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       console.error('Add to cart failed:', error);
       alert('장바구니 추가 중 오류가 발생했습니다.');
       throw error; // Re-throw to prevent success modal from showing
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Save design to Supabase
-  const handleSaveToSupabase = async () => {
-    setIsSaving(true);
-    try {
-      const canvasState = saveAllCanvasState();
-      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
-
-      const savedDesign = await saveDesign({
-        productId: product.id,
-        productColor,
-        canvasState,
-        title: `${product.title} - ${new Date().toLocaleDateString('ko-KR')}`,
-        previewImage,
-      });
-
-      if (savedDesign) {
-        alert('디자인이 성공적으로 저장되었습니다!');
-      } else {
-        alert('디자인 저장에 실패했습니다. 로그인이 필요할 수 있습니다.');
-      }
-    } catch (error) {
-      console.error('Save to Supabase failed:', error);
-      alert('디자인 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -348,40 +259,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   return (
     <div className="">
 
-      {/* Test Save/Load Buttons - Fixed in top-right corner */}
-      {/* <div className="fixed top-4 right-4 z-100 flex flex-col gap-2 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200">
-        <div className="text-xs font-bold text-gray-700 mb-1">Test Controls</div>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium transition"
-        >
-          Save State
-        </button>
-        <button
-          onClick={handleLoad}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded font-medium transition"
-        >
-          Load State
-        </button>
-        <button
-          onClick={handleClear}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-medium transition"
-        >
-          Clear Storage
-        </button>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded font-medium transition"
-        >
-          Load from DB
-        </button>
-        {saveMessage && (
-          <div className="text-xs text-center font-medium text-gray-700 mt-1">
-            {saveMessage}
-          </div>
-        )}
-      </div> */}
-
       {/* Header */}
         {!isEditMode && (
           <div className="w-full sticky top-0 bg-gray-300 z-50">
@@ -413,10 +290,10 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             <p className="text-sm text-black/80">배송비 3,000원</p>
           </div>
           {/* Reviews Section */}
-          <div className="flex gap-2 text-[.8em]">
+          {/* <div className="flex gap-2 text-[.8em]">
             <p className="text-orange-300 flex items-center gap-1"><span><FaStar /></span>4.9</p>
             <p className="underline">리뷰 46</p>
-          </div>
+          </div> */}
 
 
 
@@ -447,38 +324,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* Color Information */}
           <ColorInfo className="mt-4" />
 
-          {/* Cart Items List */}
-          {/* {cartItems.length > 0 && (
-            <div className="mt-4 border-t pt-4">
-              <h3 className="text-sm font-medium mb-3">선택한 옵션</h3>
-              <div className="space-y-3">
-                {cartItems.map((item) => (
-                  <div key={item.sizeId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <span className="text-sm font-medium">{item.sizeName}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-1 bg-white">
-                        <button
-                          onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity - 1)}
-                          className="p-1 hover:bg-gray-100 rounded transition"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="min-w-6 text-center text-sm font-medium">{item.quantity}</span>
-                        <button
-                          onClick={() => handleUpdateCartItemQuantity(item.sizeId, item.quantity + 1)}
-                          className="p-1 hover:bg-gray-100 rounded transition"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
+          {/* Reviews Section */}
+          <ReviewsSection productId={product.id} limit={10} />
         </div>
       )}
 

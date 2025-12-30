@@ -83,7 +83,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      {/* <Header /> */}
 
       {/* Search Section */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
