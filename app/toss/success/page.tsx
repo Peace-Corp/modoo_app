@@ -3,10 +3,13 @@
 
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useCartStore } from "@/store/useCartStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 function WidgetSuccessPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { clearCart } = useCartStore();
 
   useEffect(() => {
     async function confirm() {
@@ -44,8 +47,7 @@ function WidgetSuccessPageContent() {
         // Clear pending order data
         sessionStorage.removeItem('pendingTossOrder');
 
-        // Clear cart
-        const { clearCart } = await import('@/lib/cart');
+        // Clear cart from the cart store
         clearCart();
 
         // Redirect to complete page with order ID
@@ -60,7 +62,7 @@ function WidgetSuccessPageContent() {
     }
 
     confirm();
-  }, [searchParams, router]);
+  }, [searchParams, router, clearCart]);
 
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center">

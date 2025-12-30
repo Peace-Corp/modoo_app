@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
@@ -64,6 +64,21 @@ export default function CheckoutPage() {
     addressLine2: '',
   });
 
+  // Generate unique order ID and order name
+  const { orderId, orderName } = useMemo(() => {
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const id = `ORDER-${timestamp}-${randomStr}`;
+
+    // Create order name from items
+    const firstItemName = items[0]?.designName || items[0]?.product_title || '주문 상품';
+    const name = items.length > 1
+      ? `${firstItemName} 외 ${items.length - 1}건`
+      : firstItemName;
+
+    return { orderId: id, orderName: name };
+  }, [items]);
+
   // Fetch cart items
   useEffect(() => {
     const fetchCartItems = async () => {
@@ -104,7 +119,7 @@ export default function CheckoutPage() {
     }).open();
   };
 
-  const handlePayment = () => {
+  const handlePayPalPayment = () => {
     // Validate customer info
     if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
       alert('고객 정보를 모두 입력해주세요.');
@@ -124,16 +139,50 @@ export default function CheckoutPage() {
       }
     }
 
-    // TODO: Implement payment logic for selected method
-    console.log('Payment method:', paymentMethod);
-    console.log('Order details:', {
-      customerInfo,
-      shippingMethod,
-      items,
-      totalAmount: finalTotal
-    });
+    // TODO: Implement PayPal payment logic
+    alert('PayPal 결제 기능은 준비 중입니다.');
+  };
 
-    alert(`결제 기능은 준비 중입니다. (선택된 결제수단: ${paymentMethod === 'toss' ? '간편결제' : 'PayPal'})`);
+  // Callback to save order data before payment request
+  const handleBeforePaymentRequest = () => {
+    // Prepare full address string (legacy field for backward compatibility)
+    const fullAddress = shippingMethod !== 'pickup'
+      ? shippingMethod === 'domestic'
+        ? `[${domesticAddress.postalCode}] ${domesticAddress.roadAddress} ${domesticAddress.detailAddress}`.trim()
+        : `${internationalAddress.addressLine1} ${internationalAddress.addressLine2}`.trim()
+      : null;
+
+    // Prepare order data to be used after payment confirmation
+    const orderData = {
+      id: orderId,
+      name: customerInfo.name,
+      email: customerInfo.email,
+      phone_num: customerInfo.phone,
+      address: fullAddress,
+      country_code: shippingMethod === 'international' ? internationalAddress.country : null,
+      state: shippingMethod === 'international' ? internationalAddress.state : null,
+      city: shippingMethod === 'international' ? internationalAddress.city : null,
+      postal_code: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.postalCode : internationalAddress.postalCode)
+        : null,
+      address_line_1: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.roadAddress : internationalAddress.addressLine1)
+        : null,
+      address_line_2: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.detailAddress : internationalAddress.addressLine2)
+        : null,
+      shipping_method: shippingMethod,
+      delivery_fee: deliveryFee,
+      total_amount: finalTotal,
+    };
+
+    // Store in sessionStorage for use in success page
+    sessionStorage.setItem('pendingTossOrder', JSON.stringify({
+      orderData,
+      cartItems: items
+    }));
+
+    console.log('Order data stored for Toss payment:', orderData);
   };
 
   if (isLoading) {
@@ -544,71 +593,48 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      <div className='w-full px-4'>
-                    {/* Toss Payment Widget */}
-                      <TossPaymentWidget
-                        amount={finalTotal}
-                        orderId={`assjndas98asd`}
-                        orderName={`test order`}
-                        customerEmail={customerInfo.email}
-                        customerName={customerInfo.name}
-                        customerMobilePhone={customerInfo.phone}
-                        successUrl={window.location.origin + "/toss/success"}
-                        failUrl={window.location.origin + "/toss/fail"}
-                        enableCoupon={false}
-                        onReady={() => console.log("Toss payment widget ready")}
-                        onError={(error) => {
-                          console.error("Toss payment error:", error);
-                          alert(`결제 위젯 오류: ${error.message}`);
-                        }}
-                        // onBeforePaymentRequest={() => {
-                        //   // Prepare address string (legacy field for backward compatibility)
-                        //   const fullAddress = deliveryMethod !== "팬미팅현장수령"
-                        //     ? `[${zipCode}] ${address} ${addressDetail}`.trim()
-                        //     : null;
-                        //   // Prepare order data to be used after payment confirmation
-                        //   const orderData = {
-                        //     id: orderId,
-                        //     name: name,
-                        //     email: email,
-                        //     phone_num: phone,
-                        //     address: fullAddress,
-                        //     country_code: deliveryMethod === "해외배송" ? country : null,
-                        //     state: deliveryMethod === "해외배송" ? state : null,
-                        //     city: deliveryMethod === "해외배송" ? city : null,
-                        //     postal_code: deliveryMethod !== "팬미팅현장수령" ? zipCode : null,
-                        //     address_line_1: deliveryMethod !== "팬미팅현장수령" ? address : null,
-                        //     address_line_2: deliveryMethod !== "팬미팅현장수령" ? addressDetail : null,
-                        //     delivery_method: deliveryMethod,
-                        //     total_amount: finalTotal,
-                        //   };
-                        //   // Store in sessionStorage for use in success page
-                        //   sessionStorage.setItem('pendingTossOrder', JSON.stringify({
-                        //     orderData,
-                        //     cartItems
-                        //   }));
-                        //   console.log('Order data stored for Toss payment');
-                        // }}
-                      />
-                  </div>
-
-      {/* Bottom Fixed Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-gray-500">총 결제금액</p>
-            <p className="text-lg font-bold text-black">
-              {finalTotal.toLocaleString('ko-KR')}원
-            </p>
-          </div>
-          <button
-            onClick={handlePayment}
-            className="flex-1 max-w-xs px-8 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
-          >
-            결제하기
-          </button>
+      {/* Toss Payment Widget - Only show when Toss is selected */}
+      {paymentMethod === 'toss' && (
+        <div className='w-full px-4 mt-4'>
+          <TossPaymentWidget
+            amount={finalTotal}
+            orderId={orderId}
+            orderName={orderName}
+            customerEmail={customerInfo.email}
+            customerName={customerInfo.name}
+            customerMobilePhone={customerInfo.phone}
+            successUrl={typeof window !== 'undefined' ? window.location.origin + "/toss/success" : "/toss/success"}
+            failUrl={typeof window !== 'undefined' ? window.location.origin + "/toss/fail" : "/toss/fail"}
+            enableCoupon={false}
+            onReady={() => console.log("Toss payment widget ready")}
+            onError={(error) => {
+              console.error("Toss payment error:", error);
+              alert(`결제 위젯 오류: ${error.message}`);
+            }}
+            onBeforePaymentRequest={handleBeforePaymentRequest}
+          />
         </div>
-      </div>
+      )}
+
+      {/* Bottom Fixed Bar - Only show for PayPal */}
+      {paymentMethod === 'paypal' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-gray-500">총 결제금액</p>
+              <p className="text-lg font-bold text-black">
+                {finalTotal.toLocaleString('ko-KR')}원
+              </p>
+            </div>
+            <button
+              onClick={handlePayPalPayment}
+              className="flex-1 max-w-xs px-8 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
+            >
+              결제하기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
