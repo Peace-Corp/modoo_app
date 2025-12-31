@@ -64,20 +64,78 @@ export default function CheckoutPage() {
     addressLine2: '',
   });
 
+  // Group items by design for display
+  const groupedItems = items.reduce<Array<{
+    id: string;
+    product_id: string;
+    saved_design_id?: string;
+    product_title: string;
+    designName?: string;
+    thumbnail_url?: string;
+    price_per_item: number;
+    variants: Array<{
+      product_color: string;
+      product_color_name: string;
+      size_id: string;
+      size_name: string;
+      quantity: number;
+    }>;
+    totalQuantity: number;
+  }>>((acc, item) => {
+    const groupKey = item.saved_design_id || item.product_id;
+    const existingGroup = acc.find(g =>
+      (g.saved_design_id && g.saved_design_id === item.saved_design_id) ||
+      (!g.saved_design_id && g.product_id === item.product_id)
+    );
+
+    if (existingGroup) {
+      // Add variant to existing group
+      existingGroup.variants.push({
+        product_color: item.product_color,
+        product_color_name: item.product_color_name,
+        size_id: item.size_id,
+        size_name: item.size_name,
+        quantity: item.quantity,
+      });
+      existingGroup.totalQuantity += item.quantity;
+    } else {
+      // Create new group
+      acc.push({
+        id: groupKey,
+        product_id: item.product_id,
+        saved_design_id: item.saved_design_id,
+        product_title: item.product_title,
+        designName: item.designName,
+        thumbnail_url: item.thumbnail_url,
+        price_per_item: item.price_per_item,
+        variants: [{
+          product_color: item.product_color,
+          product_color_name: item.product_color_name,
+          size_id: item.size_id,
+          size_name: item.size_name,
+          quantity: item.quantity,
+        }],
+        totalQuantity: item.quantity,
+      });
+    }
+
+    return acc;
+  }, []);
+
   // Generate unique order ID and order name
   const { orderId, orderName } = useMemo(() => {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 9);
     const id = `ORDER-${timestamp}-${randomStr}`;
 
-    // Create order name from items
-    const firstItemName = items[0]?.designName || items[0]?.product_title || '주문 상품';
-    const name = items.length > 1
-      ? `${firstItemName} 외 ${items.length - 1}건`
+    // Create order name from grouped items
+    const firstItemName = groupedItems[0]?.designName || groupedItems[0]?.product_title || '주문 상품';
+    const name = groupedItems.length > 1
+      ? `${firstItemName} 외 ${groupedItems.length - 1}건`
       : firstItemName;
 
     return { orderId: id, orderName: name };
-  }, [items]);
+  }, [groupedItems]);
 
   // Fetch cart items
   useEffect(() => {
@@ -217,37 +275,42 @@ export default function CheckoutPage() {
 
       {/* Order Summary */}
       <div className="bg-white mt-2 p-4">
-        <h2 className="font-medium text-black mb-3">주문 상품 ({items.length})</h2>
+        <h2 className="font-medium text-black mb-3">주문 상품 ({groupedItems.length})</h2>
         <div className="space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
+          {groupedItems.map((group) => (
+            <div key={group.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
               <div className="w-16 h-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden">
-                {item.thumbnail_url ? (
+                {group.thumbnail_url ? (
                   <img
-                    src={item.thumbnail_url}
-                    alt={item.product_title}
+                    src={group.thumbnail_url}
+                    alt={group.product_title}
                     className="w-full h-full object-contain"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <div
                       className="w-12 h-12 rounded"
-                      style={{ backgroundColor: item.product_color }}
+                      style={{ backgroundColor: group.variants[0].product_color }}
                     />
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-medium text-black truncate">
-                  {item.designName || item.product_title}
+                  {group.designName || group.product_title}
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  {item.product_color_name} / {item.size_name}
-                </p>
+                {/* Show all variants */}
+                <div className="mt-1 space-y-0.5">
+                  {group.variants.map((variant, idx) => (
+                    <p key={idx} className="text-xs text-gray-500">
+                      {variant.product_color_name} / {variant.size_name} - {variant.quantity}개
+                    </p>
+                  ))}
+                </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-gray-600">{item.quantity}개</span>
+                  <span className="text-xs text-gray-600">총 {group.totalQuantity}개</span>
                   <span className="text-sm font-medium text-black">
-                    {(item.price_per_item * item.quantity).toLocaleString('ko-KR')}원
+                    {(group.price_per_item * group.totalQuantity).toLocaleString('ko-KR')}원
                   </span>
                 </div>
               </div>

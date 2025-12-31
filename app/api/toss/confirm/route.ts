@@ -133,26 +133,81 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert order items with all required fields
-    const orderItems = cartItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      product_title: item.product_title,
-      quantity: item.quantity,
-      price_per_item: item.price_per_item,
-      design_id: item.saved_design_id || null,
-      product_variant_id: null, // For future variant support
-      canvas_state: item.canvasState || {},
-      color_selections: {}, // TODO: Get from saved_design if needed
-      item_options: {
-        size_id: item.size_id,
-        size_name: item.size_name,
-        color_id: item.product_color,
-        color_name: item.product_color_name,
-        color_hex: item.product_color,
-      },
-      thumbnail_url: item.thumbnail_url || null,
-    }));
+    // Group cart items by design_id to combine different options into single order items
+    const groupedItems = new Map<string, {
+      product_id: string;
+      product_title: string;
+      design_id: string | null;
+      canvas_state: Record<string, unknown>;
+      thumbnail_url: string | null;
+      price_per_item: number;
+      variants: Array<{
+        size_id: string;
+        size_name: string;
+        color_id: string;
+        color_name: string;
+        color_hex: string;
+        quantity: number;
+      }>;
+    }>();
+
+    // Group items by design_id (or product_id if no design)
+    for (const item of cartItems) {
+      const groupKey = item.saved_design_id || `no-design-${item.product_id}`;
+
+      if (groupedItems.has(groupKey)) {
+        // Add variant to existing group
+        const group = groupedItems.get(groupKey)!;
+        group.variants.push({
+          size_id: item.size_id,
+          size_name: item.size_name,
+          color_id: item.product_color,
+          color_name: item.product_color_name,
+          color_hex: item.product_color,
+          quantity: item.quantity,
+        });
+      } else {
+        // Create new group
+        groupedItems.set(groupKey, {
+          product_id: item.product_id,
+          product_title: item.product_title,
+          design_id: item.saved_design_id || null,
+          canvas_state: item.canvasState || {},
+          thumbnail_url: item.thumbnail_url || null,
+          price_per_item: item.price_per_item,
+          variants: [{
+            size_id: item.size_id,
+            size_name: item.size_name,
+            color_id: item.product_color,
+            color_name: item.product_color_name,
+            color_hex: item.product_color,
+            quantity: item.quantity,
+          }],
+        });
+      }
+    }
+
+    // Convert grouped items to order items format
+    const orderItems = Array.from(groupedItems.values()).map((group) => {
+      // Calculate total quantity across all variants
+      const totalQuantity = group.variants.reduce((sum, variant) => sum + variant.quantity, 0);
+
+      return {
+        order_id: order.id,
+        product_id: group.product_id,
+        product_title: group.product_title,
+        quantity: totalQuantity,
+        price_per_item: group.price_per_item,
+        design_id: group.design_id,
+        product_variant_id: null, // For future variant support
+        canvas_state: group.canvas_state,
+        color_selections: {}, // TODO: Get from saved_design if needed
+        item_options: {
+          variants: group.variants,
+        },
+        thumbnail_url: group.thumbnail_url,
+      };
+    });
 
     const { error: itemsError } = await supabase
       .from('order_items')
