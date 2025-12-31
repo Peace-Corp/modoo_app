@@ -3,6 +3,7 @@ import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
 import CategoryButton from "@/app/components/CategoryButton";
 import ProductionExamples from "@/app/components/ProductionExamples";
+import InquiryBoardSection from "@/app/components/InquiryBoardSection";
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
 import { CATEGORIES } from "@/lib/categories";
@@ -55,6 +56,9 @@ export default async function HomePage() {
 
       {/* Production Examples Section */}
       <ProductionExamples />
+
+      {/* Inquiry Board Section */}
+      <InquiryBoardSection />
 
       {/* Deals Section */}
       {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

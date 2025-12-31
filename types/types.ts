@@ -74,3 +74,37 @@ export interface ProductionExample {
   created_at: string;
   updated_at: string;
 }
+
+export type InquiryStatus = 'pending' | 'ongoing' | 'completed';
+
+export interface Inquiry {
+  id: string;
+  user_id: string | null;
+  title: string;
+  content: string;
+  status: InquiryStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InquiryProduct {
+  id: string;
+  inquiry_id: string;
+  product_id: string;
+  created_at: string;
+}
+
+export interface InquiryReply {
+  id: string;
+  inquiry_id: string;
+  admin_id: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InquiryWithDetails extends Inquiry {
+  products?: (InquiryProduct & { product: Product })[];
+  replies?: (InquiryReply & { admin?: { email: string } })[];
+  user?: { email: string };
+}

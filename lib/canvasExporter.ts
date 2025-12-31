@@ -115,7 +115,7 @@ export function exportPrintAreaOnly(
   const { format = 'png', quality = 1.0, multiplier = 1 } = options;
 
   // Create a temporary canvas with just the print area
-  const tempCanvas = new fabric.Canvas(null, {
+  const tempCanvas = new fabric.Canvas(undefined, {
     width: printArea.width,
     height: printArea.height,
   });
