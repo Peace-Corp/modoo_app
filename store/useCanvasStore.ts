@@ -45,6 +45,10 @@ interface CanvasState {
 
   // Color extraction methods
   getCanvasColors: (sensitivity?: number) => Promise<{ colors: string[]; count: number }>;
+
+  // Print option methods
+  setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => void;
+  getObjectPrintMethod: (object: fabric.FabricObject) => 'embroidery' | 'printing' | null;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -153,7 +157,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const canvasData = {
         version: canvas.toJSON().version,
         objects: userObjects.map(obj => {
-          const json = obj.toJSON();
+          // Use toObject to include custom properties
+          const json = obj.toObject(['data']);
           // For image objects, ensure we preserve the src
           if (obj.type === 'image') {
             const imgObj = obj as fabric.FabricImage;
@@ -247,7 +252,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const canvasData = {
       version: canvas.toJSON().version,
       objects: userObjects.map(obj => {
-        const json = obj.toJSON();
+        // Use toObject to include custom properties
+        const json = obj.toObject(['data']);
         // For image objects, ensure we preserve the src
         if (obj.type === 'image') {
           const imgObj = obj as fabric.FabricImage;
@@ -314,5 +320,36 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   getCanvasColors: async (sensitivity: number = 30) => {
     const { canvasMap } = get();
     return await extractAllColors(canvasMap, sensitivity);
+  },
+
+  // Set print method for a specific object
+  setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => {
+    const { getActiveCanvas, incrementCanvasVersion } = get();
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+
+    // Find the object by ID
+    const objects = canvas.getObjects();
+    const targetObject = objects.find(obj => {
+      // @ts-expect-error - Checking custom data property
+      return obj.data?.objectId === objectId;
+    });
+
+    if (targetObject) {
+      // @ts-expect-error - Setting custom data property
+      if (!targetObject.data) targetObject.data = {};
+      // @ts-expect-error - Setting custom data property
+      targetObject.data.printMethod = method;
+
+      // Trigger canvas version update for pricing recalculation
+      incrementCanvasVersion();
+      canvas.requestRenderAll();
+    }
+  },
+
+  // Get print method for a specific object
+  getObjectPrintMethod: (object: fabric.FabricObject): 'embroidery' | 'printing' | null => {
+    // @ts-expect-error - Checking custom data property
+    return object.data?.printMethod || null;
   },
 }));

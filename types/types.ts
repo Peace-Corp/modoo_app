@@ -118,3 +118,17 @@ export interface InquiryWithDetails extends Inquiry {
   replies?: (InquiryReply & { admin?: { email: string } })[];
   user?: { email: string };
 }
+
+// Print option types
+export type PrintMethod = 'embroidery' | 'printing';
+
+export interface PrintOption {
+  method: PrintMethod;
+  price: number; // Additional cost for this print method
+}
+
+export interface CanvasObjectPrintData {
+  printMethod?: PrintMethod;
+  // Additional metadata for pricing and production
+  estimatedCost?: number;
+}

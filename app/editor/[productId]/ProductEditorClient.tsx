@@ -4,6 +4,7 @@ import EditButton from "@/app/components/canvas/EditButton";
 import PricingInfo from "@/app/components/canvas/PricingInfo";
 import ColorInfo from "@/app/components/canvas/ColorInfo";
 import LayerColorSelector from "@/app/components/canvas/LayerColorSelector";
+import ObjectPreviewPanel from "@/app/components/canvas/ObjectPreviewPanel";
 import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
@@ -339,6 +340,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
           {/* Color Information */}
           <ColorInfo className="mt-4" />
+
+          {/* Object Preview Panel */}
+          <ObjectPreviewPanel sides={product.configuration} />
 
           {/* Reviews Section */}
           <ReviewsSection productId={product.id} limit={10} />

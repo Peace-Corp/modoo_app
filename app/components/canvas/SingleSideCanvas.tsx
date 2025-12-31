@@ -532,6 +532,22 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // @ts-expect-error - Checking custom data property
         if (!obj || obj.excludeFromExport || (obj.data?.id === 'background-product-image')) return;
 
+        // Assign a unique ID to each user-added object if it doesn't have one
+        // @ts-expect-error - Setting custom data property
+        if (!obj.data) obj.data = {};
+        // @ts-expect-error - Setting custom data property
+        if (!obj.data.objectId) {
+          // @ts-expect-error - Setting custom data property
+          obj.data.objectId = `${side.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        // Set default print method for non-image objects
+        // @ts-expect-error - Checking custom data property
+        if (obj.type !== 'image' && !obj.data.printMethod) {
+          // @ts-expect-error - Setting custom data property
+          obj.data.printMethod = 'printing'; // Default to printing
+        }
+
         // Apply the specific clip area to this object (using values relative to product image)
         // @ts-expect-error - Custom property
         const printLeft = canvas.printAreaLeft || tempCenteredLeft;
