@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Minus, X } from 'lucide-react';
 import { SizeOption, CartItem } from '@/types/types';
 
@@ -12,6 +12,7 @@ interface QuantitySelectorModalProps {
   sizeOptions: SizeOption[];
   pricePerItem: number;
   isSaving?: boolean;
+  defaultDesignName?: string;
 }
 
 export default function QuantitySelectorModal({
@@ -20,12 +21,20 @@ export default function QuantitySelectorModal({
   onConfirm,
   sizeOptions,
   pricePerItem,
-  isSaving = false
+  isSaving = false,
+  defaultDesignName = ''
 }: QuantitySelectorModalProps) {
   const router = useRouter();
-  const [designName, setDesignName] = useState('');
+  const [designName, setDesignName] = useState(defaultDesignName);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Update design name when modal opens with a new default name
+  useEffect(() => {
+    if (isOpen && defaultDesignName) {
+      setDesignName(defaultDesignName);
+    }
+  }, [isOpen, defaultDesignName]);
 
   if (!isOpen) return null;
 

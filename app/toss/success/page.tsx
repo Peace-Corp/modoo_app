@@ -3,6 +3,7 @@
 
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { clearCart } from "@/lib/cartService";
 
 function WidgetSuccessPageContent() {
   const router = useRouter();
@@ -44,8 +45,7 @@ function WidgetSuccessPageContent() {
         // Clear pending order data
         sessionStorage.removeItem('pendingTossOrder');
 
-        // Clear cart
-        const { clearCart } = await import('@/lib/cart');
+        // Clear cart from the cart store
         clearCart();
 
         // Redirect to complete page with order ID

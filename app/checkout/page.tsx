@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
@@ -64,6 +64,79 @@ export default function CheckoutPage() {
     addressLine2: '',
   });
 
+  // Group items by design for display
+  const groupedItems = items.reduce<Array<{
+    id: string;
+    product_id: string;
+    saved_design_id?: string;
+    product_title: string;
+    designName?: string;
+    thumbnail_url?: string;
+    price_per_item: number;
+    variants: Array<{
+      product_color: string;
+      product_color_name: string;
+      size_id: string;
+      size_name: string;
+      quantity: number;
+    }>;
+    totalQuantity: number;
+  }>>((acc, item) => {
+    const groupKey = item.saved_design_id || item.product_id;
+    const existingGroup = acc.find(g =>
+      (g.saved_design_id && g.saved_design_id === item.saved_design_id) ||
+      (!g.saved_design_id && g.product_id === item.product_id)
+    );
+
+    if (existingGroup) {
+      // Add variant to existing group
+      existingGroup.variants.push({
+        product_color: item.product_color,
+        product_color_name: item.product_color_name,
+        size_id: item.size_id,
+        size_name: item.size_name,
+        quantity: item.quantity,
+      });
+      existingGroup.totalQuantity += item.quantity;
+    } else {
+      // Create new group
+      acc.push({
+        id: groupKey,
+        product_id: item.product_id,
+        saved_design_id: item.saved_design_id,
+        product_title: item.product_title,
+        designName: item.designName,
+        thumbnail_url: item.thumbnail_url,
+        price_per_item: item.price_per_item,
+        variants: [{
+          product_color: item.product_color,
+          product_color_name: item.product_color_name,
+          size_id: item.size_id,
+          size_name: item.size_name,
+          quantity: item.quantity,
+        }],
+        totalQuantity: item.quantity,
+      });
+    }
+
+    return acc;
+  }, []);
+
+  // Generate unique order ID and order name
+  const { orderId, orderName } = useMemo(() => {
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const id = `ORDER-${timestamp}-${randomStr}`;
+
+    // Create order name from grouped items
+    const firstItemName = groupedItems[0]?.designName || groupedItems[0]?.product_title || '주문 상품';
+    const name = groupedItems.length > 1
+      ? `${firstItemName} 외 ${groupedItems.length - 1}건`
+      : firstItemName;
+
+    return { orderId: id, orderName: name };
+  }, [groupedItems]);
+
   // Fetch cart items
   useEffect(() => {
     const fetchCartItems = async () => {
@@ -104,7 +177,7 @@ export default function CheckoutPage() {
     }).open();
   };
 
-  const handlePayment = () => {
+  const handlePayPalPayment = () => {
     // Validate customer info
     if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
       alert('고객 정보를 모두 입력해주세요.');
@@ -124,16 +197,50 @@ export default function CheckoutPage() {
       }
     }
 
-    // TODO: Implement payment logic for selected method
-    console.log('Payment method:', paymentMethod);
-    console.log('Order details:', {
-      customerInfo,
-      shippingMethod,
-      items,
-      totalAmount: finalTotal
-    });
+    // TODO: Implement PayPal payment logic
+    alert('PayPal 결제 기능은 준비 중입니다.');
+  };
 
-    alert(`결제 기능은 준비 중입니다. (선택된 결제수단: ${paymentMethod === 'toss' ? '간편결제' : 'PayPal'})`);
+  // Callback to save order data before payment request
+  const handleBeforePaymentRequest = () => {
+    // Prepare full address string (legacy field for backward compatibility)
+    const fullAddress = shippingMethod !== 'pickup'
+      ? shippingMethod === 'domestic'
+        ? `[${domesticAddress.postalCode}] ${domesticAddress.roadAddress} ${domesticAddress.detailAddress}`.trim()
+        : `${internationalAddress.addressLine1} ${internationalAddress.addressLine2}`.trim()
+      : null;
+
+    // Prepare order data to be used after payment confirmation
+    const orderData = {
+      id: orderId,
+      name: customerInfo.name,
+      email: customerInfo.email,
+      phone_num: customerInfo.phone,
+      address: fullAddress,
+      country_code: shippingMethod === 'international' ? internationalAddress.country : null,
+      state: shippingMethod === 'international' ? internationalAddress.state : null,
+      city: shippingMethod === 'international' ? internationalAddress.city : null,
+      postal_code: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.postalCode : internationalAddress.postalCode)
+        : null,
+      address_line_1: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.roadAddress : internationalAddress.addressLine1)
+        : null,
+      address_line_2: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.detailAddress : internationalAddress.addressLine2)
+        : null,
+      shipping_method: shippingMethod,
+      delivery_fee: deliveryFee,
+      total_amount: finalTotal,
+    };
+
+    // Store in sessionStorage for use in success page
+    sessionStorage.setItem('pendingTossOrder', JSON.stringify({
+      orderData,
+      cartItems: items
+    }));
+
+    console.log('Order data stored for Toss payment:', orderData);
   };
 
   if (isLoading) {
@@ -168,37 +275,42 @@ export default function CheckoutPage() {
 
       {/* Order Summary */}
       <div className="bg-white mt-2 p-4">
-        <h2 className="font-medium text-black mb-3">주문 상품 ({items.length})</h2>
+        <h2 className="font-medium text-black mb-3">주문 상품 ({groupedItems.length})</h2>
         <div className="space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
+          {groupedItems.map((group) => (
+            <div key={group.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
               <div className="w-16 h-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden">
-                {item.thumbnail_url ? (
+                {group.thumbnail_url ? (
                   <img
-                    src={item.thumbnail_url}
-                    alt={item.product_title}
+                    src={group.thumbnail_url}
+                    alt={group.product_title}
                     className="w-full h-full object-contain"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <div
                       className="w-12 h-12 rounded"
-                      style={{ backgroundColor: item.product_color }}
+                      style={{ backgroundColor: group.variants[0].product_color }}
                     />
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-medium text-black truncate">
-                  {item.designName || item.product_title}
+                  {group.designName || group.product_title}
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  {item.product_color_name} / {item.size_name}
-                </p>
+                {/* Show all variants */}
+                <div className="mt-1 space-y-0.5">
+                  {group.variants.map((variant, idx) => (
+                    <p key={idx} className="text-xs text-gray-500">
+                      {variant.product_color_name} / {variant.size_name} - {variant.quantity}개
+                    </p>
+                  ))}
+                </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-gray-600">{item.quantity}개</span>
+                  <span className="text-xs text-gray-600">총 {group.totalQuantity}개</span>
                   <span className="text-sm font-medium text-black">
-                    {(item.price_per_item * item.quantity).toLocaleString('ko-KR')}원
+                    {(group.price_per_item * group.totalQuantity).toLocaleString('ko-KR')}원
                   </span>
                 </div>
               </div>
@@ -544,71 +656,48 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      <div className='w-full px-4'>
-                    {/* Toss Payment Widget */}
-                      <TossPaymentWidget
-                        amount={finalTotal}
-                        orderId={`assjndas98asd`}
-                        orderName={`test order`}
-                        customerEmail={customerInfo.email}
-                        customerName={customerInfo.name}
-                        customerMobilePhone={customerInfo.phone}
-                        successUrl={window.location.origin + "/toss/success"}
-                        failUrl={window.location.origin + "/toss/fail"}
-                        enableCoupon={false}
-                        onReady={() => console.log("Toss payment widget ready")}
-                        onError={(error) => {
-                          console.error("Toss payment error:", error);
-                          alert(`결제 위젯 오류: ${error.message}`);
-                        }}
-                        // onBeforePaymentRequest={() => {
-                        //   // Prepare address string (legacy field for backward compatibility)
-                        //   const fullAddress = deliveryMethod !== "팬미팅현장수령"
-                        //     ? `[${zipCode}] ${address} ${addressDetail}`.trim()
-                        //     : null;
-                        //   // Prepare order data to be used after payment confirmation
-                        //   const orderData = {
-                        //     id: orderId,
-                        //     name: name,
-                        //     email: email,
-                        //     phone_num: phone,
-                        //     address: fullAddress,
-                        //     country_code: deliveryMethod === "해외배송" ? country : null,
-                        //     state: deliveryMethod === "해외배송" ? state : null,
-                        //     city: deliveryMethod === "해외배송" ? city : null,
-                        //     postal_code: deliveryMethod !== "팬미팅현장수령" ? zipCode : null,
-                        //     address_line_1: deliveryMethod !== "팬미팅현장수령" ? address : null,
-                        //     address_line_2: deliveryMethod !== "팬미팅현장수령" ? addressDetail : null,
-                        //     delivery_method: deliveryMethod,
-                        //     total_amount: finalTotal,
-                        //   };
-                        //   // Store in sessionStorage for use in success page
-                        //   sessionStorage.setItem('pendingTossOrder', JSON.stringify({
-                        //     orderData,
-                        //     cartItems
-                        //   }));
-                        //   console.log('Order data stored for Toss payment');
-                        // }}
-                      />
-                  </div>
-
-      {/* Bottom Fixed Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-gray-500">총 결제금액</p>
-            <p className="text-lg font-bold text-black">
-              {finalTotal.toLocaleString('ko-KR')}원
-            </p>
-          </div>
-          <button
-            onClick={handlePayment}
-            className="flex-1 max-w-xs px-8 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
-          >
-            결제하기
-          </button>
+      {/* Toss Payment Widget - Only show when Toss is selected */}
+      {paymentMethod === 'toss' && (
+        <div className='w-full px-4 mt-4'>
+          <TossPaymentWidget
+            amount={finalTotal}
+            orderId={orderId}
+            orderName={orderName}
+            customerEmail={customerInfo.email}
+            customerName={customerInfo.name}
+            customerMobilePhone={customerInfo.phone}
+            successUrl={typeof window !== 'undefined' ? window.location.origin + "/toss/success" : "/toss/success"}
+            failUrl={typeof window !== 'undefined' ? window.location.origin + "/toss/fail" : "/toss/fail"}
+            enableCoupon={false}
+            onReady={() => console.log("Toss payment widget ready")}
+            onError={(error) => {
+              console.error("Toss payment error:", error);
+              alert(`결제 위젯 오류: ${error.message}`);
+            }}
+            onBeforePaymentRequest={handleBeforePaymentRequest}
+          />
         </div>
-      </div>
+      )}
+
+      {/* Bottom Fixed Bar - Only show for PayPal */}
+      {paymentMethod === 'paypal' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-gray-500">총 결제금액</p>
+              <p className="text-lg font-bold text-black">
+                {finalTotal.toLocaleString('ko-KR')}원
+              </p>
+            </div>
+            <button
+              onClick={handlePayPalPayment}
+              className="flex-1 max-w-xs px-8 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
+            >
+              결제하기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );

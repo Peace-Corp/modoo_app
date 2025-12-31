@@ -41,7 +41,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const { addItem: addToCart, items: cartStoreItems } = useCartStore();
   const [isSaving, setIsSaving] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
   const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
@@ -358,11 +358,11 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       />
 
       {/* Saved Designs Modal */}
-      <SavedDesignsModal
+      {/* <SavedDesignsModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSelectDesign={handleLoadDesign}
-      />
+      /> */}
 
     </div>
 

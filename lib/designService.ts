@@ -7,6 +7,7 @@ export interface SaveDesignData {
   canvasState: Record<string, string>;
   userId?: string;
   previewImage?: string; // Base64 data URL for preview image
+  pricePerItem: number;
 }
 
 export interface SavedDesign {
@@ -50,6 +51,7 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
       },
       canvas_state: data.canvasState,
       preview_url: data.previewImage || null, // Save preview image as base64 data URL
+      price_per_item: data.pricePerItem
     };
 
     // Insert into saved_designs table
