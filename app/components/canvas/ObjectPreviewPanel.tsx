@@ -29,9 +29,14 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
   const allObjects = useMemo(() => {
     const objects: CanvasObjectInfo[] = [];
 
+    console.log('[ObjectPreviewPanel] Extracting objects from canvases...');
+
     sides.forEach((side) => {
       const canvas = canvasMap[side.id];
-      if (!canvas) return;
+      if (!canvas) {
+        console.log(`[ObjectPreviewPanel] Canvas not found for side: ${side.id}`);
+        return;
+      }
 
       // Get real-world product width from side data
       const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
@@ -55,10 +60,15 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
         return true;
       });
 
+      console.log(`[ObjectPreviewPanel] Found ${userObjects.length} user objects on ${side.id}`);
+
       userObjects.forEach((obj) => {
         // @ts-expect-error - Accessing custom data property
         const objectId = obj.data?.objectId;
-        if (!objectId) return;
+        if (!objectId) {
+          console.warn('[ObjectPreviewPanel] Object missing objectId, skipping:', obj.type);
+          return;
+        }
 
         // Get object bounding box
         const boundingRect = obj.getBoundingRect();
@@ -70,16 +80,37 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
         // Get print method
         const printMethod = getObjectPrintMethod(obj);
 
-        // Generate preview
+        // Generate preview by rendering canvas area around the object
         let preview = '';
         try {
-          preview = obj.toDataURL({
+          // Get object bounds
+          const bounds = obj.getBoundingRect();
+
+          // Add some padding around the object
+          const padding = 20;
+          const left = Math.max(0, bounds.left - padding);
+          const top = Math.max(0, bounds.top - padding);
+          const width = bounds.width + (padding * 2);
+          const height = bounds.height + (padding * 2);
+
+          // Render the canvas area containing this object
+          preview = canvas.toDataURL({
             format: 'png',
             quality: 0.8,
-            multiplier: 0.5,
+            multiplier: 1,
+            left: left,
+            top: top,
+            width: width,
+            height: height,
           });
+
+          if (preview && preview.length > 100) {
+            console.log(`[ObjectPreviewPanel] Generated canvas preview for ${obj.type}`);
+          } else {
+            console.warn(`[ObjectPreviewPanel] Preview seems empty for ${obj.type}`);
+          }
         } catch (error) {
-          console.error('Failed to generate object preview:', error);
+          console.error('[ObjectPreviewPanel] Failed to generate object preview:', error, obj.type);
         }
 
         objects.push({
@@ -96,6 +127,7 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
       });
     });
 
+    console.log(`[ObjectPreviewPanel] Total objects extracted: ${objects.length}`);
     return objects;
   }, [canvasMap, sides, canvasVersion, getObjectPrintMethod]);
 
@@ -126,27 +158,33 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
       <h3 className="text-sm font-bold mb-3 text-gray-800">디자인 요소</h3>
 
       <div className="space-y-3">
-        {allObjects.map((objInfo) => (
-          <div
-            key={objInfo.objectId}
-            className="border border-gray-200 rounded-lg p-3 bg-gray-50"
-          >
-            {/* Object Header */}
-            <div className="flex items-start gap-3 mb-2">
-              {/* Preview Thumbnail */}
-              <div className="w-16 h-16 bg-white border border-gray-200 rounded flex items-center justify-center shrink-0 overflow-hidden">
-                {objInfo.preview ? (
-                  <img
-                    src={objInfo.preview}
-                    alt={getObjectTypeName(objInfo.type)}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : (
-                  <div className="text-gray-400">
-                    {getObjectIcon(objInfo.type)}
-                  </div>
-                )}
-              </div>
+        {allObjects.map((objInfo) => {
+          console.log(`[ObjectPreviewPanel] Rendering object ${objInfo.type}, has preview: ${!!objInfo.preview}`);
+          return (
+            <div
+              key={objInfo.objectId}
+              className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+            >
+              {/* Object Header */}
+              <div className="flex items-start gap-3 mb-2">
+                {/* Preview Thumbnail */}
+                <div className="w-16 h-16 bg-white border border-gray-200 rounded flex items-center justify-center shrink-0 overflow-hidden">
+                  {objInfo.preview ? (
+                    <img
+                      src={objInfo.preview}
+                      alt={getObjectTypeName(objInfo.type)}
+                      className="max-w-full max-h-full object-contain"
+                      onError={(e) => {
+                        console.error('[ObjectPreviewPanel] Image failed to load for:', objInfo.type);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="text-gray-400">
+                      {getObjectIcon(objInfo.type)}
+                    </div>
+                  )}
+                </div>
 
               {/* Object Info */}
               <div className="flex-1 min-w-0">
@@ -203,7 +241,8 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Summary */}
