@@ -25,8 +25,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const isEditRef = useRef(isEdit);
   const productImageRef = useRef<fabric.FabricImage | null>(null);
+  const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors } = useCanvasStore();
 
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
@@ -134,8 +135,172 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     canvas.add(guideBox);
 
-    // Load background image
-    fabric.FabricImage.fromURL(side.imageUrl, {crossOrigin:'anonymous'})
+    // Check if side has layers (multi-layer mode) or single imageUrl (legacy mode)
+    const hasLayers = side.layers && side.layers.length > 0;
+
+    if (hasLayers) {
+      // Multi-layer mode: Initialize layer colors and load all layers
+      initializeLayerColors(side.id, side.layers!);
+
+      // Sort layers by zIndex
+      const sortedLayers = [...side.layers!].sort((a, b) => a.zIndex - b.zIndex);
+
+      // Load all layer images
+      const layerLoadPromises = sortedLayers.map((layer) => {
+        return fabric.FabricImage.fromURL(layer.imageUrl, {crossOrigin:'anonymous'})
+          .then((img) => {
+            if (!img) {
+              console.error('Failed to load layer image:', layer.imageUrl);
+              return null;
+            }
+
+            // Scale the image to fit the canvas
+            const imgWidth = img.width || 0;
+            const imgHeight = img.height || 0;
+
+            if (imgWidth === 0 || imgHeight === 0) {
+              console.error('Layer image has invalid dimensions:', imgWidth, 'x', imgHeight);
+              return null;
+            }
+
+            // Get zoom scale from side configuration
+            const zoomScale = side.zoomScale || 1.0;
+            const baseScale = Math.min(width / imgWidth, height / imgHeight);
+            const scale = baseScale * zoomScale;
+
+            img.set({
+              scaleX: scale,
+              scaleY: scale,
+              originX: 'center',
+              originY: 'center',
+              left: width / 2,
+              top: height / 2,
+              selectable: false,
+              evented: false,
+              lockMovementX: true,
+              lockMovementY: true,
+              lockRotation: true,
+              lockScalingX: true,
+              lockScalingY: true,
+              hasControls: false,
+              hasBorders: false,
+              data: {
+                id: 'background-product-image',
+                layerId: layer.id
+              },
+            });
+
+            // Apply color filter based on selected layer color
+            const selectedColor = useCanvasStore.getState().getLayerColor(side.id, layer.id) || layer.colorOptions[0] || '#FFFFFF';
+            img.filters = [];
+            const colorFilter = new fabric.filters.BlendColor({
+              color: selectedColor,
+              mode: 'multiply',
+              alpha: 1,
+            });
+            img.filters.push(colorFilter);
+            img.applyFilters();
+
+            // Store reference to this layer image
+            layerImagesRef.current.set(layer.id, img);
+
+            return { img, scale, imgWidth, imgHeight };
+          });
+      });
+
+      // Wait for all layers to load
+      Promise.all(layerLoadPromises).then((results) => {
+        const validResults = results.filter(r => r !== null);
+        if (validResults.length === 0) {
+          console.error('No valid layer images loaded');
+          return;
+        }
+
+        // Use the first layer's dimensions for calculations
+        const firstResult = validResults[0]!;
+        const { scale, imgWidth, imgHeight } = firstResult;
+
+        // Add all layer images to canvas in z-index order
+        sortedLayers.forEach((layer) => {
+          const layerImg = layerImagesRef.current.get(layer.id);
+          if (layerImg) {
+            canvas.add(layerImg);
+            canvas.sendObjectToBack(layerImg);
+          }
+        });
+
+        // Calculate print area position relative to the first layer
+        const scaledPrintW = side.printArea.width * scale;
+        const scaledPrintH = side.printArea.height * scale;
+        const scaledPrintX = side.printArea.x * scale;
+        const scaledPrintY = side.printArea.y * scale;
+
+        const imageLeft = (width / 2) - (imgWidth * scale / 2);
+        const imageTop = (height / 2) - (imgHeight * scale / 2);
+
+        const printAreaLeft = imageLeft + scaledPrintX;
+        const printAreaTop = imageTop + scaledPrintY;
+        const printCenterX = printAreaLeft + (scaledPrintW / 2);
+
+        // Update guide box position
+        guideBox.set({
+          left: printAreaLeft,
+          top: printAreaTop,
+          width: scaledPrintW,
+          height: scaledPrintH,
+        });
+
+        // Update clip path position
+        clipPath.set({
+          left: printAreaLeft,
+          top: printAreaTop,
+          width: scaledPrintW,
+          height: scaledPrintH,
+        });
+
+        // Update vertical snap line
+        verticalSnapLine.set({
+          x1: printCenterX,
+          y1: printAreaTop,
+          x2: printCenterX,
+          y2: printAreaTop + scaledPrintH,
+        });
+
+        // Store values for use in event handlers
+        // @ts-expect-error - Adding custom properties
+        canvas.printAreaLeft = printAreaLeft;
+        // @ts-expect-error - Custom property
+        canvas.printAreaTop = printAreaTop;
+        // @ts-expect-error - Custom property
+        canvas.printAreaWidth = scaledPrintW;
+        // @ts-expect-error - Custom property
+        canvas.printAreaHeight = scaledPrintH;
+        // @ts-expect-error - Custom property
+        canvas.printCenterX = printCenterX;
+        // @ts-expect-error - Custom property
+        canvas.originalImageWidth = imgWidth;
+        // @ts-expect-error - Custom property
+        canvas.originalImageHeight = imgHeight;
+        // @ts-expect-error - Custom property
+        canvas.scaledImageWidth = imgWidth * scale;
+        // @ts-expect-error - Custom property
+        canvas.scaledImageHeight = imgHeight * scale;
+
+        canvas.add(guideBox);
+        markImageLoaded(side.id);
+        canvas.requestRenderAll();
+      }).catch((error) => {
+        console.error('Error loading layer images:', error);
+      });
+    } else {
+      // Legacy single-image mode: use imageUrl
+      const imageUrl = side.imageUrl;
+      if (!imageUrl) {
+        console.error('Side has no imageUrl or layers');
+        return;
+      }
+
+      fabric.FabricImage.fromURL(imageUrl, {crossOrigin:'anonymous'})
       .then((img) => {
         if (!img) {
           console.error('Failed to load image:', side.imageUrl);
@@ -270,9 +435,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       .catch((error) => {
         console.error('Error loading image for', side.name, ':', error);
       });
+    }
 
-      // Helper function to update scale box with object dimensions
-      const updateScaleBox = (obj: fabric.FabricObject | fabric.ActiveSelection) => {
+    // Helper function to update scale box with object dimensions
+    const updateScaleBox = (obj: fabric.FabricObject | fabric.ActiveSelection) => {
         // Get the scaled product image width on the canvas
         // @ts-expect-error - Custom property
         const scaledImageWidth = canvas.scaledImageWidth;
@@ -320,47 +486,47 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         });
 
         setScaleBoxVisible(true);
-      };
+    };
 
-      // 4. Event Listeners for Visibility Logic
-      const showGuide = () => {
+    // 4. Event Listeners for Visibility Logic
+    const showGuide = () => {
         guideBox.set('visible', true);
         canvas.requestRenderAll();
-      };
+    };
 
-      const hideGuide = () => {
+    const hideGuide = () => {
         guideBox.set('visible', false);
         canvas.requestRenderAll();
-      };
+    };
 
-      // Show when an object is selected
-      canvas.on('selection:created', () => {
+    // Show when an object is selected
+    canvas.on('selection:created', () => {
         showGuide();
         // Get the active object (which could be a single object or ActiveSelection for multiple)
         const activeObject = canvas.getActiveObject();
         if (activeObject) {
           updateScaleBox(activeObject);
         }
-      });
+    });
 
-      canvas.on('selection:updated', () => {
+    canvas.on('selection:updated', () => {
         showGuide();
         // Get the active object (which could be a single object or ActiveSelection for multiple)
         const activeObject = canvas.getActiveObject();
         if (activeObject) {
           updateScaleBox(activeObject);
         }
-      });
+    });
 
-      // Hide when selection is cleared
-      canvas.on('selection:cleared', () => {
+    // Hide when selection is cleared
+    canvas.on('selection:cleared', () => {
         hideGuide();
         setScaleBoxVisible(false);
-      });
+    });
 
-      // 5. Enforce Clipping on Added Objects
-      // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
-      canvas.on('object:added', (e) => {
+    // 5. Enforce Clipping on Added Objects
+    // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
+    canvas.on('object:added', (e) => {
         const obj = e.target;
         // Skip guide boxes, snap lines, and background product image
         // @ts-expect-error - Checking custom data property
@@ -390,42 +556,42 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
         // Increment canvas version to trigger updates in components that depend on canvas state
         incrementCanvasVersion();
-      })
+    })
 
-      const snapThreshold = 10;
+    const snapThreshold = 10;
 
-      // Update scale box during object transformations
-      canvas.on('object:scaling', (e) => {
+    // Update scale box during object transformations
+    canvas.on('object:scaling', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
         }
-      });
+    });
 
-      canvas.on('object:rotating', (e) => {
+    canvas.on('object:rotating', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
         }
-      });
+    });
 
-      canvas.on('object:modified', (e) => {
+    canvas.on('object:modified', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
         }
         // Increment canvas version when object is modified (color, size, etc.)
         incrementCanvasVersion();
-      });
+    });
 
-      // Increment canvas version when object is removed
-      canvas.on('object:removed', (e) => {
+    // Increment canvas version when object is removed
+    canvas.on('object:removed', (e) => {
         const obj = e.target;
         // Skip guide boxes, snap lines, and background product image
         // @ts-expect-error - Checking custom data property
         if (!obj || obj.excludeFromExport || (obj.data?.id === 'background-product-image')) return;
 
         incrementCanvasVersion();
-      });
+    });
 
-      canvas.on('object:moving', (e) => {
+    canvas.on('object:moving', (e) => {
         const obj = e.target;
         if (!obj) return; // for error handling if there is no object
 
@@ -449,12 +615,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         } else {
           verticalSnapLine.set('visible', false)
         }
-      });
+    });
 
-      canvas.on('mouse:up', () => {
+    canvas.on('mouse:up', () => {
         verticalSnapLine.set('visible', false);
         canvas.requestRenderAll();
-      });
+    });
 
     return () => {
       unregisterCanvas(side.id);
@@ -489,10 +655,13 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     canvas.requestRenderAll();
   }, [isEdit]);
 
-  // Effect to apply color filter when productColor changes
+  // Effect to apply color filter when productColor changes (legacy single-image mode)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Only apply in legacy mode (when side has no layers)
+    if (side.layers && side.layers.length > 0) return;
 
     // Find all objects with id 'background-product-image' and apply color filter
     canvas.forEachObject((obj) => {
@@ -515,7 +684,38 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
 
     canvas.requestRenderAll();
-  }, [productColor]);
+  }, [productColor, side.layers]);
+
+  // Effect to apply color filter to layers when layerColors change
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Only apply in multi-layer mode
+    if (!side.layers || side.layers.length === 0) return;
+
+    // Update each layer's color based on layerColors state
+    side.layers.forEach((layer) => {
+      const layerImg = layerImagesRef.current.get(layer.id);
+      if (!layerImg) return;
+
+      const selectedColor = layerColors[side.id]?.[layer.id] || layer.colorOptions[0] || '#FFFFFF';
+
+      // Remove any existing filters
+      layerImg.filters = [];
+
+      const colorFilter = new fabric.filters.BlendColor({
+        color: selectedColor,
+        mode: 'multiply',
+        alpha: 1,
+      });
+
+      layerImg.filters.push(colorFilter);
+      layerImg.applyFilters();
+    });
+
+    canvas.requestRenderAll();
+  }, [layerColors, side.id, side.layers]);
 
   return (
     <div className="relative">

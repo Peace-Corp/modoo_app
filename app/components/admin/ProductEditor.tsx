@@ -199,7 +199,9 @@ export default function ProductEditor({ product, onSave, onCancel }: ProductEdit
         alert(`면 ${i + 1}의 이름을 입력해주세요.`);
         return false;
       }
-      if (!sides[i].imageUrl.trim()) {
+      // Check if side has either imageUrl or layers with imageUrls
+      const hasImage = sides[i].imageUrl?.trim() || (sides[i].layers && sides[i].layers!.length > 0);
+      if (!hasImage) {
         alert(`면 ${i + 1}의 이미지를 업로드해주세요.`);
         return false;
       }

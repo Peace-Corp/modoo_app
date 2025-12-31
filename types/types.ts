@@ -1,10 +1,18 @@
 
 
 
-export interface ProductSide {
+export interface ProductLayer {
   id: string;
   name: string;
   imageUrl: string;
+  zIndex: number;
+  colorOptions: string[]; // Array of hex color codes
+}
+
+export interface ProductSide {
+  id: string;
+  name: string;
+  imageUrl?: string; // Optional for backward compatibility
   printArea: {
     x: number;
     y: number;
@@ -19,6 +27,8 @@ export interface ProductSide {
   };
   // Zoom scale for the canvas (1.0 = 100%, 0.5 = 50%, 2.0 = 200%)
   zoomScale?: number;
+  // Multi-layer support
+  layers?: ProductLayer[];
 }
 
 export interface ProductConfig {

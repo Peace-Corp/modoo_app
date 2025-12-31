@@ -3,6 +3,7 @@ import ProductDesigner from "@/app/components/canvas/ProductDesigner";
 import EditButton from "@/app/components/canvas/EditButton";
 import PricingInfo from "@/app/components/canvas/PricingInfo";
 import ColorInfo from "@/app/components/canvas/ColorInfo";
+import LayerColorSelector from "@/app/components/canvas/LayerColorSelector";
 import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
@@ -37,6 +38,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     canvasMap,
     canvasVersion,
     incrementCanvasVersion,
+    activeSideId,
   } = useCanvasStore();
 
   const { addItem: addToCart, items: cartStoreItems } = useCartStore();
@@ -297,26 +299,40 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
 
 
-          {/* Horizontal Color Selector */}
-          <div className="mt-4 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-3 pb-2">
-              {productColors.map((color) => (
-                <button
-                  key={color.id}
-                  onClick={() => handleColorChange(color.hex)}
-                  className="shrink-0 flex flex-col items-center gap-2"
-                >
-                  <div
-                    className={`w-12 h-12 rounded-full border-2 ${
-                      productColor === color.hex ? 'border-black' : 'border-gray-300'
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                  ></div>
-                  <span className="text-xs">{color.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Layer Color Selector (for products with multi-layer support) */}
+          {(() => {
+            const currentSide = product.configuration.find(side => side.id === activeSideId);
+            const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
+
+            return hasLayers ? (
+              <div className="mt-4">
+                <LayerColorSelector sideId={activeSideId} layers={currentSide!.layers!} />
+              </div>
+            ) : (
+              /* Legacy Horizontal Color Selector (for products without layers) */
+              productColors.length > 0 && (
+                <div className="mt-4 overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-3 pb-2">
+                    {productColors.map((color) => (
+                      <button
+                        key={color.id}
+                        onClick={() => handleColorChange(color.hex)}
+                        className="shrink-0 flex flex-col items-center gap-2"
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full border-2 ${
+                            productColor === color.hex ? 'border-black' : 'border-gray-300'
+                          }`}
+                          style={{ backgroundColor: color.hex }}
+                        ></div>
+                        <span className="text-xs">{color.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            );
+          })()}
 
           {/* Dynamic Pricing Info */}
           <PricingInfo basePrice={product.base_price} sides={product.configuration} />

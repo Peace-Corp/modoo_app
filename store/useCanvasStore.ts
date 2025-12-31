@@ -16,6 +16,12 @@ interface CanvasState {
   productColor: string;
   setProductColor: (color: string) => void;
 
+  // Layer color state - maps sideId -> layerId -> hex color
+  layerColors: Record<string, Record<string, string>>;
+  setLayerColor: (sideId: string, layerId: string, color: string) => void;
+  getLayerColor: (sideId: string, layerId: string) => string | null;
+  initializeLayerColors: (sideId: string, layers: { id: string; colorOptions: string[] }[]) => void;
+
   canvasMap: Record<string, fabric.Canvas>;
   registerCanvas: (id: string, cavas: fabric.Canvas) => void;
   unregisterCanvas: (id: string) => void;
@@ -48,10 +54,47 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isEditMode: false,
   productColor: '#FFFFFF', // Default mix gray color
   canvasVersion: 0,
+  layerColors: {},
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
   incrementCanvasVersion: () => set((state) => ({ canvasVersion: state.canvasVersion + 1 })),
+
+  // Layer color management
+  setLayerColor: (sideId, layerId, color) => {
+    set((state) => ({
+      layerColors: {
+        ...state.layerColors,
+        [sideId]: {
+          ...state.layerColors[sideId],
+          [layerId]: color
+        }
+      }
+    }));
+  },
+
+  getLayerColor: (sideId, layerId) => {
+    const { layerColors } = get();
+    return layerColors[sideId]?.[layerId] || null;
+  },
+
+  initializeLayerColors: (sideId, layers) => {
+    set((state) => {
+      const sideColors = { ...state.layerColors[sideId] };
+      layers.forEach(layer => {
+        // Only initialize if not already set
+        if (!sideColors[layer.id] && layer.colorOptions.length > 0) {
+          sideColors[layer.id] = layer.colorOptions[0];
+        }
+      });
+      return {
+        layerColors: {
+          ...state.layerColors,
+          [sideId]: sideColors
+        }
+      };
+    });
+  },
 
   markImageLoaded: (id) => {
     set((state) => ({
