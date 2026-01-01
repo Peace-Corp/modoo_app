@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  exportAndUploadTextFromCanvasState,
+  extractImageUrlsFromCanvasState
+} from '@/lib/server-svg-export';
 
 const widgetSecretKey = process.env.TOSS_SECRET_KEY;
 
@@ -209,9 +213,10 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const { error: itemsError } = await supabase
+    const { data: insertedItems, error: itemsError } = await supabase
       .from('order_items')
-      .insert(orderItems);
+      .insert(orderItems)
+      .select();
 
     if (itemsError) {
       console.error('Order items creation error:', itemsError);
@@ -224,6 +229,79 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Export text objects to SVG for each order item
+    // This only happens at order creation, avoiding unnecessary uploads
+    console.log('Starting SVG export for order items...');
+    console.log('Total items to process:', insertedItems?.length || 0);
+
+    for (const item of insertedItems || []) {
+      try {
+        console.log(`Processing item ${item.id}...`);
+
+        // Check if item has canvas state with content
+        if (item.canvas_state && typeof item.canvas_state === 'object') {
+          // Canvas state is a map of side IDs to canvas state objects
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const canvasStateMap = item.canvas_state as Record<string, any>;
+
+          console.log(`Canvas state sides for item ${item.id}:`, Object.keys(canvasStateMap));
+
+          // Export text objects to SVG and upload to Supabase
+          const svgUrls = await exportAndUploadTextFromCanvasState(
+            supabase,
+            canvasStateMap,
+            item.id
+          );
+
+          console.log(`SVG URLs returned for item ${item.id}:`, svgUrls);
+
+          // Extract image URLs from canvas state
+          const imageUrls = extractImageUrlsFromCanvasState(canvasStateMap);
+
+          console.log(`Image URLs extracted for item ${item.id}:`, imageUrls);
+
+          // Update order item with both SVG URLs and image URLs
+          const hasData = Object.keys(svgUrls).length > 0 || Object.keys(imageUrls).length > 0;
+
+          if (hasData) {
+            const updates: { text_svg_exports?: Record<string, string>; image_urls?: Record<string, unknown> } = {};
+
+            if (Object.keys(svgUrls).length > 0) {
+              updates.text_svg_exports = svgUrls;
+            }
+
+            if (Object.keys(imageUrls).length > 0) {
+              updates.image_urls = imageUrls;
+            }
+
+            console.log(`Updating item ${item.id} with:`, JSON.stringify(updates, null, 2));
+
+            const { data: updatedData, error: updateError } = await supabase
+              .from('order_items')
+              .update(updates)
+              .eq('id', item.id)
+              .select();
+
+            if (updateError) {
+              console.error(`Failed to update file URLs for item ${item.id}:`, updateError);
+            } else {
+              console.log(`Successfully updated item ${item.id}. Updated data:`, updatedData);
+            }
+          } else {
+            console.log(`No files to export for item ${item.id}`);
+          }
+        } else {
+          console.log(`Item ${item.id} has no canvas state`);
+        }
+      } catch (error) {
+        // Log error but don't fail the order
+        console.error(`Error exporting SVG for item ${item.id}:`, error);
+        if (error instanceof Error) {
+          console.error(`Error stack:`, error.stack);
+        }
+      }
     }
 
     return NextResponse.json({

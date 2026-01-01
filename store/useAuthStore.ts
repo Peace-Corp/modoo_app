@@ -33,7 +33,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
 
   // Sign up with email and password
-  signUp: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, password: string, name?: string, phone?: string) => Promise<{ success: boolean; error?: string; needsEmailConfirmation?: boolean }>;
 
   // Sign in with OAuth provider
   signInWithOAuth: (provider: 'google') => Promise<{ success: boolean; error?: string }>;
@@ -116,7 +116,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signUp: async (email: string, password: string) => {
+      signUp: async (email: string, password: string, name?: string, phone?: string) => {
         try {
           set({ isLoading: true });
           const supabase = createClient();
@@ -126,6 +126,10 @@ export const useAuthStore = create<AuthState>()(
             password,
             options: {
               emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+              data: {
+                name: name || '',
+                phone_number: phone || '',
+              },
             },
           });
 
@@ -143,9 +147,9 @@ export const useAuthStore = create<AuthState>()(
               const userData: UserData = {
                 id: data.user.id,
                 email: data.user.email!,
-                name: data.user.user_metadata?.name,
+                name: data.user.user_metadata?.name || name,
                 avatar_url: data.user.user_metadata?.avatar_url,
-                phone: data.user.phone,
+                phone: data.user.phone || phone,
                 created_at: data.user.created_at,
               };
 

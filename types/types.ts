@@ -132,3 +132,17 @@ export interface CanvasObjectPrintData {
   // Additional metadata for pricing and production
   estimatedCost?: number;
 }
+
+// Supabase storage metadata for canvas objects
+export interface CanvasObjectStorageData {
+  supabaseUrl?: string;
+  supabasePath?: string;
+  uploadedAt?: string;
+}
+
+// Combined canvas object data type
+export interface CanvasObjectData extends CanvasObjectPrintData, CanvasObjectStorageData {
+  id?: string;
+  objectId?: string;
+  [key: string]: unknown; // Allow additional custom properties
+}

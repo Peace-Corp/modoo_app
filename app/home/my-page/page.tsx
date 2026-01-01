@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag, Shield } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -41,6 +42,7 @@ const supportMenuItems: MenuItem[] = [
 ];
 
 export default function MyPage() {
+  const router = useRouter();
   const { user, isAuthenticated, setUser, logout, setLoading } = useAuthStore();
 
   useEffect(() => {
@@ -199,6 +201,7 @@ export default function MyPage() {
                   const supabase = createClient();
                   await supabase.auth.signOut();
                   logout();
+                  router.push('/login');
                 }}
                 className="w-full flex items-center gap-3 px-2 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >

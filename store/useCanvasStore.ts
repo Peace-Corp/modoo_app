@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import * as fabric from 'fabric';
 import { extractAllColors } from '@/lib/colorExtractor';
+import {
+  extractTextObjectsToSVG,
+  extractAndUploadTextSVG,
+  extractAndUploadAllTextSVG,
+  type SVGExportResult
+} from '@/lib/canvas-svg-export';
 
 
 interface CanvasState {
@@ -49,6 +55,12 @@ interface CanvasState {
   // Print option methods
   setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => void;
   getObjectPrintMethod: (object: fabric.FabricObject) => 'embroidery' | 'printing' | null;
+
+  // SVG export methods
+  exportTextToSVG: (sideId?: string) => SVGExportResult | null;
+  exportAndUploadTextToSVG: (sideId?: string) => Promise<SVGExportResult | null>;
+  exportAllTextToSVG: () => Record<string, SVGExportResult>;
+  exportAndUploadAllTextToSVG: () => Promise<Record<string, SVGExportResult>>;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -351,5 +363,51 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   getObjectPrintMethod: (object: fabric.FabricObject): 'embroidery' | 'printing' | null => {
     // @ts-expect-error - Checking custom data property
     return object.data?.printMethod || null;
+  },
+
+  // Export text objects from a specific canvas to SVG (no upload)
+  exportTextToSVG: (sideId?: string) => {
+    const { canvasMap, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    const canvas = canvasMap[targetSideId];
+
+    if (!canvas) {
+      console.warn(`Canvas not found for side: ${targetSideId}`);
+      return null;
+    }
+
+    return extractTextObjectsToSVG(canvas);
+  },
+
+  // Export text objects from a specific canvas to SVG and upload to Supabase
+  exportAndUploadTextToSVG: async (sideId?: string) => {
+    const { canvasMap, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    const canvas = canvasMap[targetSideId];
+
+    if (!canvas) {
+      console.warn(`Canvas not found for side: ${targetSideId}`);
+      return null;
+    }
+
+    return await extractAndUploadTextSVG(canvas, `text-${targetSideId}`);
+  },
+
+  // Export text objects from all canvases to SVG (no upload)
+  exportAllTextToSVG: () => {
+    const { canvasMap } = get();
+    const results: Record<string, SVGExportResult> = {};
+
+    Object.entries(canvasMap).forEach(([sideId, canvas]) => {
+      results[sideId] = extractTextObjectsToSVG(canvas);
+    });
+
+    return results;
+  },
+
+  // Export text objects from all canvases to SVG and upload to Supabase
+  exportAndUploadAllTextToSVG: async () => {
+    const { canvasMap } = get();
+    return await extractAndUploadAllTextSVG(canvasMap);
   },
 }));

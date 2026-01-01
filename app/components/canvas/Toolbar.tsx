@@ -4,6 +4,9 @@ import { useCanvasStore } from '@/store/useCanvasStore';
 import { Plus, TextCursor, Layers, Image, FileImage, Trash2, RefreshCcw } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
+import { uploadFileToStorage } from '@/lib/supabase-storage';
+import { STORAGE_BUCKETS, STORAGE_FOLDERS } from '@/lib/storage-config';
+import { createClient } from '@/lib/supabase-client';
 
 interface ToolbarProps {
   sides?: ProductSide[];
@@ -121,7 +124,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
     incrementCanvasVersion();
   };
 
-  const addImage = () => {
+  const addImage = async () => {
     const canvas = getActiveCanvas();
     if (!canvas) return; // for error handling
 
@@ -130,16 +133,38 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
     input.type = 'file';
     input.accept = 'image/*';
 
-    input.onchange = (e: Event) => {
+    input.onchange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imgUrl = event.target?.result as string;
+      try {
+        // Show loading state (optional - you could add a loading indicator here)
+        console.log('Uploading image to Supabase...');
 
-        fabric.FabricImage.fromURL(imgUrl).then((img) => {
+        // Create Supabase client for browser
+        const supabase = createClient();
+
+        // Upload to Supabase Storage
+        const uploadResult = await uploadFileToStorage(
+          supabase,
+          file,
+          STORAGE_BUCKETS.USER_DESIGNS,
+          STORAGE_FOLDERS.IMAGES
+        );
+
+        if (!uploadResult.success || !uploadResult.url) {
+          console.error('Failed to upload image:', uploadResult.error);
+          alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
+          return;
+        }
+
+        console.log('Image uploaded successfully:', uploadResult.url);
+
+        // Load image from Supabase URL
+        fabric.FabricImage.fromURL(uploadResult.url, {
+          crossOrigin: 'anonymous',
+        }).then((img) => {
           // Scale image to fit canvas if it's too large
           const maxWidth = canvas.width * 0.5;
           const maxHeight = canvas.height * 0.5;
@@ -157,16 +182,30 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
             originY: 'center',
           });
 
+          // Store Supabase metadata in the image object
+          // @ts-expect-error - Adding custom data property to FabricImage
+          img.data = {
+            // @ts-expect-error - Reading data property
+            ...(img.data || {}),
+            supabaseUrl: uploadResult.url,
+            supabasePath: uploadResult.path,
+            uploadedAt: new Date().toISOString(),
+          };
+
           canvas.add(img);
           canvas.setActiveObject(img);
           canvas.renderAll();
 
           // Trigger pricing recalculation
           incrementCanvasVersion();
+        }).catch((error) => {
+          console.error('Failed to load image:', error);
+          alert('이미지를 불러오는데 실패했습니다.');
         });
-      };
-
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error adding image:', error);
+        alert('이미지 추가 중 오류가 발생했습니다.');
+      }
     };
 
     // Trigger file input click
