@@ -6,6 +6,7 @@ import ProductDesigner from './canvas/ProductDesigner';
 import EditButton from './canvas/EditButton';
 import PricingInfo from './canvas/PricingInfo';
 import ObjectPreviewPanel from './canvas/ObjectPreviewPanel';
+import LayerColorSelector from './canvas/LayerColorSelector';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { ProductConfig } from '@/types/types';
 import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
@@ -49,6 +50,7 @@ export default function DesignEditModal({
     isEditMode,
     canvasVersion,
     incrementCanvasVersion,
+    activeSideId,
   } = useCanvasStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -500,29 +502,41 @@ export default function DesignEditModal({
           {/* Color Selector and Pricing - show only when NOT in edit mode */}
           {!isEditMode && (
             <div className="bg-white p-4 pb-24">
-              {/* Horizontal Color Selector */}
-              <div className="mb-4">
-                <h3 className="text-sm font-medium mb-3">제품 색상</h3>
-                <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-3 pb-2">
-                    {mockColors.map((color) => (
-                      <button
-                        key={color.id}
-                        onClick={() => handleColorChange(color.hex)}
-                        className="shrink-0 flex flex-col items-center gap-2"
-                      >
-                        <div
-                          className={`w-12 h-12 rounded-full border-2 ${
-                            productColor === color.hex ? 'border-black' : 'border-gray-300'
-                          }`}
-                          style={{ backgroundColor: color.hex }}
-                        ></div>
-                        <span className="text-xs">{color.name}</span>
-                      </button>
-                    ))}
+              {/* Layer Color Selector (for products with multi-layer support) or Legacy Product Color Selector */}
+              {(() => {
+                const currentSide = productConfig.sides.find(side => side.id === activeSideId);
+                const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
+
+                return hasLayers ? (
+                  <div className="mb-4">
+                    <LayerColorSelector sideId={activeSideId} layers={currentSide!.layers!} />
                   </div>
-                </div>
-              </div>
+                ) : (
+                  /* Legacy Horizontal Color Selector (for products without layers) */
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium mb-3">제품 색상</h3>
+                    <div className="overflow-x-auto scrollbar-hide">
+                      <div className="flex gap-3 pb-2">
+                        {mockColors.map((color) => (
+                          <button
+                            key={color.id}
+                            onClick={() => handleColorChange(color.hex)}
+                            className="shrink-0 flex flex-col items-center gap-2"
+                          >
+                            <div
+                              className={`w-12 h-12 rounded-full border-2 ${
+                                productColor === color.hex ? 'border-black' : 'border-gray-300'
+                              }`}
+                              style={{ backgroundColor: color.hex }}
+                            ></div>
+                            <span className="text-xs">{color.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Dynamic Pricing Info */}
               <PricingInfo basePrice={basePrice} sides={productConfig.sides} />

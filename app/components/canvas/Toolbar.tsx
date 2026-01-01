@@ -7,6 +7,8 @@ import TextStylePanel from './TextStylePanel';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from '@/lib/storage-config';
 import { createClient } from '@/lib/supabase-client';
+import { convertToPNG, isAiOrPsdFile, getConversionErrorMessage } from '@/lib/cloudconvert';
+import LoadingModal from '@/app/components/LoadingModal';
 
 interface ToolbarProps {
   sides?: ProductSide[];
@@ -22,6 +24,11 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
   const [color, setColor] = useState("");
   const currentZoom = getZoomLevel();
   const isDesktop = variant === 'desktop';
+
+  // Loading modal state
+  const [isLoadingModalOpen, setIsLoadingModalOpen] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [loadingSubmessage, setLoadingSubmessage] = useState('');
   // const canvas = getActiveCanvas();
 
   const handleObjectSelection = (object : fabric.FabricObject | null) => {
@@ -134,7 +141,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     // Create a hidden file input element
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = 'image/*,.ai,.psd'; // Accept images, AI, and PSD files
 
     input.onchange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
@@ -142,30 +149,102 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
       if (!file) return;
 
       try {
-        // Show loading state (optional - you could add a loading indicator here)
-        console.log('Uploading image to Supabase...');
-
         // Create Supabase client for browser
         const supabase = createClient();
 
-        // Upload to Supabase Storage
-        const uploadResult = await uploadFileToStorage(
-          supabase,
-          file,
-          STORAGE_BUCKETS.USER_DESIGNS,
-          STORAGE_FOLDERS.IMAGES
-        );
+        let displayUrl: string;
+        let originalFileUploadResult;
 
-        if (!uploadResult.success || !uploadResult.url) {
-          console.error('Failed to upload image:', uploadResult.error);
-          alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
-          return;
+        // Check if file is AI or PSD and needs conversion
+        if (isAiOrPsdFile(file)) {
+          console.log('AI/PSD file detected, converting to PNG...');
+
+          // Show loading modal for conversion
+          setLoadingMessage('파일 변환 중...');
+          setLoadingSubmessage('AI/PSD 파일을 PNG로 변환하고 있습니다. 잠시만 기다려주세요.');
+          setIsLoadingModalOpen(true);
+
+          // Convert AI/PSD to PNG
+          const conversionResult = await convertToPNG(file);
+
+          if (!conversionResult.success || !conversionResult.pngBlob) {
+            setIsLoadingModalOpen(false);
+            const errorMessage = getConversionErrorMessage(conversionResult.error);
+            console.error('Conversion failed:', conversionResult.error);
+            alert(errorMessage);
+            return;
+          }
+
+          console.log('Conversion successful, uploading original file and converted PNG...');
+
+          // Update loading message for upload phase
+          setLoadingMessage('파일 업로드 중...');
+          setLoadingSubmessage('변환된 파일을 저장하고 있습니다.');
+
+          // Upload the ORIGINAL AI/PSD file to Supabase
+          originalFileUploadResult = await uploadFileToStorage(
+            supabase,
+            file,
+            STORAGE_BUCKETS.USER_DESIGNS,
+            STORAGE_FOLDERS.IMAGES
+          );
+
+          if (!originalFileUploadResult.success || !originalFileUploadResult.url) {
+            setIsLoadingModalOpen(false);
+            console.error('Failed to upload original file:', originalFileUploadResult.error);
+            alert('원본 파일 업로드에 실패했습니다. 다시 시도해주세요.');
+            return;
+          }
+
+          console.log('Original file uploaded:', originalFileUploadResult.url);
+
+          // Create a PNG file from the blob for canvas display
+          const pngFile = new File([conversionResult.pngBlob], `${file.name.split('.')[0]}.png`, {
+            type: 'image/png',
+          });
+
+          // Upload the converted PNG for display
+          const pngUploadResult = await uploadFileToStorage(
+            supabase,
+            pngFile,
+            STORAGE_BUCKETS.USER_DESIGNS,
+            STORAGE_FOLDERS.IMAGES
+          );
+
+          if (!pngUploadResult.success || !pngUploadResult.url) {
+            setIsLoadingModalOpen(false);
+            console.error('Failed to upload PNG:', pngUploadResult.error);
+            alert('변환된 이미지 업로드에 실패했습니다.');
+            return;
+          }
+
+          // Use the PNG URL for display
+          displayUrl = pngUploadResult.url;
+          console.log('PNG uploaded for display:', displayUrl);
+        } else {
+          // Regular image file - upload as usual
+          console.log('Uploading image to Supabase...');
+
+          originalFileUploadResult = await uploadFileToStorage(
+            supabase,
+            file,
+            STORAGE_BUCKETS.USER_DESIGNS,
+            STORAGE_FOLDERS.IMAGES
+          );
+
+          if (!originalFileUploadResult.success || !originalFileUploadResult.url) {
+            console.error('Failed to upload image:', originalFileUploadResult.error);
+            alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
+            return;
+          }
+
+          // Use the original image URL for display
+          displayUrl = originalFileUploadResult.url;
+          console.log('Image uploaded successfully:', displayUrl);
         }
 
-        console.log('Image uploaded successfully:', uploadResult.url);
-
-        // Load image from Supabase URL
-        fabric.FabricImage.fromURL(uploadResult.url, {
+        // Load image from display URL
+        fabric.FabricImage.fromURL(displayUrl, {
           crossOrigin: 'anonymous',
         }).then((img) => {
           // Scale image to fit canvas if it's too large
@@ -190,8 +269,12 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           img.data = {
             // @ts-expect-error - Reading data property
             ...(img.data || {}),
-            supabaseUrl: uploadResult.url,
-            supabasePath: uploadResult.path,
+            supabaseUrl: displayUrl, // URL of the display image (PNG for AI/PSD)
+            supabasePath: originalFileUploadResult.path, // Path to original file
+            originalFileUrl: originalFileUploadResult.url, // URL of original file (AI/PSD or image)
+            originalFileName: file.name,
+            fileType: file.type || 'unknown',
+            isConverted: isAiOrPsdFile(file), // Flag to indicate if file was converted
             uploadedAt: new Date().toISOString(),
           };
 
@@ -201,11 +284,29 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
 
           // Trigger pricing recalculation
           incrementCanvasVersion();
+
+          // Hide loading modal
+          setIsLoadingModalOpen(false);
+
+          // Show success message for converted files
+          if (isAiOrPsdFile(file)) {
+            // Show brief success message
+            setLoadingMessage('완료!');
+            setLoadingSubmessage('파일이 성공적으로 추가되었습니다.');
+            setIsLoadingModalOpen(true);
+
+            // Auto-hide after 1.5 seconds
+            setTimeout(() => {
+              setIsLoadingModalOpen(false);
+            }, 1500);
+          }
         }).catch((error) => {
+          setIsLoadingModalOpen(false);
           console.error('Failed to load image:', error);
           alert('이미지를 불러오는데 실패했습니다.');
         });
       } catch (error) {
+        setIsLoadingModalOpen(false);
         console.error('Error adding image:', error);
         alert('이미지 추가 중 오류가 발생했습니다.');
       }
@@ -353,6 +454,13 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
             onClose={() => setSelectedObject(null)}
           />
         )}
+
+        {/* Loading Modal for file conversion */}
+        <LoadingModal
+          isOpen={isLoadingModalOpen}
+          message={loadingMessage}
+          submessage={loadingSubmessage}
+        />
       </>
     );
   }
@@ -513,6 +621,13 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           onClose={() => setSelectedObject(null)}
         />
       )}
+
+      {/* Loading Modal for file conversion */}
+      <LoadingModal
+        isOpen={isLoadingModalOpen}
+        message={loadingMessage}
+        submessage={loadingSubmessage}
+      />
 
     </>
   );

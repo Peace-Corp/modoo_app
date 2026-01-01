@@ -70,6 +70,9 @@ interface CanvasState {
   exportAndUploadTextToSVG: (sideId?: string) => Promise<SVGExportResult | null>;
   exportAllTextToSVG: () => Record<string, SVGExportResult>;
   exportAndUploadAllTextToSVG: () => Promise<Record<string, SVGExportResult>>;
+
+  // Reset all canvas state
+  resetCanvasState: () => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -525,5 +528,37 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { canvasMap } = get();
     const supabase = createClient();
     return await extractAndUploadAllTextSVG(supabase, canvasMap);
+  },
+
+  // Reset all canvas state to initial values
+  resetCanvasState: () => {
+    const { canvasMap } = get();
+
+    // Clear all user-added objects from all canvases
+    Object.values(canvasMap).forEach((canvas) => {
+      const objectsToRemove = canvas.getObjects().filter(obj => {
+        // Keep guide boxes and snap lines
+        if (obj.excludeFromExport) return false;
+
+        // Keep the background product image by checking its ID
+        // @ts-expect-error - Checking custom data property
+        if (obj.data?.id === 'background-product-image') return false;
+
+        // Remove all other user-added objects
+        return true;
+      });
+      objectsToRemove.forEach(obj => canvas.remove(obj));
+      canvas.requestRenderAll();
+    });
+
+    // Reset all state to initial values
+    set({
+      activeSideId: 'front',
+      isEditMode: false,
+      productColor: '#FFFFFF',
+      layerColors: {},
+      zoomLevels: {},
+      canvasVersion: 0,
+    });
   },
 }));
