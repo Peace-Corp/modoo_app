@@ -29,6 +29,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
   const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors } = useCanvasStore();
 
+  // Loading state to track when all images are loaded
+  const [isLoading, setIsLoading] = useState(true);
+
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
   const [scaleBoxDimensions, setScaleBoxDimensions] = useState({
@@ -142,6 +145,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       // Multi-layer mode: Initialize layer colors and load all layers
       initializeLayerColors(side.id, side.layers!);
 
+      // Disable canvas-level clipping for multi-layer mode
+      // Individual objects will be clipped via object:added event handler
+      canvas.clipPath = undefined;
+
       // Sort layers by zIndex
       const sortedLayers = [...side.layers!].sort((a, b) => a.zIndex - b.zIndex);
 
@@ -150,7 +157,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         return fabric.FabricImage.fromURL(layer.imageUrl, {crossOrigin:'anonymous'})
           .then((img) => {
             if (!img) {
-              console.error('Failed to load layer image:', layer.imageUrl);
+              console.error(`[SingleSideCanvas] Failed to load layer image: ${layer.imageUrl} for layer: ${layer.name} (${layer.id})`);
               return null;
             }
 
@@ -159,7 +166,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
             const imgHeight = img.height || 0;
 
             if (imgWidth === 0 || imgHeight === 0) {
-              console.error('Layer image has invalid dimensions:', imgWidth, 'x', imgHeight);
+              console.error(`[SingleSideCanvas] Layer image has invalid dimensions: ${imgWidth}x${imgHeight} for layer: ${layer.name} (${layer.id})`);
               return null;
             }
 
@@ -190,21 +197,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
               },
             });
 
-            // Apply color filter based on selected layer color
-            const selectedColor = useCanvasStore.getState().getLayerColor(side.id, layer.id) || layer.colorOptions[0] || '#FFFFFF';
-            img.filters = [];
-            const colorFilter = new fabric.filters.BlendColor({
-              color: selectedColor,
-              mode: 'multiply',
-              alpha: 1,
-            });
-            img.filters.push(colorFilter);
-            img.applyFilters();
-
-            // Store reference to this layer image
+            // Store reference to this layer image (before applying filters)
             layerImagesRef.current.set(layer.id, img);
 
-            return { img, scale, imgWidth, imgHeight };
+            console.log(`[SingleSideCanvas] Successfully loaded layer: ${layer.name} (${layer.id}) with dimensions ${imgWidth}x${imgHeight} for side: ${side.id}`);
+            return { img, scale, imgWidth, imgHeight, layer };
+          })
+          .catch((error) => {
+            // Catch individual layer loading errors to prevent one failure from breaking all layers
+            console.error(`[SingleSideCanvas] Error loading layer: ${layer.name} (${layer.id}) from ${layer.imageUrl}`, error);
+            return null;
           });
       });
 
@@ -213,6 +215,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         const validResults = results.filter(r => r !== null);
         if (validResults.length === 0) {
           console.error('No valid layer images loaded');
+          setIsLoading(false);
           return;
         }
 
@@ -220,14 +223,56 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         const firstResult = validResults[0]!;
         const { scale, imgWidth, imgHeight } = firstResult;
 
-        // Add all layer images to canvas in z-index order
+        // Add all layer images to canvas in z-index order (bottom to top)
+        console.log(`[SingleSideCanvas] Adding ${sortedLayers.length} layers to canvas for side: ${side.id}`);
+
+        // Get current layer colors from store to apply initial colors
+        const currentLayerColors = useCanvasStore.getState().layerColors;
+
+        // Add layers to canvas first and apply initial color filters
         sortedLayers.forEach((layer) => {
           const layerImg = layerImagesRef.current.get(layer.id);
           if (layerImg) {
+            // Apply initial color filter from store state
+            const selectedColor = currentLayerColors[side.id]?.[layer.id] || layer.colorOptions[0] || '#FFFFFF';
+
+            layerImg.filters = [];
+            const colorFilter = new fabric.filters.BlendColor({
+              color: selectedColor,
+              mode: 'multiply',
+              alpha: 1,
+            });
+            layerImg.filters.push(colorFilter);
+            layerImg.applyFilters();
+
             canvas.add(layerImg);
-            canvas.sendObjectToBack(layerImg);
+            console.log(`[SingleSideCanvas] Added layer ${layer.name} (${layer.id}) with color ${selectedColor}`);
+          } else {
+            console.error(`[SingleSideCanvas] Layer image not found in ref for ${layer.name} (${layer.id})`);
           }
         });
+
+        // Send all layers to the back in reverse order to maintain zIndex
+        // This ensures layers are at the very bottom, below guide elements
+        for (let i = sortedLayers.length - 1; i >= 0; i--) {
+          const layer = sortedLayers[i];
+          const layerImg = layerImagesRef.current.get(layer.id);
+          if (layerImg) {
+            canvas.sendObjectToBack(layerImg);
+            console.log(`[SingleSideCanvas] Sent layer ${layer.name} (${layer.id}) to back`);
+          }
+        }
+
+        // Debug: Log all objects on canvas
+        console.log(`[SingleSideCanvas] Canvas now has ${canvas.getObjects().length} objects:`,
+          canvas.getObjects().map((obj, i) => ({
+            index: i,
+            type: obj.type,
+            // @ts-expect-error - Checking custom data property
+            id: obj.data?.id,
+            // @ts-expect-error - Checking custom data property
+            layerId: obj.data?.layerId
+          })));
 
         // Calculate print area position relative to the first layer
         const scaledPrintW = side.printArea.width * scale;
@@ -289,14 +334,20 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.add(guideBox);
         markImageLoaded(side.id);
         canvas.requestRenderAll();
+
+        // All layers loaded and rendered - mark as ready
+        setIsLoading(false);
+        console.log(`[SingleSideCanvas] All layers loaded and rendered for side: ${side.id}`);
       }).catch((error) => {
         console.error('Error loading layer images:', error);
+        setIsLoading(false);
       });
     } else {
       // Legacy single-image mode: use imageUrl
       const imageUrl = side.imageUrl;
       if (!imageUrl) {
         console.error('Side has no imageUrl or layers');
+        setIsLoading(false);
         return;
       }
 
@@ -304,6 +355,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       .then((img) => {
         if (!img) {
           console.error('Failed to load image:', side.imageUrl);
+          setIsLoading(false);
           return;
         }
         // Scale the image to fit the canvas (basically contains the image inside the canvas)
@@ -312,6 +364,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Error logging
         if (imgWidth === 0 || imgHeight === 0) {
           console.error('Image has invalid dimensions:', imgWidth, 'x', imgHeight);
+          setIsLoading(false);
           return;
         }
 
@@ -431,9 +484,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.scaledImageHeight = imgHeight * scale;
 
         canvas.add(guideBox);
+
+        // Single image loaded and rendered - mark as ready
+        setIsLoading(false);
+        console.log(`[SingleSideCanvas] Single image loaded and rendered for side: ${side.id}`);
       })
       .catch((error) => {
         console.error('Error loading image for', side.name, ':', error);
+        setIsLoading(false);
       });
     }
 
@@ -734,8 +792,22 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   }, [layerColors, side.id, side.layers]);
 
   return (
-    <div className="relative">
-      <canvas ref={canvasEl}/>
+    <div className="relative" style={{ width, height }}>
+      {isLoading && (
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-gray-100"
+          style={{ width, height }}
+        >
+          <div className="flex flex-col items-center gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="text-sm text-gray-600">Loading canvas...</p>
+          </div>
+        </div>
+      )}
+      <canvas
+        ref={canvasEl}
+        style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.3s' }}
+      />
       <ScaleBox
         x={scaleBoxDimensions.x}
         y={scaleBoxDimensions.y}

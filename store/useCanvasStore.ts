@@ -79,15 +79,31 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Layer color management
   setLayerColor: (sideId, layerId, color) => {
-    set((state) => ({
-      layerColors: {
-        ...state.layerColors,
-        [sideId]: {
-          ...state.layerColors[sideId],
-          [layerId]: color
+    set((state) => {
+      // Update the color for this layer across ALL sides that have the same layerId
+      const updatedLayerColors = { ...state.layerColors };
+
+      // Iterate through all sides and update matching layer IDs
+      Object.keys(updatedLayerColors).forEach((currentSideId) => {
+        if (updatedLayerColors[currentSideId][layerId] !== undefined) {
+          updatedLayerColors[currentSideId] = {
+            ...updatedLayerColors[currentSideId],
+            [layerId]: color
+          };
         }
+      });
+
+      // Also ensure the current side has the color set even if it wasn't in the state yet
+      if (!updatedLayerColors[sideId]) {
+        updatedLayerColors[sideId] = {};
       }
-    }));
+      updatedLayerColors[sideId] = {
+        ...updatedLayerColors[sideId],
+        [layerId]: color
+      };
+
+      return { layerColors: updatedLayerColors };
+    });
   },
 
   getLayerColor: (sideId, layerId) => {
@@ -99,9 +115,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const sideColors = { ...state.layerColors[sideId] };
       layers.forEach(layer => {
-        // Only initialize if not already set
+        // Only initialize if not already set for this side
         if (!sideColors[layer.id] && layer.colorOptions.length > 0) {
-          sideColors[layer.id] = layer.colorOptions[0];
+          // Check if this layer ID already has a color set on ANY other side
+          let existingColor: string | null = null;
+          Object.keys(state.layerColors).forEach((otherSideId) => {
+            if (otherSideId !== sideId && state.layerColors[otherSideId][layer.id]) {
+              existingColor = state.layerColors[otherSideId][layer.id];
+            }
+          });
+
+          // Use existing color if found, otherwise use the first color option
+          sideColors[layer.id] = existingColor || layer.colorOptions[0];
         }
       });
       return {
@@ -149,7 +174,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Save state of all canvases as JSON strings
   saveAllCanvasState: () => {
-    const { canvasMap } = get();
+    const { canvasMap, layerColors } = get();
     const savedState: Record<string, string> = {};
 
     Object.entries(canvasMap).forEach(([id, canvas]) => {
@@ -166,7 +191,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return true;
       });
 
-      // Create a minimal JSON with only user objects
+      // Create a minimal JSON with only user objects and layer colors
       const canvasData = {
         version: canvas.toJSON().version,
         objects: userObjects.map(obj => {
@@ -178,7 +203,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             json.src = imgObj.getSrc();
           }
           return json;
-        })
+        }),
+        // Save layer colors for this side
+        layerColors: layerColors[id] || {}
       };
 
       savedState[id] = JSON.stringify(canvasData);
@@ -210,8 +237,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         });
         objectsToRemove.forEach(obj => canvas.remove(obj));
 
-        // Then load the saved user objects
+        // Then load the saved user objects and layer colors
         const canvasData = JSON.parse(json);
+
+        // Restore layer colors if present
+        if (canvasData.layerColors) {
+          set((state) => ({
+            layerColors: {
+              ...state.layerColors,
+              [id]: canvasData.layerColors
+            }
+          }));
+        }
 
         if (canvasData.objects && canvasData.objects.length > 0) {
           fabric.util.enlivenObjects(canvasData.objects).then((objects) => {
@@ -244,7 +281,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Save state of a specific canvas
   saveCanvasState: (id: string) => {
-    const { canvasMap } = get();
+    const { canvasMap, layerColors } = get();
     const canvas = canvasMap[id];
 
     if (!canvas) return null;
@@ -261,7 +298,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return true;
     });
 
-    // Create a minimal JSON with only user objects
+    // Create a minimal JSON with only user objects and layer colors
     const canvasData = {
       version: canvas.toJSON().version,
       objects: userObjects.map(obj => {
@@ -273,7 +310,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           json.src = imgObj.getSrc();
         }
         return json;
-      })
+      }),
+      // Save layer colors for this side
+      layerColors: layerColors[id] || {}
     };
 
     return JSON.stringify(canvasData);
@@ -301,8 +340,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       });
       objectsToRemove.forEach(obj => canvas.remove(obj));
 
-      // Then load the saved user objects
+      // Then load the saved user objects and layer colors
       const canvasData = JSON.parse(json);
+
+      // Restore layer colors if present
+      if (canvasData.layerColors) {
+        set((state) => ({
+          layerColors: {
+            ...state.layerColors,
+            [id]: canvasData.layerColors
+          }
+        }));
+      }
 
       if (canvasData.objects && canvasData.objects.length > 0) {
         fabric.util.enlivenObjects(canvasData.objects).then((objects) => {
