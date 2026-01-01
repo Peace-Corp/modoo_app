@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
 import { notFound } from "next/navigation";
 import ProductEditorClient from "./ProductEditorClient";
+import ProductEditorClientDesktop from "./ProductEditorClientDesktop";
+import { headers } from "next/headers";
 
 interface PageProps {
   params: Promise<{
@@ -12,6 +14,8 @@ interface PageProps {
 export default async function ProductEditorPage({ params }: PageProps) {
   const { productId } = await params;
   const supabase = await createClient();
+  const userAgent = (await headers()).get('user-agent') || '';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 
   const { data: product, error } = await supabase
     .from('products')
@@ -24,5 +28,7 @@ export default async function ProductEditorPage({ params }: PageProps) {
     notFound();
   }
 
-  return <ProductEditorClient product={product as Product} />;
+  return isMobile
+    ? <ProductEditorClient product={product as Product} />
+    : <ProductEditorClientDesktop product={product as Product} />;
 }

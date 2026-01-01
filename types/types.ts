@@ -71,6 +71,7 @@ export interface Product {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  thumbnail_image_link?: string;
 }
 
 export interface ProductionExample {

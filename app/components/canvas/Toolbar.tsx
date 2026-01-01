@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, Image, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { Plus, TextCursor, Layers, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
@@ -11,15 +11,17 @@ import { createClient } from '@/lib/supabase-client';
 interface ToolbarProps {
   sides?: ProductSide[];
   handleExitEditMode?: () => void;
+  variant?: 'mobile' | 'desktop';
 }
 
-const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => {
+const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, variant = 'mobile' }) => {
   const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap, incrementCanvasVersion, zoomIn, zoomOut, getZoomLevel } = useCanvasStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
   const [color, setColor] = useState("");
   const currentZoom = getZoomLevel();
+  const isDesktop = variant === 'desktop';
   // const canvas = getActiveCanvas();
 
   const handleObjectSelection = (object : fabric.FabricObject | null) => {
@@ -282,6 +284,78 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
   if (!isEditMode) return null;
 
   const currentSide = sides.find(side => side.id === activeSideId);
+
+  if (isDesktop) {
+    return (
+      <>
+        <div className="w-full flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={addText}
+              className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+              title="텍스트 추가"
+            >
+              <TextCursor className="size-4" />
+              텍스트
+            </button>
+            <button
+              onClick={addImage}
+              className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+              title="이미지 추가"
+            >
+              <FileImage className="size-4" />
+              이미지
+            </button>
+            <button
+              onClick={handleResetCanvas}
+              className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+              title="초기화"
+            >
+              <RefreshCcw className="size-4" />
+              초기화
+            </button>
+            {selectedObject && (
+              <button
+                onClick={handleDeleteObject}
+                className="flex items-center gap-2 rounded-full border border-red-200 px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition"
+                title="삭제"
+              >
+                <Trash2 className="size-4" />
+                삭제
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => zoomOut()}
+              className="p-1.5 hover:bg-gray-100 rounded-full transition"
+              title="축소"
+            >
+              <ZoomOut className='text-black/80 size-5' />
+            </button>
+            <span className='text-xs text-gray-600 min-w-12 text-center'>
+              {Math.round(currentZoom * 100)}%
+            </span>
+            <button
+              onClick={() => zoomIn()}
+              className="p-1.5 hover:bg-gray-100 rounded-full transition"
+              title="확대"
+            >
+              <ZoomIn className='text-black/80 size-5' />
+            </button>
+          </div>
+        </div>
+
+        {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
+          <TextStylePanel
+            selectedObject={selectedObject as fabric.IText}
+            onClose={() => setSelectedObject(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>

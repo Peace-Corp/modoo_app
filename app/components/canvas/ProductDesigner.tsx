@@ -15,15 +15,19 @@ const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSid
 
 interface ProductDesignerProps {
   config: ProductConfig;
+  layout?: 'mobile' | 'desktop';
 }
 
-const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
+const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mobile' }) => {
   const { isEditMode, setEditMode, setActiveSide, activeSideId, canvasMap } = useCanvasStore();
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDesktop = layout === 'desktop';
+  const allowSwipe = !isDesktop && !isEditMode;
+  const shouldFullscreen = isEditMode && !isDesktop;
 
   // Derive current index from activeSideId
   const currentIndex = config.sides.findIndex(side => side.id === activeSideId);
@@ -43,33 +47,33 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isEditMode) return;
+    if (!allowSwipe) return;
     setIsDragging(true);
     setStartX(e.touches[0].clientX);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isEditMode) return;
+    if (!allowSwipe) return;
     setIsDragging(true);
     setStartX(e.clientX);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || isEditMode) return;
+    if (!isDragging || !allowSwipe) return;
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX;
     setTranslateX(diff);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || isEditMode) return;
+    if (!isDragging || !allowSwipe) return;
     const currentX = e.clientX;
     const diff = currentX - startX;
     setTranslateX(diff);
   };
 
   const handleDragEnd = () => {
-    if (!isDragging || isEditMode) return;
+    if (!isDragging || !allowSwipe) return;
     setIsDragging(false);
 
     const threshold = 50; // Minimum drag distance to trigger slide change
@@ -87,7 +91,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
 
   const getTransform = () => {
     const baseTranslate = -validCurrentIndex * 100;
-    const dragTranslate = !isEditMode && isDragging && containerWidth > 0 ? (translateX / containerWidth) * 100 : 0;
+    const dragTranslate = allowSwipe && isDragging && containerWidth > 0 ? (translateX / containerWidth) * 100 : 0;
     return `translateX(${baseTranslate + dragTranslate}%)`;
   };
 
@@ -100,34 +104,63 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
     setEditMode(false);
   };
 
-  return (
-    <div className={isEditMode ? "min-h-screen" : ""}>
-      <div className="">
+  const containerWidthClass = isDesktop ? 'w-full' : 'max-w-2xl mx-auto';
+  const containerHeightClass = shouldFullscreen
+    ? 'h-screen'
+    : isDesktop
+      ? 'h-[560px] md:h-[640px]'
+      : 'h-100';
 
-        <div className={`max-w-2xl mx-auto overflow-hidden transition-all relative duration-300 ${isEditMode ? 'h-screen bg-[#f3f3f3]' : 'h-100 bg-[#f3f3f3]'} flex flex-col justify-center items-center `}>
+  return (
+    <div className={shouldFullscreen ? "min-h-screen" : ""}>
+      <div className="">
+        {isDesktop && (
+          <div className="mb-4">
+            <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} variant="desktop" />
+          </div>
+        )}
+
+        {isDesktop && config.sides.length > 1 && (
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
+            {config.sides.map((side, index) => (
+              <button
+                key={side.id}
+                onClick={() => setActiveSide(side.id)}
+                className={`rounded-full border px-4 py-2.5 text-xs font-semibold transition ${
+                  index === validCurrentIndex
+                    ? 'border-black bg-black text-white'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
+                }`}
+              >
+                {side.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className={`${containerWidthClass} overflow-hidden transition-all relative duration-300 ${containerHeightClass} bg-[#f3f3f3] flex flex-col justify-center items-center`}>
           <div
             ref={containerRef}
-            className={`relative ${!isEditMode ? 'touch-pan-y' : ''}`}
-            onTouchStart={!isEditMode ? handleTouchStart : undefined}
-            onTouchMove={!isEditMode ? handleTouchMove : undefined}
-            onTouchEnd={!isEditMode ? handleDragEnd : undefined}
-            onMouseDown={!isEditMode ? handleMouseDown : undefined}
-            onMouseMove={!isEditMode ? handleMouseMove : undefined}
-            onMouseUp={!isEditMode ? handleDragEnd : undefined}
-            onMouseLeave={!isEditMode ? handleDragEnd : undefined}
+            className={`relative ${allowSwipe ? 'touch-pan-y' : ''}`}
+            onTouchStart={allowSwipe ? handleTouchStart : undefined}
+            onTouchMove={allowSwipe ? handleTouchMove : undefined}
+            onTouchEnd={allowSwipe ? handleDragEnd : undefined}
+            onMouseDown={allowSwipe ? handleMouseDown : undefined}
+            onMouseMove={allowSwipe ? handleMouseMove : undefined}
+            onMouseUp={allowSwipe ? handleDragEnd : undefined}
+            onMouseLeave={allowSwipe ? handleDragEnd : undefined}
           >
             <div
               className="flex transition-transform"
               style={{
                 transform: getTransform(),
                 transitionDuration: isDragging ? '0ms' : '300ms',
-                cursor: !isEditMode && !isDragging ? 'grab' : !isEditMode && isDragging ? 'grabbing' : 'default',
+                cursor: allowSwipe && !isDragging ? 'grab' : allowSwipe && isDragging ? 'grabbing' : 'default',
               }}
             >
               {config.sides.map((side) => (
                 <div
                   className="flex flex-col items-center shrink-0 w-full"
-                  // style={{ width: '100%' }}
                   key={side.id}
                 >
                   <SingleSideCanvas
@@ -142,7 +175,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
           </div>
 
           {/* Pagination dots */}
-          {!isEditMode && config.sides.length > 1 && (
+          {!isDesktop && !isEditMode && config.sides.length > 1 && (
             <div className="flex justify-center gap-2 pb-3 absolute bottom-0">
               {config.sides.map((side, index) => (
                 <button
@@ -164,10 +197,9 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config }) => {
       </div>
 
       {/* Toolbar - shows only in edit mode */}
-      <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} />
+      {!isDesktop && <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} />}
     </div>
   );
 };
 
 export default ProductDesigner;
-
