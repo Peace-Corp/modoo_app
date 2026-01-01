@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, Image, FileImage, Trash2, RefreshCcw } from 'lucide-react';
+import { Plus, TextCursor, Layers, Image, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
@@ -14,11 +14,12 @@ interface ToolbarProps {
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => {
-  const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap, incrementCanvasVersion } = useCanvasStore();
+  const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap, incrementCanvasVersion, zoomIn, zoomOut, getZoomLevel } = useCanvasStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
   const [color, setColor] = useState("");
+  const currentZoom = getZoomLevel();
   // const canvas = getActiveCanvas();
 
   const handleObjectSelection = (object : fabric.FabricObject | null) => {
@@ -296,11 +297,32 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode }) => 
             </button>
 
             <div className='flex items-center gap-3'>
-              <button onClick={handleResetCanvas}>
+              {/* Zoom controls */}
+              <div className='flex items-center gap-1 border-r border-gray-300 pr-3'>
+                <button
+                  onClick={() => zoomOut()}
+                  className='p-1.5 hover:bg-gray-100 rounded transition'
+                  title="축소"
+                >
+                  <ZoomOut className='text-black/80 size-5' />
+                </button>
+                <span className='text-xs text-gray-600 min-w-12 text-center'>
+                  {Math.round(currentZoom * 100)}%
+                </span>
+                <button
+                  onClick={() => zoomIn()}
+                  className='p-1.5 hover:bg-gray-100 rounded transition'
+                  title="확대"
+                >
+                  <ZoomIn className='text-black/80 size-5' />
+                </button>
+              </div>
+
+              <button onClick={handleResetCanvas} title="초기화">
                 <RefreshCcw className='text-black/80 font-extralight' />
               </button>
               {selectedObject && (
-                <button onClick={handleDeleteObject}>
+                <button onClick={handleDeleteObject} title="삭제">
                   <Trash2 className='text-red-400 font-extralight' />
                 </button>
               )}

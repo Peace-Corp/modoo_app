@@ -29,6 +29,14 @@ interface CanvasState {
   getLayerColor: (sideId: string, layerId: string) => string | null;
   initializeLayerColors: (sideId: string, layers: { id: string; colorOptions: string[] }[]) => void;
 
+  // Zoom state - maps sideId -> zoom level
+  zoomLevels: Record<string, number>;
+  getZoomLevel: (sideId?: string) => number;
+  setZoom: (zoom: number, sideId?: string) => void;
+  zoomIn: (sideId?: string) => void;
+  zoomOut: (sideId?: string) => void;
+  resetZoom: (sideId?: string) => void;
+
   canvasMap: Record<string, fabric.Canvas>;
   registerCanvas: (id: string, cavas: fabric.Canvas) => void;
   unregisterCanvas: (id: string) => void;
@@ -72,10 +80,64 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   productColor: '#FFFFFF', // Default mix gray color
   canvasVersion: 0,
   layerColors: {},
+  zoomLevels: {},
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
   incrementCanvasVersion: () => set((state) => ({ canvasVersion: state.canvasVersion + 1 })),
+
+  // Zoom methods
+  getZoomLevel: (sideId) => {
+    const { zoomLevels, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    return zoomLevels[targetSideId] || 1.0;
+  },
+
+  setZoom: (zoom, sideId) => {
+    const { canvasMap, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    const canvas = canvasMap[targetSideId];
+
+    if (!canvas) return;
+
+    // Clamp zoom between 0.1 and 5
+    const clampedZoom = Math.max(0.1, Math.min(5, zoom));
+
+    // Get canvas center point
+    const center = new fabric.Point(canvas.width / 2, canvas.height / 2);
+
+    // Apply zoom centered on the canvas center
+    canvas.zoomToPoint(center, clampedZoom);
+
+    // Update zoom levels state
+    set((state) => ({
+      zoomLevels: {
+        ...state.zoomLevels,
+        [targetSideId]: clampedZoom
+      }
+    }));
+
+    canvas.requestRenderAll();
+  },
+
+  zoomIn: (sideId) => {
+    const { zoomLevels, activeSideId, setZoom } = get();
+    const targetSideId = sideId || activeSideId;
+    const currentZoom = zoomLevels[targetSideId] || 1.0;
+    setZoom(currentZoom + 0.1, targetSideId);
+  },
+
+  zoomOut: (sideId) => {
+    const { zoomLevels, activeSideId, setZoom } = get();
+    const targetSideId = sideId || activeSideId;
+    const currentZoom = zoomLevels[targetSideId] || 1.0;
+    setZoom(currentZoom - 0.1, targetSideId);
+  },
+
+  resetZoom: (sideId) => {
+    const { setZoom } = get();
+    setZoom(1.0, sideId);
+  },
 
   // Layer color management
   setLayerColor: (sideId, layerId, color) => {

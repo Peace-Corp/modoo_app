@@ -27,7 +27,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const productImageRef = useRef<fabric.FabricImage | null>(null);
   const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors, resetZoom } = useCanvasStore();
 
   // Loading state to track when all images are loaded
   const [isLoading, setIsLoading] = useState(true);
@@ -708,6 +708,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Reset zoom when entering or exiting edit mode
+    resetZoom(side.id);
+
     canvas.selection = isEdit;
     canvas.forEachObject((obj) => {
       // Skip guide boxes and snap lines
@@ -727,7 +730,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       obj.evented = isEdit;
     });
     canvas.requestRenderAll();
-  }, [isEdit]);
+  }, [isEdit, side.id, resetZoom]);
 
   // Effect to apply color filter when productColor changes (legacy single-image mode)
   useEffect(() => {
