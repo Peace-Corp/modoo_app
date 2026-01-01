@@ -18,6 +18,41 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { user, isAuthenticated } = useAuthStore();
   const [isFavorited, setIsFavorited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [reviewStats, setReviewStats] = useState<{
+    averageRating: number;
+    totalReviews: number;
+  }>({ averageRating: 0, totalReviews: 0 });
+
+  // Fetch review statistics
+  useEffect(() => {
+    async function fetchReviewStats() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('product_id', product.id);
+
+        if (error) {
+          console.error('Error fetching reviews:', error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const totalReviews = data.length;
+          const averageRating = data.reduce((sum, review) => sum + review.rating, 0) / totalReviews;
+          setReviewStats({
+            averageRating: Math.round(averageRating * 100) / 100, // Round to 2 decimal places
+            totalReviews,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      }
+    }
+
+    fetchReviewStats();
+  }, [product.id]);
 
   // Check if product is favorited
   useEffect(() => {
@@ -34,9 +69,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           .select('id')
           .eq('user_id', user.id)
           .eq('product_id', product.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        if (error) {
           console.error('Error checking favorite:', error);
         }
 
@@ -129,11 +164,19 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Pricing */}
         <p className="font-bold">{formattedPrice}원</p>
         <p className="text-xs">200개 이상 구매시</p>
-        <div className="text-[.6em] flex items-center gap-0.5">
-          <Star size={10} className="text-orange-400"/>
-          <p className="text-orange-400 text-bold">4.92</p>
-          <p className="text-gray-400 text-[.5em]">(999+)</p>
-        </div>
+        {/* Reviews */}
+        {reviewStats.totalReviews > 0 ? (
+          <div className="text-[.6em] flex items-center gap-0.5">
+            <Star size={10} className="text-orange-400 fill-orange-400"/>
+            <p className="text-orange-400 font-bold">{reviewStats.averageRating.toFixed(2)}</p>
+            <p className="text-gray-400 text-[.5em]">({reviewStats.totalReviews}{reviewStats.totalReviews >= 100 ? '+' : ''})</p>
+          </div>
+        ) : (
+          <div className="text-[.6em] flex items-center gap-0.5">
+            <Star size={10} className="text-gray-300"/>
+            <p className="text-gray-400 text-[.5em]">리뷰 없음</p>
+          </div>
+        )}
       </div>
     </Link>
   )

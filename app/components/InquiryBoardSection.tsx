@@ -46,7 +46,7 @@ export default async function InquiryBoardSection() {
   };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <section className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -104,16 +104,6 @@ export default async function InquiryBoardSection() {
           <p className="text-gray-500 mb-4">등록된 문의가 없습니다.</p>
         </div>
       )}
-
-      {/* CTA Button */}
-      <div className="mt-6 text-center">
-        <Link
-          href="/inquiries/new"
-          className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium"
-        >
-          문의하기
-        </Link>
-      </div>
     </section>
   );
 }

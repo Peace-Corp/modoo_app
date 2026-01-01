@@ -1,106 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { InquiryWithDetails, InquiryStatus } from '@/types/types';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
 import { ChevronLeft, MessageSquare, Plus, Search } from 'lucide-react';
 import Image from 'next/image';
 
-const STATUS_LABELS: Record<InquiryStatus, string> = {
-  pending: '대기중',
-  ongoing: '진행중',
-  completed: '완료'
-};
-
-const STATUS_COLORS: Record<InquiryStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  ongoing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800'
-};
-
 export default function InquiriesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [inquiries, setInquiries] = useState<InquiryWithDetails[]>([]);
-  const [filteredInquiries, setFilteredInquiries] = useState<InquiryWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<InquiryStatus | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    checkUserAndFetchInquiries();
-  }, []);
-
-  useEffect(() => {
-    filterInquiries();
-  }, [inquiries, selectedStatus, searchQuery]);
-
-  const checkUserAndFetchInquiries = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      router.push('/login?redirect=/inquiries');
-      return;
-    }
-
-    setUser(user);
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    const isAdminUser = profile?.role === 'admin';
-    setIsAdmin(isAdminUser);
-
-    await fetchInquiries(isAdminUser);
-  };
-
-  const fetchInquiries = async (isAdminUser: boolean) => {
-    setIsLoading(true);
-    const supabase = createClient();
-
-    // Fetch inquiries with related data
-    const { data, error } = await supabase
-      .from('inquiries')
-      .select(`
-        *,
-        user:profiles!inquiries_user_id_fkey(email),
-        products:inquiry_products(
-          id,
-          product_id,
-          product:products(*)
-        ),
-        replies:inquiry_replies(
-          id,
-          content,
-          created_at,
-          admin:profiles!inquiry_replies_admin_id_fkey(email)
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setInquiries(data as any);
-    } else {
-      console.error('Error fetching inquiries:', error);
-    }
-
-    setIsLoading(false);
-  };
-
-  const filterInquiries = () => {
+  // Derived state using useMemo
+  const filteredInquiries = useMemo(() => {
     let filtered = [...inquiries];
 
-    // Filter by status
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(inquiry => inquiry.status === selectedStatus);
+    // Filter by tab (all or my)
+    if (activeTab === 'my' && user) {
+      filtered = filtered.filter(inquiry => inquiry.user_id === user.id);
     }
 
     // Filter by search query
@@ -112,8 +35,75 @@ export default function InquiriesPage() {
       );
     }
 
-    setFilteredInquiries(filtered);
-  };
+    return filtered;
+  }, [inquiries, activeTab, user, searchQuery]);
+
+  // Set initial tab from URL params
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'my') {
+      setActiveTab('my');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const fetchInquiries = async () => {
+      setIsLoading(true);
+      const supabase = createClient();
+
+      // Fetch all inquiries with related data
+      const { data, error } = await supabase
+        .from('inquiries')
+        .select(`
+          *,
+          user:profiles!inquiries_user_id_fkey(email),
+          products:inquiry_products(
+            id,
+            product_id,
+            product:products(*)
+          ),
+          replies:inquiry_replies(
+            id,
+            content,
+            created_at,
+            admin:profiles!inquiry_replies_admin_id_fkey(email)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setInquiries(data as InquiryWithDetails[]);
+      } else {
+        console.error('Error fetching inquiries:', error);
+      }
+
+      setIsLoading(false);
+    };
+
+    const checkUserAndFetchInquiries = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      setUser(user || null);
+
+      // Check if user is admin
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        const isAdminUser = profile?.role === 'admin';
+        setIsAdmin(isAdminUser);
+      }
+
+      await fetchInquiries();
+    };
+
+    checkUserAndFetchInquiries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -164,8 +154,47 @@ export default function InquiriesPage() {
             </button>
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => {
+                setActiveTab('all');
+                router.push('/inquiries');
+              }}
+              className={`
+                flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
+                ${activeTab === 'all'
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }
+              `}
+            >
+              전체
+            </button>
+            <button
+              onClick={() => {
+                if (!user) {
+                  alert('로그인이 필요합니다.');
+                  router.push('/login?redirect=/inquiries?tab=my');
+                  return;
+                }
+                setActiveTab('my');
+                router.push('/inquiries?tab=my');
+              }}
+              className={`
+                flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
+                ${activeTab === 'my'
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }
+              `}
+            >
+              나의 문의
+            </button>
+          </div>
+
           {/* Search */}
-          <div className="relative mb-4">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
@@ -174,37 +203,6 @@ export default function InquiriesPage() {
               placeholder="제목이나 내용으로 검색..."
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition"
             />
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => setSelectedStatus('all')}
-              className={`
-                px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap
-                ${selectedStatus === 'all'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }
-              `}
-            >
-              전체
-            </button>
-            {Object.entries(STATUS_LABELS).map(([status, label]) => (
-              <button
-                key={status}
-                onClick={() => setSelectedStatus(status as InquiryStatus)}
-                className={`
-                  px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap
-                  ${selectedStatus === status
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }
-                `}
-              >
-                {label}
-              </button>
-            ))}
           </div>
         </div>
       </header>
@@ -217,12 +215,14 @@ export default function InquiriesPage() {
           <div className="text-center py-12">
             <MessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500 mb-6">
-              {searchQuery || selectedStatus !== 'all'
+              {searchQuery
                 ? '검색 결과가 없습니다.'
+                : activeTab === 'my'
+                ? '등록된 문의가 없습니다.'
                 : '등록된 문의가 없습니다.'
               }
             </p>
-            {!searchQuery && selectedStatus === 'all' && (
+            {!searchQuery && (
               <button
                 onClick={() => router.push('/inquiries/new')}
                 className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition"
@@ -242,19 +242,13 @@ export default function InquiriesPage() {
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`
-                        px-2 py-1 rounded text-xs font-medium
-                        ${STATUS_COLORS[inquiry.status]}
-                      `}>
-                        {STATUS_LABELS[inquiry.status]}
-                      </span>
-                      {isAdmin && inquiry.user && (
+                    {isAdmin && inquiry.user && (
+                      <div className="mb-2">
                         <span className="text-xs text-gray-500">
                           {inquiry.user.email}
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
                     <p className="text-sm text-gray-600 line-clamp-2">
                       {inquiry.content}
