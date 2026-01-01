@@ -11,7 +11,7 @@ import QuantitySelectorModal from '@/app/components/QuantitySelectorModal';
 import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
 import { SizeOption, CartItem, ProductColor } from '@/types/types';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Search } from 'lucide-react';
 
 type TabType = 'designs' | 'favorites';
 
@@ -54,6 +54,7 @@ export default function DesignsPage() {
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Add to cart modal state
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
@@ -168,6 +169,12 @@ export default function DesignsPage() {
   };
 
   // Handle adding to cart with selected sizes/quantities
+  // Filter designs based on search query
+  const filteredDesigns = designs.filter((design) => {
+    const designTitle = design.title || design.product.title;
+    return designTitle.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   const handleSaveToCart = async (designName: string, selectedItems: CartItem[]) => {
     if (!selectedDesign) return;
 
@@ -271,6 +278,22 @@ export default function DesignsPage() {
       {/* Tab Content */}
       {activeTab === 'designs' ? (
         <div className="p-4">
+          {/* Search Field */}
+          {isAuthenticated && !isLoading && !error && designs.length > 0 && (
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="디자인 이름으로 검색"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                />
+              </div>
+            </div>
+          )}
+
           {!isAuthenticated ? (
             <div className="text-center py-20">
               <p className="text-gray-500 mb-4">로그인이 필요합니다</p>
@@ -302,9 +325,14 @@ export default function DesignsPage() {
               <p className="text-gray-500 mb-4">저장된 디자인이 없습니다</p>
               <p className="text-sm text-gray-400">제품을 커스터마이징하고 장바구니에 담아보세요!</p>
             </div>
+          ) : filteredDesigns.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-gray-500 mb-4">검색 결과가 없습니다</p>
+              <p className="text-sm text-gray-400">다른 검색어로 시도해보세요</p>
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {designs.map((design) => {
+              {filteredDesigns.map((design) => {
                 return (
                   <div
                     key={design.id}
