@@ -69,9 +69,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           .select('id')
           .eq('user_id', user.id)
           .eq('product_id', product.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        if (error) {
           console.error('Error checking favorite:', error);
         }
 

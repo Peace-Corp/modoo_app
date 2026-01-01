@@ -34,7 +34,7 @@ const accountMenuItems: MenuItem[] = [
 ];
 
 const supportMenuItems: MenuItem[] = [
-  { icon: MessageSquare, label: '나의 문의', href: '/inquiries/my', badge: null },
+  { icon: MessageSquare, label: '나의 문의', href: '/inquiries?tab=my', badge: null },
   { label: '공지사항', href: '/support/notices', badge: 'new' },
   { label: '자주 묻는 질문', href: '/support/faq', badge: null },
   { label: '1:1 문의', href: '/support/inquiry', badge: null },

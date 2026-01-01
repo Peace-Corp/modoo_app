@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
 import { ChevronLeft, MessageSquare, Plus, Search } from 'lucide-react';
@@ -9,6 +9,7 @@ import Image from 'next/image';
 
 export default function InquiriesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [inquiries, setInquiries] = useState<InquiryWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -36,6 +37,14 @@ export default function InquiriesPage() {
 
     return filtered;
   }, [inquiries, activeTab, user, searchQuery]);
+
+  // Set initial tab from URL params
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'my') {
+      setActiveTab('my');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchInquiries = async () => {
@@ -148,7 +157,10 @@ export default function InquiriesPage() {
           {/* Tabs */}
           <div className="flex gap-2 mb-4">
             <button
-              onClick={() => setActiveTab('all')}
+              onClick={() => {
+                setActiveTab('all');
+                router.push('/inquiries');
+              }}
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'all'
@@ -163,10 +175,11 @@ export default function InquiriesPage() {
               onClick={() => {
                 if (!user) {
                   alert('로그인이 필요합니다.');
-                  router.push('/login?redirect=/inquiries');
+                  router.push('/login?redirect=/inquiries?tab=my');
                   return;
                 }
                 setActiveTab('my');
+                router.push('/inquiries?tab=my');
               }}
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
