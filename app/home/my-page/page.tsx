@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag, Shield } from 'lucide-react';
+import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { createClient } from '@/lib/supabase-client';
@@ -34,6 +34,7 @@ const accountMenuItems: MenuItem[] = [
 ];
 
 const supportMenuItems: MenuItem[] = [
+  { icon: MessageSquare, label: '나의 문의', href: '/inquiries/my', badge: null },
   { label: '공지사항', href: '/support/notices', badge: 'new' },
   { label: '자주 묻는 질문', href: '/support/faq', badge: null },
   { label: '1:1 문의', href: '/support/inquiry', badge: null },

@@ -15,7 +15,6 @@ import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
 import { SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
-import SavedDesignsModal from "@/app/components/SavedDesignsModal";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
 import { useSearchParams } from "next/navigation";
@@ -145,29 +144,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     }
   };
 
-  // Load design from Supabase
-  const handleLoadDesign = async (design: SavedDesign) => {
-    try {
-      // Restore product color FIRST, before canvas state
-      // This ensures the color filter is applied when the canvas objects are restored
-      const colorSelections = design.color_selections as { productColor?: string } | null;
-      if (colorSelections?.productColor) {
-        setProductColor(colorSelections.productColor);
-      }
-
-      // Wait a brief moment for the color to be applied to all canvases
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Then restore canvas state
-      await restoreAllCanvasState(design.canvas_state as Record<string, string>);
-
-      alert('디자인이 성공적으로 불러와졌습니다!');
-    } catch (error) {
-      console.error('Failed to load design:', error);
-      alert('디자인 불러오기에 실패했습니다.');
-    }
-  };
-
   // Fetch product colors from database
   useEffect(() => {
     const fetchColors = async () => {
@@ -292,11 +268,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             <p className="text-sm text-black">1개당 <span className="font-bold">{formattedPrice}원</span></p>
             <p className="text-sm text-black/80">배송비 3,000원</p>
           </div>
-          {/* Reviews Section */}
-          {/* <div className="flex gap-2 text-[.8em]">
-            <p className="text-orange-300 flex items-center gap-1"><span><FaStar /></span>4.9</p>
-            <p className="underline">리뷰 46</p>
-          </div> */}
 
 
 
@@ -376,13 +347,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         pricePerItem={pricePerItem}
         isSaving={isSaving}
       />
-
-      {/* Saved Designs Modal */}
-      {/* <SavedDesignsModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSelectDesign={handleLoadDesign}
-      /> */}
 
     </div>
 
