@@ -68,52 +68,13 @@ The canvas system is built around Fabric.js and managed through a centralized Zu
 
 The app uses Zustand for centralized canvas management:
 
-```typescript
-// Canvas instances are registered by side ID
-registerCanvas: (id: string, canvas: fabric.Canvas) => void
-
-// Active canvas is retrieved by current side ID
-getActiveCanvas: () => fabric.Canvas | null
-
-// Canvas state is serialized excluding system objects
-saveAllCanvasState: () => Record<string, string>
-restoreAllCanvasState: (savedState: Record<string, string>) => Promise<void>
-```
 
 **Important**: User-added objects must be distinguished from system objects (background image, guides, snap lines). System objects use `excludeFromExport: true` or `data.id: 'background-product-image'` to prevent serialization.
 
-### Routes
-
-- **[app/page.tsx](app/page.tsx)**: Landing page
-- **[app/home/page.tsx](app/home/page.tsx)**: Product catalog
-- **[app/product/[product_id]/page.tsx](app/product/[product_id]/page.tsx)**: Product detail page
-- **[app/editor/[productId]/page.tsx](app/editor/[productId]/page.tsx)**: Main product customization interface
-  - Contains mock product data and color options
-  - Includes test controls for save/load/clear state (localStorage)
-  - Manages edit mode toggle and product color selection
 
 ### Type Definitions
 
 Located in [types/types.ts](types/types.ts):
-
-```typescript
-ProductSide: {
-  id: string;           // Unique identifier (e.g., 'front', 'back')
-  name: string;         // Display name
-  imageUrl: string;     // Product mockup image URL
-  printArea: {          // Printable region coordinates
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }
-}
-
-ProductConfig: {
-  productId: string;
-  sides: ProductSide[];
-}
-```
 
 ## Path Aliases
 
@@ -166,27 +127,6 @@ Product images use Fabric.js color filters to apply product color changes. When 
 - **Environment**: Credentials in `.env.local`
 - **MCP Server**: Configured in `.mcp.json` with project ref: `xwuvbztgpwhbwohontuh`
 
-## Component Structure
-
-```
-app/
-├── components/
-│   ├── canvas/
-│   │   ├── ProductDesigner.tsx    # Main canvas container with side carousel
-│   │   ├── SingleSideCanvas.tsx   # Individual Fabric.js canvas instance
-│   │   ├── Toolbar.tsx            # Edit mode tools
-│   │   ├── TextStylePanel.tsx     # Text styling controls
-│   │   └── EditButton.tsx         # Toggle edit mode button
-│   ├── Header.tsx                 # App header with back button and delete
-│   ├── BottomNavBar.tsx          # Navigation bar
-│   ├── ProductCard.tsx           # Product listing card
-│   ├── CartButton.tsx            # Shopping cart button
-│   └── HeroBanner.tsx            # Hero banner component
-├── editor/[productId]/           # Main editor page
-├── product/[product_id]/         # Product detail page
-├── home/                         # Product catalog
-└── page.tsx                      # Landing page
-```
 
 ## Important Notes
 

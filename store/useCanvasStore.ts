@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import * as fabric from 'fabric';
 import { extractAllColors } from '@/lib/colorExtractor';
+import {
+  extractTextObjectsToSVG,
+  extractAndUploadTextSVG,
+  extractAndUploadAllTextSVG,
+  type SVGExportResult
+} from '@/lib/canvas-svg-export';
+import { createClient } from '@/lib/supabase-client';
 
 
 interface CanvasState {
@@ -15,6 +22,20 @@ interface CanvasState {
   // Product color state
   productColor: string;
   setProductColor: (color: string) => void;
+
+  // Layer color state - maps sideId -> layerId -> hex color
+  layerColors: Record<string, Record<string, string>>;
+  setLayerColor: (sideId: string, layerId: string, color: string) => void;
+  getLayerColor: (sideId: string, layerId: string) => string | null;
+  initializeLayerColors: (sideId: string, layers: { id: string; colorOptions: string[] }[]) => void;
+
+  // Zoom state - maps sideId -> zoom level
+  zoomLevels: Record<string, number>;
+  getZoomLevel: (sideId?: string) => number;
+  setZoom: (zoom: number, sideId?: string) => void;
+  zoomIn: (sideId?: string) => void;
+  zoomOut: (sideId?: string) => void;
+  resetZoom: (sideId?: string) => void;
 
   canvasMap: Record<string, fabric.Canvas>;
   registerCanvas: (id: string, cavas: fabric.Canvas) => void;
@@ -39,6 +60,16 @@ interface CanvasState {
 
   // Color extraction methods
   getCanvasColors: (sensitivity?: number) => Promise<{ colors: string[]; count: number }>;
+
+  // Print option methods
+  setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => void;
+  getObjectPrintMethod: (object: fabric.FabricObject) => 'embroidery' | 'printing' | null;
+
+  // SVG export methods
+  exportTextToSVG: (sideId?: string) => SVGExportResult | null;
+  exportAndUploadTextToSVG: (sideId?: string) => Promise<SVGExportResult | null>;
+  exportAllTextToSVG: () => Record<string, SVGExportResult>;
+  exportAndUploadAllTextToSVG: () => Promise<Record<string, SVGExportResult>>;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -48,10 +79,126 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isEditMode: false,
   productColor: '#FFFFFF', // Default mix gray color
   canvasVersion: 0,
+  layerColors: {},
+  zoomLevels: {},
   setActiveSide: (id) => set({ activeSideId: id}),
   setEditMode: (isEdit) => set({ isEditMode: isEdit }),
   setProductColor: (color) => set({ productColor: color }),
   incrementCanvasVersion: () => set((state) => ({ canvasVersion: state.canvasVersion + 1 })),
+
+  // Zoom methods
+  getZoomLevel: (sideId) => {
+    const { zoomLevels, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    return zoomLevels[targetSideId] || 1.0;
+  },
+
+  setZoom: (zoom, sideId) => {
+    const { canvasMap, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    const canvas = canvasMap[targetSideId];
+
+    if (!canvas) return;
+
+    // Clamp zoom between 0.1 and 5
+    const clampedZoom = Math.max(0.1, Math.min(5, zoom));
+
+    // Get canvas center point
+    const center = new fabric.Point(canvas.width / 2, canvas.height / 2);
+
+    // Apply zoom centered on the canvas center
+    canvas.zoomToPoint(center, clampedZoom);
+
+    // Update zoom levels state
+    set((state) => ({
+      zoomLevels: {
+        ...state.zoomLevels,
+        [targetSideId]: clampedZoom
+      }
+    }));
+
+    canvas.requestRenderAll();
+  },
+
+  zoomIn: (sideId) => {
+    const { zoomLevels, activeSideId, setZoom } = get();
+    const targetSideId = sideId || activeSideId;
+    const currentZoom = zoomLevels[targetSideId] || 1.0;
+    setZoom(currentZoom + 0.1, targetSideId);
+  },
+
+  zoomOut: (sideId) => {
+    const { zoomLevels, activeSideId, setZoom } = get();
+    const targetSideId = sideId || activeSideId;
+    const currentZoom = zoomLevels[targetSideId] || 1.0;
+    setZoom(currentZoom - 0.1, targetSideId);
+  },
+
+  resetZoom: (sideId) => {
+    const { setZoom } = get();
+    setZoom(1.0, sideId);
+  },
+
+  // Layer color management
+  setLayerColor: (sideId, layerId, color) => {
+    set((state) => {
+      // Update the color for this layer across ALL sides that have the same layerId
+      const updatedLayerColors = { ...state.layerColors };
+
+      // Iterate through all sides and update matching layer IDs
+      Object.keys(updatedLayerColors).forEach((currentSideId) => {
+        if (updatedLayerColors[currentSideId][layerId] !== undefined) {
+          updatedLayerColors[currentSideId] = {
+            ...updatedLayerColors[currentSideId],
+            [layerId]: color
+          };
+        }
+      });
+
+      // Also ensure the current side has the color set even if it wasn't in the state yet
+      if (!updatedLayerColors[sideId]) {
+        updatedLayerColors[sideId] = {};
+      }
+      updatedLayerColors[sideId] = {
+        ...updatedLayerColors[sideId],
+        [layerId]: color
+      };
+
+      return { layerColors: updatedLayerColors };
+    });
+  },
+
+  getLayerColor: (sideId, layerId) => {
+    const { layerColors } = get();
+    return layerColors[sideId]?.[layerId] || null;
+  },
+
+  initializeLayerColors: (sideId, layers) => {
+    set((state) => {
+      const sideColors = { ...state.layerColors[sideId] };
+      layers.forEach(layer => {
+        // Only initialize if not already set for this side
+        if (!sideColors[layer.id] && layer.colorOptions.length > 0) {
+          // Check if this layer ID already has a color set on ANY other side
+          let existingColor: string | null = null;
+          Object.keys(state.layerColors).forEach((otherSideId) => {
+            if (otherSideId !== sideId && state.layerColors[otherSideId][layer.id]) {
+              existingColor = state.layerColors[otherSideId][layer.id];
+            }
+          });
+
+          // Use existing color if found, otherwise use the first color option
+          sideColors[layer.id] = existingColor || layer.colorOptions[0];
+        }
+      });
+      return {
+        layerColors: {
+          ...state.layerColors,
+          [sideId]: sideColors
+        }
+      };
+    });
+  },
 
   markImageLoaded: (id) => {
     set((state) => ({
@@ -89,7 +236,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Save state of all canvases as JSON strings
   saveAllCanvasState: () => {
-    const { canvasMap } = get();
+    const { canvasMap, layerColors } = get();
     const savedState: Record<string, string> = {};
 
     Object.entries(canvasMap).forEach(([id, canvas]) => {
@@ -106,18 +253,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return true;
       });
 
-      // Create a minimal JSON with only user objects
+      // Create a minimal JSON with only user objects and layer colors
       const canvasData = {
         version: canvas.toJSON().version,
         objects: userObjects.map(obj => {
-          const json = obj.toJSON();
+          // Use toObject to include custom properties
+          const json = obj.toObject(['data']);
           // For image objects, ensure we preserve the src
           if (obj.type === 'image') {
             const imgObj = obj as fabric.FabricImage;
             json.src = imgObj.getSrc();
           }
           return json;
-        })
+        }),
+        // Save layer colors for this side
+        layerColors: layerColors[id] || {}
       };
 
       savedState[id] = JSON.stringify(canvasData);
@@ -149,8 +299,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         });
         objectsToRemove.forEach(obj => canvas.remove(obj));
 
-        // Then load the saved user objects
+        // Then load the saved user objects and layer colors
         const canvasData = JSON.parse(json);
+
+        // Restore layer colors if present
+        if (canvasData.layerColors) {
+          console.log(`[useCanvasStore] Restoring layer colors for side ${id}:`, canvasData.layerColors);
+          set((state) => ({
+            layerColors: {
+              ...state.layerColors,
+              [id]: canvasData.layerColors
+            }
+          }));
+        }
 
         if (canvasData.objects && canvasData.objects.length > 0) {
           fabric.util.enlivenObjects(canvasData.objects).then((objects) => {
@@ -183,7 +344,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Save state of a specific canvas
   saveCanvasState: (id: string) => {
-    const { canvasMap } = get();
+    const { canvasMap, layerColors } = get();
     const canvas = canvasMap[id];
 
     if (!canvas) return null;
@@ -200,18 +361,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return true;
     });
 
-    // Create a minimal JSON with only user objects
+    // Create a minimal JSON with only user objects and layer colors
     const canvasData = {
       version: canvas.toJSON().version,
       objects: userObjects.map(obj => {
-        const json = obj.toJSON();
+        // Use toObject to include custom properties
+        const json = obj.toObject(['data']);
         // For image objects, ensure we preserve the src
         if (obj.type === 'image') {
           const imgObj = obj as fabric.FabricImage;
           json.src = imgObj.getSrc();
         }
         return json;
-      })
+      }),
+      // Save layer colors for this side
+      layerColors: layerColors[id] || {}
     };
 
     return JSON.stringify(canvasData);
@@ -239,8 +403,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       });
       objectsToRemove.forEach(obj => canvas.remove(obj));
 
-      // Then load the saved user objects
+      // Then load the saved user objects and layer colors
       const canvasData = JSON.parse(json);
+
+      // Restore layer colors if present
+      if (canvasData.layerColors) {
+        console.log(`[useCanvasStore] Restoring layer colors for side ${id}:`, canvasData.layerColors);
+        set((state) => ({
+          layerColors: {
+            ...state.layerColors,
+            [id]: canvasData.layerColors
+          }
+        }));
+      }
 
       if (canvasData.objects && canvasData.objects.length > 0) {
         fabric.util.enlivenObjects(canvasData.objects).then((objects) => {
@@ -271,5 +446,84 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   getCanvasColors: async (sensitivity: number = 30) => {
     const { canvasMap } = get();
     return await extractAllColors(canvasMap, sensitivity);
+  },
+
+  // Set print method for a specific object
+  setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => {
+    const { getActiveCanvas, incrementCanvasVersion } = get();
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+
+    // Find the object by ID
+    const objects = canvas.getObjects();
+    const targetObject = objects.find(obj => {
+      // @ts-expect-error - Checking custom data property
+      return obj.data?.objectId === objectId;
+    });
+
+    if (targetObject) {
+      // @ts-expect-error - Setting custom data property
+      if (!targetObject.data) targetObject.data = {};
+      // @ts-expect-error - Setting custom data property
+      targetObject.data.printMethod = method;
+
+      // Trigger canvas version update for pricing recalculation
+      incrementCanvasVersion();
+      canvas.requestRenderAll();
+    }
+  },
+
+  // Get print method for a specific object
+  getObjectPrintMethod: (object: fabric.FabricObject): 'embroidery' | 'printing' | null => {
+    // @ts-expect-error - Checking custom data property
+    return object.data?.printMethod || null;
+  },
+
+  // Export text objects from a specific canvas to SVG (no upload)
+  exportTextToSVG: (sideId?: string) => {
+    const { canvasMap, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    const canvas = canvasMap[targetSideId];
+
+    if (!canvas) {
+      console.warn(`Canvas not found for side: ${targetSideId}`);
+      return null;
+    }
+
+    return extractTextObjectsToSVG(canvas);
+  },
+
+  // Export text objects from a specific canvas to SVG and upload to Supabase
+  exportAndUploadTextToSVG: async (sideId?: string) => {
+    const { canvasMap, activeSideId } = get();
+    const targetSideId = sideId || activeSideId;
+    const canvas = canvasMap[targetSideId];
+
+    if (!canvas) {
+      console.warn(`Canvas not found for side: ${targetSideId}`);
+      return null;
+    }
+
+    const supabase = createClient();
+    return await extractAndUploadTextSVG(supabase, canvas, `text-${targetSideId}`);
+  },
+
+  // Export text objects from all canvases to SVG (no upload)
+  exportAllTextToSVG: () => {
+    const { canvasMap } = get();
+    const results: Record<string, SVGExportResult> = {};
+
+    Object.entries(canvasMap).forEach(([sideId, canvas]) => {
+      results[sideId] = extractTextObjectsToSVG(canvas);
+    });
+
+    return results;
+  },
+
+  // Export text objects from all canvases to SVG and upload to Supabase
+  exportAndUploadAllTextToSVG: async () => {
+    const { canvasMap } = get();
+    const supabase = createClient();
+    return await extractAndUploadAllTextSVG(supabase, canvasMap);
   },
 }));

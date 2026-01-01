@@ -5,6 +5,7 @@ import { X, Save } from 'lucide-react';
 import ProductDesigner from './canvas/ProductDesigner';
 import EditButton from './canvas/EditButton';
 import PricingInfo from './canvas/PricingInfo';
+import ObjectPreviewPanel from './canvas/ObjectPreviewPanel';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { ProductConfig } from '@/types/types';
 import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
@@ -47,6 +48,7 @@ export default function DesignEditModal({
     setEditMode,
     isEditMode,
     canvasVersion,
+    incrementCanvasVersion,
   } = useCanvasStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -255,6 +257,22 @@ export default function DesignEditModal({
         // Start in view mode (edit mode will be enabled when user clicks the Edit button)
         setEditMode(false);
 
+        // Wait for canvas to fully render all objects before generating previews
+        // This ensures obj.toDataURL() works properly in ObjectPreviewPanel
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Force render all canvases to ensure objects are fully rendered
+        const currentCanvasMap = useCanvasStore.getState().canvasMap;
+        Object.values(currentCanvasMap).forEach(canvas => {
+          canvas.requestRenderAll();
+        });
+
+        // Wait a bit more for render to complete
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // Trigger canvas version update to refresh ObjectPreviewPanel
+        incrementCanvasVersion();
+
         console.log('Design restored successfully');
 
         // Mark as restored to prevent re-running
@@ -441,10 +459,10 @@ export default function DesignEditModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-white">
+    <div className="fixed inset-0 z-[200] bg-white flex flex-col">
       {/* Header - only show when NOT in edit mode */}
       {!isEditMode && (
-        <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
+        <div className="shrink-0 bg-white z-50 border-b border-gray-200">
           <div className="flex items-center justify-between px-4 py-3">
             <button
               onClick={handleClose}
@@ -468,14 +486,14 @@ export default function DesignEditModal({
 
       {/* Loading State */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-screen">
+        <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-600">디자인 불러오는 중...</p>
           </div>
         </div>
       ) : productConfig ? (
-        <div className={isEditMode ? 'h-screen' : 'overflow-y-auto'}>
+        <div className={isEditMode ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto'}>
           {/* Product Designer */}
           <ProductDesigner config={productConfig as ProductConfig} />
 
@@ -508,6 +526,9 @@ export default function DesignEditModal({
 
               {/* Dynamic Pricing Info */}
               <PricingInfo basePrice={basePrice} sides={productConfig.sides} />
+
+              {/* Object Preview Panel */}
+              <ObjectPreviewPanel sides={productConfig.sides} />
 
               {/* Edit Button */}
               <div className="mt-4">

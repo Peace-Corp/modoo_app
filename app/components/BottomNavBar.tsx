@@ -63,7 +63,7 @@ export default function BottomNavBar() {
   };
 
   return (
-    <nav className="w-full fixed bottom-0 left-0 bg-white border-t border-gray-200 shadow-lg z-50 rounded-t-xl pb-3">
+    <nav className="w-full fixed bottom-0 left-0 bg-white border-t border-gray-200 shadow-lg z-50 rounded-t-xl pb-3 lg:hidden">
       <div className="max-w-7xl mx-auto px-2">
         <div className="flex items-center justify-around h-16">
           {navItems.map((item) => (

@@ -22,114 +22,65 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 space-y-2 pb-20">
+    <div className="min-h-screen bg-white pb-20">
       {/* Header */}
-      <Header />
+      <Header showHomeNav />
 
-      {/* Hero Banner */}
-      {/* this will only be used in the home screen */}
-      <HeroBanner />
-
-      {/* Categories */}
-      <div className="w-full pt-2">
-        <h2 className="px-4 font-bold">카테고리</h2>
-        <CategoriesSection />
-      </div>
-
-      {/* Featured Products Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-black font-bold">인기 급상승</p>
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-5 lg:space-y-7">
+        {/* Hero Banner */}
+        {/* this will only be used in the home screen */}
+        <div className="pt-3 lg:pt-5">
+          <HeroBanner />
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {products && products.length > 0 ? (
-            products.map((product) => (
-              <ProductCard key={product.id} product={product as Product}/>
+
+        {/* Categories */}
+        <section className="w-full">
+          <h2 className="text-base lg:text-lg font-bold text-gray-900">카테고리</h2>
+          <CategoriesSection />
+        </section>
+
+        {/* Featured Products Section */}
+        <section className="w-full">
+          <div className="flex items-center justify-between mb-3 lg:mb-5">
+            <p className="text-base lg:text-lg font-bold text-gray-900">인기 급상승</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-4">
+            {products && products.length > 0 ? (
+              products.map((product) => (
+                <ProductCard key={product.id} product={product as Product}/>
             ))
           ) : (
-            <div className="col-span-full text-center py-8 text-gray-500">
-              상품이 없습니다
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Production Examples Section */}
-      <ProductionExamples />
-
-      {/* Inquiry Board Section */}
-      <InquiryBoardSection />
-
-      {/* Deals Section */}
-      {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="h-8 w-48 bg-gray-300 rounded animate-pulse" />
-          <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm">
-              <div className="aspect-video bg-linear-to-br from-gray-200 to-gray-300 animate-pulse" />
-              <div className="p-4 space-y-3">
-                <div className="h-5 bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse" />
-                <div className="h-8 w-full bg-red-200 rounded animate-pulse" />
+              <div className="col-span-full text-center py-8 text-gray-500">
+                상품이 없습니다
               </div>
-            </div>
-          ))}
-        </div>
-      </section> */}
-
-      {/* Brands Section */}
-      {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="h-8 w-56 bg-gray-300 rounded mb-6 animate-pulse" />
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-lg p-6 flex items-center justify-center">
-              <div className="h-16 w-24 bg-gray-200 rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </section> */}
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="space-y-4">
-                <div className="h-5 w-32 bg-gray-700 rounded animate-pulse" />
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-gray-800 rounded animate-pulse" />
-                  <div className="h-4 w-3/4 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-4 w-5/6 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-4 w-2/3 bg-gray-800 rounded animate-pulse" />
-                </div>
-              </div>
-            ))}
+            )}
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8">
-            <div className="h-4 w-64 bg-gray-800 rounded animate-pulse mx-auto" />
-          </div>
-        </div>
-      </footer>
+        </section>
+        
+        {/* Production Examples Section */}
+        <ProductionExamples />
+
+        {/* Inquiry Board Section */}
+        <div id="reviews"></div>
+        <InquiryBoardSection />
+      </main>
     </div>
   );
 }
 
 function CategoriesSection() {
   return (
-    <section className="max-w-7xl mx-auto py-2">
-        <div className="flex gap-2 overflow-x-auto px-4">
-          {CATEGORIES.map((category) => (
-            <CategoryButton
-              key={category.key}
-              name={category.name}
-              icon={category.icon}
-              href={`/home/search?category=${encodeURIComponent(category.key)}`}
-            />
-          ))}
-        </div>
-      </section>
+    <div className="mt-2">
+      <div className="flex gap-2 overflow-x-auto pb-2 ">
+        {CATEGORIES.map((category) => (
+          <CategoryButton
+            key={category.key}
+            name={category.name}
+            icon={category.icon}
+            href={`/home/search?category=${encodeURIComponent(category.key)}`}
+          />
+        ))}
+      </div>
+    </div>
   )
 }

@@ -48,7 +48,7 @@ const bannerSlides = [
 
 export default function HeroBanner() {
   return (
-    <section className="max-w-7xl mx-auto ">
+    <section className="w-full">
       <style dangerouslySetInnerHTML={{
         __html: `
           .hero-swiper .swiper-slide {
@@ -69,29 +69,29 @@ export default function HeroBanner() {
         breakpoints={{
           640: {
             slidesPerView: 1.5,
-            spaceBetween: 20,
+            spaceBetween: 10,
           },
           1024: {
-            slidesPerView: 1,
-            spaceBetween: 0,
-            centeredSlides: false,
+            slidesPerView: 2.8,
+            spaceBetween: 8,
+            centeredSlides: true,
           },
         }}
-        className="h-96 hero-swiper"
+        className="h-70 sm:h-72 lg:h-[420px] hero-swiper"
       >
         {bannerSlides.map((slide) => (
           <SwiperSlide key={slide.id}>
             <div
-              className={`h-full ${slide.bgColor} rounded-2xl flex flex-col items-start justify-end text-white py-8 px-6 bg-cover bg-center bg-no-repeat relative overflow-hidden`}
+              className={`h-full ${slide.bgColor} rounded-2xl lg:rounded-[18px] flex flex-col items-start justify-end text-white py-4 lg:py-5 px-4 lg:px-5 bg-cover bg-center bg-no-repeat relative overflow-hidden lg:aspect-square lg:max-w-[420px] lg:mx-auto`}
               style={slide.bgImage ? { backgroundImage: `url(${slide.bgImage})`, backgroundPosition: `${slide.bgPosition}`, backgroundSize: 'cover' } : undefined}
             >
               {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent rounded-2xl pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent rounded-2xl lg:rounded-[20px] pointer-events-none" />
 
               {/* Content */}
               <div className="relative z-10">
-                <h2 className="text-2xl font-bold">{slide.title}</h2>
-                <p className="text-sm">{slide.subtitle}</p>
+                <h2 className="text-2xl lg:text-2xl font-bold">{slide.title}</h2>
+                <p className="text-sm lg:text-sm text-white/90">{slide.subtitle}</p>
               </div>
             </div>
           </SwiperSlide>

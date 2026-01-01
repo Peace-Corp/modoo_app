@@ -1,10 +1,18 @@
 
 
 
-export interface ProductSide {
+export interface ProductLayer {
   id: string;
   name: string;
   imageUrl: string;
+  zIndex: number;
+  colorOptions: string[]; // Array of hex color codes
+}
+
+export interface ProductSide {
+  id: string;
+  name: string;
+  imageUrl?: string; // Optional for backward compatibility
   printArea: {
     x: number;
     y: number;
@@ -19,6 +27,8 @@ export interface ProductSide {
   };
   // Zoom scale for the canvas (1.0 = 100%, 0.5 = 50%, 2.0 = 200%)
   zoomScale?: number;
+  // Multi-layer support
+  layers?: ProductLayer[];
 }
 
 export interface ProductConfig {
@@ -61,6 +71,7 @@ export interface Product {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  thumbnail_image_link?: string;
 }
 
 export interface ProductionExample {
@@ -107,4 +118,32 @@ export interface InquiryWithDetails extends Inquiry {
   products?: (InquiryProduct & { product: Product })[];
   replies?: (InquiryReply & { admin?: { email: string } })[];
   user?: { email: string };
+}
+
+// Print option types
+export type PrintMethod = 'embroidery' | 'printing';
+
+export interface PrintOption {
+  method: PrintMethod;
+  price: number; // Additional cost for this print method
+}
+
+export interface CanvasObjectPrintData {
+  printMethod?: PrintMethod;
+  // Additional metadata for pricing and production
+  estimatedCost?: number;
+}
+
+// Supabase storage metadata for canvas objects
+export interface CanvasObjectStorageData {
+  supabaseUrl?: string;
+  supabasePath?: string;
+  uploadedAt?: string;
+}
+
+// Combined canvas object data type
+export interface CanvasObjectData extends CanvasObjectPrintData, CanvasObjectStorageData {
+  id?: string;
+  objectId?: string;
+  [key: string]: unknown; // Allow additional custom properties
 }

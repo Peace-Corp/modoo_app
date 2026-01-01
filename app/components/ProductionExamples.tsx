@@ -130,18 +130,18 @@ export default function ProductionExamples() {
   }
 
   return (
-    <section className="w-full pt-2 pb-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="production-examples" className="w-full pt-2">
+      <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-black font-bold">제작 사례</h2>
         </div>
       </div>
 
       {/* Horizontal scrolling container */}
-      <div className="relative">
+      <div className="relative max-w-7xl mx-auto">
         <div
           ref={scrollContainerRef}
-          className="flex gap-4 overflow-x-auto px-4 sm:px-6 lg:px-8 pb-4 scrollbar-hide"
+          className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onTouchStart={() => setIsPaused(true)}

@@ -1,4 +1,5 @@
 import { createClient } from './supabase-client';
+import { extractImageUrlsFromCanvasState } from './server-svg-export';
 
 export interface SaveDesignData {
   productId: string;
@@ -20,6 +21,7 @@ export interface SavedDesign {
   };
   canvas_state: Record<string, string>;
   preview_url: string | null;
+  image_urls?: Record<string, Array<{ url: string; path?: string; uploadedAt?: string }>>;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +43,9 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
       throw new Error('User must be authenticated to save designs');
     }
 
+    // Extract image URLs from canvas state for easier access
+    const imageUrls = extractImageUrlsFromCanvasState(data.canvasState);
+
     // Prepare the data for insertion
     const designData = {
       user_id: user.id,
@@ -51,6 +56,7 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
       },
       canvas_state: data.canvasState,
       preview_url: data.previewImage || null, // Save preview image as base64 data URL
+      image_urls: imageUrls, // Save extracted image URLs for easy access
       price_per_item: data.pricePerItem
     };
 
@@ -158,6 +164,8 @@ export async function updateDesign(
     }
     if (data.canvasState !== undefined) {
       updateData.canvas_state = data.canvasState;
+      // Extract and update image URLs when canvas state changes
+      updateData.image_urls = extractImageUrlsFromCanvasState(data.canvasState);
     }
     if (data.previewImage !== undefined) {
       updateData.preview_url = data.previewImage;

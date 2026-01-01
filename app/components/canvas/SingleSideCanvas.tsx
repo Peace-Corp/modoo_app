@@ -25,8 +25,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const isEditRef = useRef(isEdit);
   const productImageRef = useRef<fabric.FabricImage | null>(null);
+  const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors, resetZoom } = useCanvasStore();
+
+  // Loading state to track when all images are loaded
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Track when layers are fully loaded and ready for color application
+  const [layersReady, setLayersReady] = useState(false);
 
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
@@ -42,6 +49,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   useEffect(() => {
     isEditRef.current = isEdit;
   }, [isEdit]);
+
+  // Reset layersReady when side changes
+  useEffect(() => {
+    setLayersReady(false);
+  }, [side.id]);
 
   // Initialize canvas once
   useEffect(() => {
@@ -85,10 +97,18 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     const tempCenteredTop = (height - printH) / 2;
     const tempPrintCenterX = tempCenteredLeft + (printW / 2);
 
+    // Check if side has layers (multi-layer mode) or single imageUrl (legacy mode)
+    const hasLayers = side.layers && side.layers.length > 0;
+
     // Creating the Snap Line (Vertical)
-    // Coords: [x1, y1, x2, y2]
+    // For multi-layer mode: use canvas center
+    // For single-image mode: use print area center (will be updated when image loads)
+    const snapLineCenterX = hasLayers ? width / 2 : tempPrintCenterX;
+    const snapLineTop = hasLayers ? 0 : tempCenteredTop;
+    const snapLineBottom = hasLayers ? height : tempCenteredTop + printH;
+
     const verticalSnapLine = new fabric.Line(
-      [tempPrintCenterX, tempCenteredTop, tempPrintCenterX, tempCenteredTop + printH],
+      [snapLineCenterX, snapLineTop, snapLineCenterX, snapLineBottom],
       {
         stroke: '#FF0072', // Hot pink
         strokeWidth: 1,
@@ -134,11 +154,215 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     canvas.add(guideBox);
 
-    // Load background image
-    fabric.FabricImage.fromURL(side.imageUrl, {crossOrigin:'anonymous'})
+    if (hasLayers) {
+      // Multi-layer mode: Initialize layer colors and load all layers
+      initializeLayerColors(side.id, side.layers!);
+
+      // Disable canvas-level clipping for multi-layer mode
+      // Individual objects will be clipped via object:added event handler
+      canvas.clipPath = undefined;
+
+      // Sort layers by zIndex
+      const sortedLayers = [...side.layers!].sort((a, b) => a.zIndex - b.zIndex);
+
+      // Load all layer images
+      const layerLoadPromises = sortedLayers.map((layer) => {
+        return fabric.FabricImage.fromURL(layer.imageUrl, {crossOrigin:'anonymous'})
+          .then((img) => {
+            if (!img) {
+              console.error(`[SingleSideCanvas] Failed to load layer image: ${layer.imageUrl} for layer: ${layer.name} (${layer.id})`);
+              return null;
+            }
+
+            // Scale the image to fit the canvas
+            const imgWidth = img.width || 0;
+            const imgHeight = img.height || 0;
+
+            if (imgWidth === 0 || imgHeight === 0) {
+              console.error(`[SingleSideCanvas] Layer image has invalid dimensions: ${imgWidth}x${imgHeight} for layer: ${layer.name} (${layer.id})`);
+              return null;
+            }
+
+            // Get zoom scale from side configuration
+            const zoomScale = side.zoomScale || 1.0;
+            const baseScale = Math.min(width / imgWidth, height / imgHeight);
+            const scale = baseScale * zoomScale;
+
+            img.set({
+              scaleX: scale,
+              scaleY: scale,
+              originX: 'center',
+              originY: 'center',
+              left: width / 2,
+              top: height / 2,
+              selectable: false,
+              evented: false,
+              lockMovementX: true,
+              lockMovementY: true,
+              lockRotation: true,
+              lockScalingX: true,
+              lockScalingY: true,
+              hasControls: false,
+              hasBorders: false,
+              data: {
+                id: 'background-product-image',
+                layerId: layer.id
+              },
+            });
+
+            // Store reference to this layer image (before applying filters)
+            layerImagesRef.current.set(layer.id, img);
+
+            console.log(`[SingleSideCanvas] Successfully loaded layer: ${layer.name} (${layer.id}) with dimensions ${imgWidth}x${imgHeight} for side: ${side.id}`);
+            return { img, scale, imgWidth, imgHeight, layer };
+          })
+          .catch((error) => {
+            // Catch individual layer loading errors to prevent one failure from breaking all layers
+            console.error(`[SingleSideCanvas] Error loading layer: ${layer.name} (${layer.id}) from ${layer.imageUrl}`, error);
+            return null;
+          });
+      });
+
+      // Wait for all layers to load
+      Promise.all(layerLoadPromises).then((results) => {
+        const validResults = results.filter(r => r !== null);
+        if (validResults.length === 0) {
+          console.error('No valid layer images loaded');
+          setIsLoading(false);
+          return;
+        }
+
+        // Use the first layer's dimensions for calculations
+        const firstResult = validResults[0]!;
+        const { scale, imgWidth, imgHeight } = firstResult;
+
+        // Add all layer images to canvas in z-index order (bottom to top)
+        console.log(`[SingleSideCanvas] Adding ${sortedLayers.length} layers to canvas for side: ${side.id}`);
+
+        // Add layers to canvas FIRST without color filters
+        // Color filters will be applied by the effect after all layers are confirmed loaded
+        sortedLayers.forEach((layer) => {
+          const layerImg = layerImagesRef.current.get(layer.id);
+          if (layerImg) {
+            canvas.add(layerImg);
+            console.log(`[SingleSideCanvas] Added layer ${layer.name} (${layer.id}) to canvas`);
+          } else {
+            console.error(`[SingleSideCanvas] Layer image not found in ref for ${layer.name} (${layer.id})`);
+          }
+        });
+
+        // Send all layers to the back in reverse order to maintain zIndex
+        // This ensures layers are at the very bottom, below guide elements
+        for (let i = sortedLayers.length - 1; i >= 0; i--) {
+          const layer = sortedLayers[i];
+          const layerImg = layerImagesRef.current.get(layer.id);
+          if (layerImg) {
+            canvas.sendObjectToBack(layerImg);
+            console.log(`[SingleSideCanvas] Sent layer ${layer.name} (${layer.id}) to back`);
+          }
+        }
+
+        // Debug: Log all objects on canvas
+        console.log(`[SingleSideCanvas] Canvas now has ${canvas.getObjects().length} objects:`,
+          canvas.getObjects().map((obj, i) => ({
+            index: i,
+            type: obj.type,
+            // @ts-expect-error - Checking custom data property
+            id: obj.data?.id,
+            // @ts-expect-error - Checking custom data property
+            layerId: obj.data?.layerId
+          })));
+
+        // Calculate print area position relative to the first layer
+        const scaledPrintW = side.printArea.width * scale;
+        const scaledPrintH = side.printArea.height * scale;
+        const scaledPrintX = side.printArea.x * scale;
+        const scaledPrintY = side.printArea.y * scale;
+
+        const imageLeft = (width / 2) - (imgWidth * scale / 2);
+        const imageTop = (height / 2) - (imgHeight * scale / 2);
+
+        const printAreaLeft = imageLeft + scaledPrintX;
+        const printAreaTop = imageTop + scaledPrintY;
+        const printCenterX = printAreaLeft + (scaledPrintW / 2);
+
+        // Update guide box position
+        guideBox.set({
+          left: printAreaLeft,
+          top: printAreaTop,
+          width: scaledPrintW,
+          height: scaledPrintH,
+        });
+
+        // Update clip path position
+        clipPath.set({
+          left: printAreaLeft,
+          top: printAreaTop,
+          width: scaledPrintW,
+          height: scaledPrintH,
+        });
+
+        // Update vertical snap line
+        // For multi-layer mode, keep it at canvas center spanning full height
+        verticalSnapLine.set({
+          x1: width / 2,
+          y1: 0,
+          x2: width / 2,
+          y2: height,
+        });
+
+        // Store values for use in event handlers
+        // @ts-expect-error - Adding custom properties
+        canvas.printAreaLeft = printAreaLeft;
+        // @ts-expect-error - Custom property
+        canvas.printAreaTop = printAreaTop;
+        // @ts-expect-error - Custom property
+        canvas.printAreaWidth = scaledPrintW;
+        // @ts-expect-error - Custom property
+        canvas.printAreaHeight = scaledPrintH;
+        // @ts-expect-error - Custom property
+        canvas.printCenterX = printCenterX;
+        // @ts-expect-error - Custom property
+        canvas.originalImageWidth = imgWidth;
+        // @ts-expect-error - Custom property
+        canvas.originalImageHeight = imgHeight;
+        // @ts-expect-error - Custom property
+        canvas.scaledImageWidth = imgWidth * scale;
+        // @ts-expect-error - Custom property
+        canvas.scaledImageHeight = imgHeight * scale;
+
+        // For multi-layer mode, store canvas center as the snap center
+        // @ts-expect-error - Custom property
+        canvas.printCenterX = width / 2;
+
+        // Don't add guide box for multi-layer mode
+        // canvas.add(guideBox); // Skipped for multi-layer mode
+
+        markImageLoaded(side.id);
+
+        // All layers loaded and rendered - mark as ready
+        // Set layersReady to trigger the color application effect
+        setLayersReady(true);
+        setIsLoading(false);
+        console.log(`[SingleSideCanvas] All layers loaded and rendered for side: ${side.id}`);
+      }).catch((error) => {
+        console.error('Error loading layer images:', error);
+        setIsLoading(false);
+      });
+    } else {
+      // Legacy single-image mode: use imageUrl
+      const imageUrl = side.imageUrl;
+      if (!imageUrl) {
+        console.error('Side has no imageUrl or layers');
+        setIsLoading(false);
+        return;
+      }
+
+      fabric.FabricImage.fromURL(imageUrl, {crossOrigin:'anonymous'})
       .then((img) => {
         if (!img) {
           console.error('Failed to load image:', side.imageUrl);
+          setIsLoading(false);
           return;
         }
         // Scale the image to fit the canvas (basically contains the image inside the canvas)
@@ -147,6 +371,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Error logging
         if (imgWidth === 0 || imgHeight === 0) {
           console.error('Image has invalid dimensions:', imgWidth, 'x', imgHeight);
+          setIsLoading(false);
           return;
         }
 
@@ -266,13 +491,19 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.scaledImageHeight = imgHeight * scale;
 
         canvas.add(guideBox);
+
+        // Single image loaded and rendered - mark as ready
+        setIsLoading(false);
+        console.log(`[SingleSideCanvas] Single image loaded and rendered for side: ${side.id}`);
       })
       .catch((error) => {
         console.error('Error loading image for', side.name, ':', error);
+        setIsLoading(false);
       });
+    }
 
-      // Helper function to update scale box with object dimensions
-      const updateScaleBox = (obj: fabric.FabricObject | fabric.ActiveSelection) => {
+    // Helper function to update scale box with object dimensions
+    const updateScaleBox = (obj: fabric.FabricObject | fabric.ActiveSelection) => {
         // Get the scaled product image width on the canvas
         // @ts-expect-error - Custom property
         const scaledImageWidth = canvas.scaledImageWidth;
@@ -320,69 +551,94 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         });
 
         setScaleBoxVisible(true);
-      };
+    };
 
-      // 4. Event Listeners for Visibility Logic
-      const showGuide = () => {
-        guideBox.set('visible', true);
-        canvas.requestRenderAll();
-      };
+    // 4. Event Listeners for Visibility Logic
+    // Only show guide box for single-image mode (not multi-layer mode)
+    const showGuide = () => {
+        if (!hasLayers) {
+          guideBox.set('visible', true);
+          canvas.requestRenderAll();
+        }
+    };
 
-      const hideGuide = () => {
-        guideBox.set('visible', false);
-        canvas.requestRenderAll();
-      };
+    const hideGuide = () => {
+        if (!hasLayers) {
+          guideBox.set('visible', false);
+          canvas.requestRenderAll();
+        }
+    };
 
-      // Show when an object is selected
-      canvas.on('selection:created', () => {
+    // Show when an object is selected
+    canvas.on('selection:created', () => {
         showGuide();
         // Get the active object (which could be a single object or ActiveSelection for multiple)
         const activeObject = canvas.getActiveObject();
         if (activeObject) {
           updateScaleBox(activeObject);
         }
-      });
+    });
 
-      canvas.on('selection:updated', () => {
+    canvas.on('selection:updated', () => {
         showGuide();
         // Get the active object (which could be a single object or ActiveSelection for multiple)
         const activeObject = canvas.getActiveObject();
         if (activeObject) {
           updateScaleBox(activeObject);
         }
-      });
+    });
 
-      // Hide when selection is cleared
-      canvas.on('selection:cleared', () => {
+    // Hide when selection is cleared
+    canvas.on('selection:cleared', () => {
         hideGuide();
         setScaleBoxVisible(false);
-      });
+    });
 
-      // 5. Enforce Clipping on Added Objects
-      // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
-      canvas.on('object:added', (e) => {
+    // 5. Enforce Clipping on Added Objects
+    // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
+    // Skip clipping entirely for multi-layer mode
+    canvas.on('object:added', (e) => {
         const obj = e.target;
         // Skip guide boxes, snap lines, and background product image
         // @ts-expect-error - Checking custom data property
         if (!obj || obj.excludeFromExport || (obj.data?.id === 'background-product-image')) return;
 
-        // Apply the specific clip area to this object (using values relative to product image)
-        // @ts-expect-error - Custom property
-        const printLeft = canvas.printAreaLeft || tempCenteredLeft;
-        // @ts-expect-error - Custom property
-        const printTop = canvas.printAreaTop || tempCenteredTop;
-        // @ts-expect-error - Custom property
-        const printWidth = canvas.printAreaWidth || side.printArea.width;
-        // @ts-expect-error - Custom property
-        const printHeight = canvas.printAreaHeight || side.printArea.height;
+        // Assign a unique ID to each user-added object if it doesn't have one
+        // @ts-expect-error - Setting custom data property
+        if (!obj.data) obj.data = {};
+        // @ts-expect-error - Setting custom data property
+        if (!obj.data.objectId) {
+          // @ts-expect-error - Setting custom data property
+          obj.data.objectId = `${side.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        }
 
-        obj.clipPath = new fabric.Rect({
-          left: printLeft,
-          top: printTop,
-          width: printWidth,
-          height: printHeight,
-          absolutePositioned: true,
-        });
+        // Set default print method for non-image objects
+        // @ts-expect-error - Checking custom data property
+        if (obj.type !== 'image' && !obj.data.printMethod) {
+          // @ts-expect-error - Setting custom data property
+          obj.data.printMethod = 'printing'; // Default to printing
+        }
+
+        // Only apply clipping in single-image mode (not multi-layer mode)
+        if (!hasLayers) {
+          // Apply the specific clip area to this object (using values relative to product image)
+          // @ts-expect-error - Custom property
+          const printLeft = canvas.printAreaLeft || tempCenteredLeft;
+          // @ts-expect-error - Custom property
+          const printTop = canvas.printAreaTop || tempCenteredTop;
+          // @ts-expect-error - Custom property
+          const printWidth = canvas.printAreaWidth || side.printArea.width;
+          // @ts-expect-error - Custom property
+          const printHeight = canvas.printAreaHeight || side.printArea.height;
+
+          obj.clipPath = new fabric.Rect({
+            left: printLeft,
+            top: printTop,
+            width: printWidth,
+            height: printHeight,
+            absolutePositioned: true,
+          });
+        }
 
         // Make objects selectable based on current edit mode
         obj.selectable = isEditRef.current;
@@ -390,42 +646,42 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
         // Increment canvas version to trigger updates in components that depend on canvas state
         incrementCanvasVersion();
-      })
+    })
 
-      const snapThreshold = 10;
+    const snapThreshold = 10;
 
-      // Update scale box during object transformations
-      canvas.on('object:scaling', (e) => {
+    // Update scale box during object transformations
+    canvas.on('object:scaling', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
         }
-      });
+    });
 
-      canvas.on('object:rotating', (e) => {
+    canvas.on('object:rotating', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
         }
-      });
+    });
 
-      canvas.on('object:modified', (e) => {
+    canvas.on('object:modified', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
         }
         // Increment canvas version when object is modified (color, size, etc.)
         incrementCanvasVersion();
-      });
+    });
 
-      // Increment canvas version when object is removed
-      canvas.on('object:removed', (e) => {
+    // Increment canvas version when object is removed
+    canvas.on('object:removed', (e) => {
         const obj = e.target;
         // Skip guide boxes, snap lines, and background product image
         // @ts-expect-error - Checking custom data property
         if (!obj || obj.excludeFromExport || (obj.data?.id === 'background-product-image')) return;
 
         incrementCanvasVersion();
-      });
+    });
 
-      canvas.on('object:moving', (e) => {
+    canvas.on('object:moving', (e) => {
         const obj = e.target;
         if (!obj) return; // for error handling if there is no object
 
@@ -449,12 +705,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         } else {
           verticalSnapLine.set('visible', false)
         }
-      });
+    });
 
-      canvas.on('mouse:up', () => {
+    canvas.on('mouse:up', () => {
         verticalSnapLine.set('visible', false);
         canvas.requestRenderAll();
-      });
+    });
 
     return () => {
       unregisterCanvas(side.id);
@@ -467,6 +723,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Reset zoom when entering or exiting edit mode
+    resetZoom(side.id);
 
     canvas.selection = isEdit;
     canvas.forEachObject((obj) => {
@@ -487,12 +746,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       obj.evented = isEdit;
     });
     canvas.requestRenderAll();
-  }, [isEdit]);
+  }, [isEdit, side.id, resetZoom]);
 
-  // Effect to apply color filter when productColor changes
+  // Effect to apply color filter when productColor changes (legacy single-image mode)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Only apply in legacy mode (when side has no layers)
+    if (side.layers && side.layers.length > 0) return;
 
     // Find all objects with id 'background-product-image' and apply color filter
     canvas.forEachObject((obj) => {
@@ -515,11 +777,94 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
 
     canvas.requestRenderAll();
-  }, [productColor]);
+  }, [productColor, side.layers]);
+
+  // Effect to apply color filter to layers when layerColors change or layers are ready
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Only apply in multi-layer mode
+    if (!side.layers || side.layers.length === 0) return;
+
+    // Wait for layers to be loaded before applying colors
+    if (!layersReady) {
+      console.log(`[SingleSideCanvas] Waiting for layers to be ready before applying colors for side: ${side.id}`);
+      return;
+    }
+
+    console.log(`[SingleSideCanvas] Applying color filters to ${side.layers.length} layers for side: ${side.id}`);
+
+    // Build a lookup of layerId -> images on canvas to handle duplicates reliably
+    const layerImagesById = new Map<string, fabric.FabricImage[]>();
+    canvas.getObjects().forEach((obj) => {
+      if (obj.type !== 'image') return;
+      // @ts-expect-error - Checking custom data property
+      const dataId = obj.data?.id;
+      // @ts-expect-error - Checking custom data property
+      const dataLayerId = obj.data?.layerId as string | undefined;
+      if (dataId !== 'background-product-image' || !dataLayerId) return;
+      const list = layerImagesById.get(dataLayerId) || [];
+      list.push(obj as fabric.FabricImage);
+      layerImagesById.set(dataLayerId, list);
+    });
+
+    // Update each layer's color based on layerColors state
+    let colorsApplied = 0;
+    side.layers.forEach((layer) => {
+      const canvasLayerImages = layerImagesById.get(layer.id) || [];
+      const refLayerImage = layerImagesRef.current.get(layer.id);
+      const layerImages = canvasLayerImages.length > 0
+        ? canvasLayerImages
+        : (refLayerImage ? [refLayerImage] : []);
+
+      if (layerImages.length === 0) {
+        console.warn(`[SingleSideCanvas] Layer image not found for ${layer.name} (${layer.id}) when applying colors`);
+        return;
+      }
+
+      const selectedColor = layerColors[side.id]?.[layer.id] || layer.colorOptions[0] || '#FFFFFF';
+
+      layerImages.forEach((layerImg) => {
+        // Remove any existing filters
+        layerImg.filters = [];
+
+        const colorFilter = new fabric.filters.BlendColor({
+          color: selectedColor,
+          mode: 'multiply',
+          alpha: 1,
+        });
+
+        layerImg.filters.push(colorFilter);
+        layerImg.applyFilters();
+        colorsApplied++;
+      });
+
+      console.log(`[SingleSideCanvas] Applied color ${selectedColor} to ${layerImages.length} image(s) for layer ${layer.name} (${layer.id})`);
+    });
+
+    console.log(`[SingleSideCanvas] Successfully applied colors to ${colorsApplied}/${side.layers.length} layers for side: ${side.id}`);
+
+    canvas.requestRenderAll();
+  }, [layerColors, side.id, side.layers, layersReady]);
 
   return (
-    <div className="relative">
-      <canvas ref={canvasEl}/>
+    <div className="relative" style={{ width, height }}>
+      {isLoading && (
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-gray-100"
+          style={{ width, height }}
+        >
+          <div className="flex flex-col items-center gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="text-sm text-gray-600">Loading canvas...</p>
+          </div>
+        </div>
+      )}
+      <canvas
+        ref={canvasEl}
+        style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.3s' }}
+      />
       <ScaleBox
         x={scaleBoxDimensions.x}
         y={scaleBoxDimensions.y}

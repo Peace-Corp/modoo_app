@@ -50,7 +50,6 @@ export default async function InquiryBoardSection() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-6 h-6" />
           <h2 className="text-xl font-bold">문의 게시판</h2>
         </div>
         <Link
@@ -103,12 +102,6 @@ export default async function InquiryBoardSection() {
         <div className="bg-white rounded-lg p-8 text-center">
           <MessageSquare className="w-12 h-12 mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 mb-4">등록된 문의가 없습니다.</p>
-          <Link
-            href="/inquiries/new"
-            className="inline-block px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
-          >
-            첫 문의 등록하기
-          </Link>
         </div>
       )}
 

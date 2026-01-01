@@ -62,7 +62,10 @@ export default function PrintAreaEditor({ product, onSave, onCancel }: PrintArea
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = currentSide.imageUrl;
+    // For backward compatibility: use imageUrl if available, otherwise use first layer's imageUrl
+    const imageUrl = currentSide.imageUrl || currentSide.layers?.[0]?.imageUrl;
+    if (!imageUrl) return;
+    img.src = imageUrl;
 
     img.onload = () => {
       // Set canvas size based on container
