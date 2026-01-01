@@ -304,6 +304,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
         // Restore layer colors if present
         if (canvasData.layerColors) {
+          console.log(`[useCanvasStore] Restoring layer colors for side ${id}:`, canvasData.layerColors);
           set((state) => ({
             layerColors: {
               ...state.layerColors,
@@ -407,6 +408,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       // Restore layer colors if present
       if (canvasData.layerColors) {
+        console.log(`[useCanvasStore] Restoring layer colors for side ${id}:`, canvasData.layerColors);
         set((state) => ({
           layerColors: {
             ...state.layerColors,

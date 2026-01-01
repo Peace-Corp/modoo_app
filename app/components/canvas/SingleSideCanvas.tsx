@@ -32,6 +32,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   // Loading state to track when all images are loaded
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track when layers are fully loaded and ready for color application
+  const [layersReady, setLayersReady] = useState(false);
+
   // Scale box state
   const [scaleBoxVisible, setScaleBoxVisible] = useState(false);
   const [scaleBoxDimensions, setScaleBoxDimensions] = useState({
@@ -46,6 +49,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   useEffect(() => {
     isEditRef.current = isEdit;
   }, [isEdit]);
+
+  // Reset layersReady when side changes
+  useEffect(() => {
+    setLayersReady(false);
+  }, [side.id]);
 
   // Initialize canvas once
   useEffect(() => {
@@ -89,10 +97,18 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     const tempCenteredTop = (height - printH) / 2;
     const tempPrintCenterX = tempCenteredLeft + (printW / 2);
 
+    // Check if side has layers (multi-layer mode) or single imageUrl (legacy mode)
+    const hasLayers = side.layers && side.layers.length > 0;
+
     // Creating the Snap Line (Vertical)
-    // Coords: [x1, y1, x2, y2]
+    // For multi-layer mode: use canvas center
+    // For single-image mode: use print area center (will be updated when image loads)
+    const snapLineCenterX = hasLayers ? width / 2 : tempPrintCenterX;
+    const snapLineTop = hasLayers ? 0 : tempCenteredTop;
+    const snapLineBottom = hasLayers ? height : tempCenteredTop + printH;
+
     const verticalSnapLine = new fabric.Line(
-      [tempPrintCenterX, tempCenteredTop, tempPrintCenterX, tempCenteredTop + printH],
+      [snapLineCenterX, snapLineTop, snapLineCenterX, snapLineBottom],
       {
         stroke: '#FF0072', // Hot pink
         strokeWidth: 1,
@@ -137,9 +153,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
 
     canvas.add(guideBox);
-
-    // Check if side has layers (multi-layer mode) or single imageUrl (legacy mode)
-    const hasLayers = side.layers && side.layers.length > 0;
 
     if (hasLayers) {
       // Multi-layer mode: Initialize layer colors and load all layers
@@ -226,27 +239,13 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Add all layer images to canvas in z-index order (bottom to top)
         console.log(`[SingleSideCanvas] Adding ${sortedLayers.length} layers to canvas for side: ${side.id}`);
 
-        // Get current layer colors from store to apply initial colors
-        const currentLayerColors = useCanvasStore.getState().layerColors;
-
-        // Add layers to canvas first and apply initial color filters
+        // Add layers to canvas FIRST without color filters
+        // Color filters will be applied by the effect after all layers are confirmed loaded
         sortedLayers.forEach((layer) => {
           const layerImg = layerImagesRef.current.get(layer.id);
           if (layerImg) {
-            // Apply initial color filter from store state
-            const selectedColor = currentLayerColors[side.id]?.[layer.id] || layer.colorOptions[0] || '#FFFFFF';
-
-            layerImg.filters = [];
-            const colorFilter = new fabric.filters.BlendColor({
-              color: selectedColor,
-              mode: 'multiply',
-              alpha: 1,
-            });
-            layerImg.filters.push(colorFilter);
-            layerImg.applyFilters();
-
             canvas.add(layerImg);
-            console.log(`[SingleSideCanvas] Added layer ${layer.name} (${layer.id}) with color ${selectedColor}`);
+            console.log(`[SingleSideCanvas] Added layer ${layer.name} (${layer.id}) to canvas`);
           } else {
             console.error(`[SingleSideCanvas] Layer image not found in ref for ${layer.name} (${layer.id})`);
           }
@@ -304,11 +303,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         });
 
         // Update vertical snap line
+        // For multi-layer mode, keep it at canvas center spanning full height
         verticalSnapLine.set({
-          x1: printCenterX,
-          y1: printAreaTop,
-          x2: printCenterX,
-          y2: printAreaTop + scaledPrintH,
+          x1: width / 2,
+          y1: 0,
+          x2: width / 2,
+          y2: height,
         });
 
         // Store values for use in event handlers
@@ -331,11 +331,18 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // @ts-expect-error - Custom property
         canvas.scaledImageHeight = imgHeight * scale;
 
-        canvas.add(guideBox);
+        // For multi-layer mode, store canvas center as the snap center
+        // @ts-expect-error - Custom property
+        canvas.printCenterX = width / 2;
+
+        // Don't add guide box for multi-layer mode
+        // canvas.add(guideBox); // Skipped for multi-layer mode
+
         markImageLoaded(side.id);
-        canvas.requestRenderAll();
 
         // All layers loaded and rendered - mark as ready
+        // Set layersReady to trigger the color application effect
+        setLayersReady(true);
         setIsLoading(false);
         console.log(`[SingleSideCanvas] All layers loaded and rendered for side: ${side.id}`);
       }).catch((error) => {
@@ -547,14 +554,19 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     };
 
     // 4. Event Listeners for Visibility Logic
+    // Only show guide box for single-image mode (not multi-layer mode)
     const showGuide = () => {
-        guideBox.set('visible', true);
-        canvas.requestRenderAll();
+        if (!hasLayers) {
+          guideBox.set('visible', true);
+          canvas.requestRenderAll();
+        }
     };
 
     const hideGuide = () => {
-        guideBox.set('visible', false);
-        canvas.requestRenderAll();
+        if (!hasLayers) {
+          guideBox.set('visible', false);
+          canvas.requestRenderAll();
+        }
     };
 
     // Show when an object is selected
@@ -584,6 +596,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     // 5. Enforce Clipping on Added Objects
     // Whenever an object is added (Text, Shape, Logo), we apply the clipPath to IT.
+    // Skip clipping entirely for multi-layer mode
     canvas.on('object:added', (e) => {
         const obj = e.target;
         // Skip guide boxes, snap lines, and background product image
@@ -606,23 +619,26 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           obj.data.printMethod = 'printing'; // Default to printing
         }
 
-        // Apply the specific clip area to this object (using values relative to product image)
-        // @ts-expect-error - Custom property
-        const printLeft = canvas.printAreaLeft || tempCenteredLeft;
-        // @ts-expect-error - Custom property
-        const printTop = canvas.printAreaTop || tempCenteredTop;
-        // @ts-expect-error - Custom property
-        const printWidth = canvas.printAreaWidth || side.printArea.width;
-        // @ts-expect-error - Custom property
-        const printHeight = canvas.printAreaHeight || side.printArea.height;
+        // Only apply clipping in single-image mode (not multi-layer mode)
+        if (!hasLayers) {
+          // Apply the specific clip area to this object (using values relative to product image)
+          // @ts-expect-error - Custom property
+          const printLeft = canvas.printAreaLeft || tempCenteredLeft;
+          // @ts-expect-error - Custom property
+          const printTop = canvas.printAreaTop || tempCenteredTop;
+          // @ts-expect-error - Custom property
+          const printWidth = canvas.printAreaWidth || side.printArea.width;
+          // @ts-expect-error - Custom property
+          const printHeight = canvas.printAreaHeight || side.printArea.height;
 
-        obj.clipPath = new fabric.Rect({
-          left: printLeft,
-          top: printTop,
-          width: printWidth,
-          height: printHeight,
-          absolutePositioned: true,
-        });
+          obj.clipPath = new fabric.Rect({
+            left: printLeft,
+            top: printTop,
+            width: printWidth,
+            height: printHeight,
+            absolutePositioned: true,
+          });
+        }
 
         // Make objects selectable based on current edit mode
         obj.selectable = isEditRef.current;
@@ -763,7 +779,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     canvas.requestRenderAll();
   }, [productColor, side.layers]);
 
-  // Effect to apply color filter to layers when layerColors change
+  // Effect to apply color filter to layers when layerColors change or layers are ready
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -771,28 +787,66 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     // Only apply in multi-layer mode
     if (!side.layers || side.layers.length === 0) return;
 
+    // Wait for layers to be loaded before applying colors
+    if (!layersReady) {
+      console.log(`[SingleSideCanvas] Waiting for layers to be ready before applying colors for side: ${side.id}`);
+      return;
+    }
+
+    console.log(`[SingleSideCanvas] Applying color filters to ${side.layers.length} layers for side: ${side.id}`);
+
+    // Build a lookup of layerId -> images on canvas to handle duplicates reliably
+    const layerImagesById = new Map<string, fabric.FabricImage[]>();
+    canvas.getObjects().forEach((obj) => {
+      if (obj.type !== 'image') return;
+      // @ts-expect-error - Checking custom data property
+      const dataId = obj.data?.id;
+      // @ts-expect-error - Checking custom data property
+      const dataLayerId = obj.data?.layerId as string | undefined;
+      if (dataId !== 'background-product-image' || !dataLayerId) return;
+      const list = layerImagesById.get(dataLayerId) || [];
+      list.push(obj as fabric.FabricImage);
+      layerImagesById.set(dataLayerId, list);
+    });
+
     // Update each layer's color based on layerColors state
+    let colorsApplied = 0;
     side.layers.forEach((layer) => {
-      const layerImg = layerImagesRef.current.get(layer.id);
-      if (!layerImg) return;
+      const canvasLayerImages = layerImagesById.get(layer.id) || [];
+      const refLayerImage = layerImagesRef.current.get(layer.id);
+      const layerImages = canvasLayerImages.length > 0
+        ? canvasLayerImages
+        : (refLayerImage ? [refLayerImage] : []);
+
+      if (layerImages.length === 0) {
+        console.warn(`[SingleSideCanvas] Layer image not found for ${layer.name} (${layer.id}) when applying colors`);
+        return;
+      }
 
       const selectedColor = layerColors[side.id]?.[layer.id] || layer.colorOptions[0] || '#FFFFFF';
 
-      // Remove any existing filters
-      layerImg.filters = [];
+      layerImages.forEach((layerImg) => {
+        // Remove any existing filters
+        layerImg.filters = [];
 
-      const colorFilter = new fabric.filters.BlendColor({
-        color: selectedColor,
-        mode: 'multiply',
-        alpha: 1,
+        const colorFilter = new fabric.filters.BlendColor({
+          color: selectedColor,
+          mode: 'multiply',
+          alpha: 1,
+        });
+
+        layerImg.filters.push(colorFilter);
+        layerImg.applyFilters();
+        colorsApplied++;
       });
 
-      layerImg.filters.push(colorFilter);
-      layerImg.applyFilters();
+      console.log(`[SingleSideCanvas] Applied color ${selectedColor} to ${layerImages.length} image(s) for layer ${layer.name} (${layer.id})`);
     });
 
+    console.log(`[SingleSideCanvas] Successfully applied colors to ${colorsApplied}/${side.layers.length} layers for side: ${side.id}`);
+
     canvas.requestRenderAll();
-  }, [layerColors, side.id, side.layers]);
+  }, [layerColors, side.id, side.layers, layersReady]);
 
   return (
     <div className="relative" style={{ width, height }}>
