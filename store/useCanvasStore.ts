@@ -7,6 +7,7 @@ import {
   extractAndUploadAllTextSVG,
   type SVGExportResult
 } from '@/lib/canvas-svg-export';
+import { createClient } from '@/lib/supabase-client';
 
 
 interface CanvasState {
@@ -390,7 +391,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return null;
     }
 
-    return await extractAndUploadTextSVG(canvas, `text-${targetSideId}`);
+    const supabase = createClient();
+    return await extractAndUploadTextSVG(supabase, canvas, `text-${targetSideId}`);
   },
 
   // Export text objects from all canvases to SVG (no upload)
@@ -408,6 +410,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Export text objects from all canvases to SVG and upload to Supabase
   exportAndUploadAllTextToSVG: async () => {
     const { canvasMap } = get();
-    return await extractAndUploadAllTextSVG(canvasMap);
+    const supabase = createClient();
+    return await extractAndUploadAllTextSVG(supabase, canvasMap);
   },
 }));

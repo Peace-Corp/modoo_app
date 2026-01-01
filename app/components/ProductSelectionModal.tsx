@@ -81,7 +81,7 @@ export default function ProductSelectionModal({
 
   const getProductImageUrl = (product: Product) => {
     if (product.configuration && product.configuration.length > 0) {
-      return product.configuration[0].imageUrl;
+      return product.configuration[0].imageUrl ?? '/placeholder-product.png';
     }
     return '/placeholder-product.png';
   };

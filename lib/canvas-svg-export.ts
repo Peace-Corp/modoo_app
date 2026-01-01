@@ -1,6 +1,7 @@
 import * as fabric from 'fabric';
 import { uploadSVGToStorage, UploadResult } from './supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface TextObjectData {
   text: string;
@@ -139,11 +140,13 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
 
 /**
  * Extract text objects from canvas and upload as SVG to Supabase
+ * @param supabase - Supabase client instance
  * @param canvas - Fabric.js canvas instance
  * @param filename - Optional custom filename
  * @returns SVG export result with upload information
  */
 export async function extractAndUploadTextSVG(
+  supabase: SupabaseClient,
   canvas: fabric.Canvas,
   filename?: string
 ): Promise<SVGExportResult> {
@@ -157,6 +160,7 @@ export async function extractAndUploadTextSVG(
 
   // Upload to Supabase
   const uploadResult = await uploadSVGToStorage(
+    supabase,
     result.svg,
     STORAGE_BUCKETS.TEXT_EXPORTS,
     STORAGE_FOLDERS.SVG,
@@ -171,16 +175,19 @@ export async function extractAndUploadTextSVG(
 
 /**
  * Extract text objects from all canvases and upload as separate SVG files
+ * @param supabase - Supabase client instance
  * @param canvasMap - Map of canvas instances by side ID
  * @returns Map of SVG export results by side ID
  */
 export async function extractAndUploadAllTextSVG(
+  supabase: SupabaseClient,
   canvasMap: Record<string, fabric.Canvas>
 ): Promise<Record<string, SVGExportResult>> {
   const results: Record<string, SVGExportResult> = {};
 
   for (const [sideId, canvas] of Object.entries(canvasMap)) {
     const result = await extractAndUploadTextSVG(
+      supabase,
       canvas,
       `text-${sideId}`
     );

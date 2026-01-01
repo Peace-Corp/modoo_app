@@ -9,6 +9,7 @@ import {
   type CartItemWithDesign
 } from '@/lib/cartService';
 import TossPaymentWidget from '../components/toss/TossPaymentWidget';
+import { useAuthStore } from '@/store/useAuthStore';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -37,10 +38,12 @@ interface InternationalAddress {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuthStore();
   const [items, setItems] = useState<CartItemWithDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('domestic');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('toss');
+  const [useProfileInfo, setUseProfileInfo] = useState(true);
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
@@ -157,6 +160,24 @@ export default function CheckoutPage() {
 
     fetchCartItems();
   }, [router]);
+
+  // Auto-fill customer info from user profile when authenticated and useProfileInfo is true
+  useEffect(() => {
+    if (isAuthenticated && user && useProfileInfo) {
+      setCustomerInfo({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+      });
+    } else if (!useProfileInfo) {
+      // Clear fields when switching to manual entry
+      setCustomerInfo({
+        name: '',
+        email: '',
+        phone: '',
+      });
+    }
+  }, [isAuthenticated, user, useProfileInfo]);
 
   // Calculate totals
   const totalPrice = items.reduce((total, item) => total + item.price_per_item * item.quantity, 0);
@@ -321,7 +342,17 @@ export default function CheckoutPage() {
 
       {/* Customer Information */}
       <div className="bg-white mt-2 p-4">
-        <h2 className="font-medium text-black mb-4">주문자 정보</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium text-black">주문자 정보</h2>
+          {isAuthenticated && user && (
+            <button
+              onClick={() => setUseProfileInfo(!useProfileInfo)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {useProfileInfo ? '직접 입력' : '프로필 정보 사용'}
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
           <div>
             <label className="block text-sm text-gray-700 mb-1">이름</label>
@@ -329,7 +360,10 @@ export default function CheckoutPage() {
               type="text"
               value={customerInfo.name}
               onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+              disabled={isAuthenticated && useProfileInfo}
+              className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
+                isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
+              }`}
               placeholder="이름을 입력하세요"
             />
           </div>
@@ -339,7 +373,10 @@ export default function CheckoutPage() {
               type="email"
               value={customerInfo.email}
               onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+              disabled={isAuthenticated && useProfileInfo}
+              className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
+                isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
+              }`}
               placeholder="example@email.com"
             />
           </div>
@@ -349,7 +386,10 @@ export default function CheckoutPage() {
               type="tel"
               value={customerInfo.phone}
               onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+              disabled={isAuthenticated && useProfileInfo}
+              className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
+                isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
+              }`}
               placeholder="010-1234-5678"
             />
           </div>
