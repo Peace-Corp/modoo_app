@@ -24,10 +24,12 @@ interface CanvasState {
   setProductColor: (color: string) => void;
 
   // Layer color state - maps sideId -> layerId -> hex color
+  // For single-layered sides, use sideId as the layerId
   layerColors: Record<string, Record<string, string>>;
   setLayerColor: (sideId: string, layerId: string, color: string) => void;
   getLayerColor: (sideId: string, layerId: string) => string | null;
-  initializeLayerColors: (sideId: string, layers: { id: string; colorOptions: string[] }[]) => void;
+  initializeLayerColors: (sideId: string, layers: { id: string; colorOptions: { hex: string; colorCode: string }[] }[]) => void;
+  initializeSideColor: (sideId: string, colorOptions: { hex: string; colorCode: string }[]) => void;
 
   // Zoom state - maps sideId -> zoom level
   zoomLevels: Record<string, number>;
@@ -190,10 +192,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             }
           });
 
-          // Use existing color if found, otherwise use the first color option
-          sideColors[layer.id] = existingColor || layer.colorOptions[0];
+          // Use existing color if found, otherwise use the hex from the first color option
+          sideColors[layer.id] = existingColor || layer.colorOptions[0]?.hex || '#FFFFFF';
         }
       });
+      return {
+        layerColors: {
+          ...state.layerColors,
+          [sideId]: sideColors
+        }
+      };
+    });
+  },
+
+  initializeSideColor: (sideId, colorOptions) => {
+    set((state) => {
+      const sideColors = { ...state.layerColors[sideId] };
+
+      // For single-layered sides, use the sideId itself as the layerId
+      if (!sideColors[sideId] && colorOptions.length > 0) {
+        // Use the hex from the first color option
+        sideColors[sideId] = colorOptions[0]?.hex || '#FFFFFF';
+      }
+
       return {
         layerColors: {
           ...state.layerColors,

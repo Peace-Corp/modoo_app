@@ -279,9 +279,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             const currentSide = product.configuration.find(side => side.id === activeSideId);
             const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
 
-            return hasLayers ? (
+            return hasLayers || (currentSide?.colorOptions && currentSide.colorOptions.length > 0) ? (
               <div className="mt-4">
-                <LayerColorSelector sideId={activeSideId} layers={currentSide!.layers!} />
+                <LayerColorSelector side={currentSide!} />
               </div>
             ) : (
               /* Legacy Horizontal Color Selector (for products without layers) */

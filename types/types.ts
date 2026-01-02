@@ -1,12 +1,17 @@
 
 
 
+export interface ColorOption {
+  hex: string;
+  colorCode: string;
+}
+
 export interface ProductLayer {
   id: string;
   name: string;
   imageUrl: string;
   zIndex: number;
-  colorOptions: string[]; // Array of hex color codes
+  colorOptions: ColorOption[]; // Array of color options with hex and colorCode
 }
 
 export interface ProductSide {
@@ -29,6 +34,8 @@ export interface ProductSide {
   zoomScale?: number;
   // Multi-layer support
   layers?: ProductLayer[];
+  // Color options for single-layered mode (when layers is not used)
+  colorOptions?: ColorOption[];
 }
 
 export interface ProductConfig {
