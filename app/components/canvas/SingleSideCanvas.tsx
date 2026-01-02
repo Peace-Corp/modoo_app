@@ -28,7 +28,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
   const loadSessionRef = useRef(0);
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors, resetZoom } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor, layerColors, resetZoom } = useCanvasStore();
 
   // Loading state to track when all images are loaded
   const [isLoading, setIsLoading] = useState(true);
@@ -592,8 +592,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.add(img);
         canvas.sendObjectToBack(img); // ensure it stays behind design elements
 
-        // Apply initial color filter using the current productColor from store
-        const currentColor = useCanvasStore.getState().productColor;
+        // Initialize color from configuration if colorOptions are available
+        if (side.colorOptions && side.colorOptions.length > 0) {
+          initializeSideColor(side.id, side.colorOptions);
+        }
+
+        // Apply initial color filter using color from configuration or fallback to productColor
+        const currentColor = side.colorOptions && side.colorOptions.length > 0
+          ? useCanvasStore.getState().layerColors[side.id]?.[side.id] || side.colorOptions[0]?.hex || '#FFFFFF'
+          : useCanvasStore.getState().productColor;
         img.filters = [];
         const initialColorFilter = new fabric.filters.BlendColor({
           color: currentColor,
@@ -923,7 +930,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       canvas.dispose();
       canvasRef.current = null;
     };
-  }, [side, height, width, registerCanvas, unregisterCanvas, markImageLoaded, incrementCanvasVersion]);
+  }, [side, height, width, registerCanvas, unregisterCanvas, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor]);
 
   // Separate effect to update selection state when isEdit changes
   useEffect(() => {
@@ -954,13 +961,20 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     canvas.requestRenderAll();
   }, [isEdit, side.id, resetZoom]);
 
-  // Effect to apply color filter when productColor changes (legacy single-image mode)
+  // Effect to apply color filter when color changes (single-image mode)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Only apply in legacy mode (when side has no layers)
+    // Only apply in single-image mode (when side has no layers)
     if (side.layers && side.layers.length > 0) return;
+
+    // Determine which color to use:
+    // 1. If side has colorOptions, use color from layerColors (using sideId as layerId)
+    // 2. Otherwise, fall back to global productColor for legacy mode
+    const selectedColor = side.colorOptions && side.colorOptions.length > 0
+      ? layerColors[side.id]?.[side.id] || side.colorOptions[0]?.hex || '#FFFFFF'
+      : productColor;
 
     // Find all objects with id 'background-product-image' and apply color filter
     canvas.forEachObject((obj) => {
@@ -972,7 +986,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         imgObj.filters = [];
 
         const colorFilter = new fabric.filters.BlendColor({
-          color: productColor,
+          color: selectedColor,
           mode: 'multiply',
           alpha: 1, // Adjust opacity of the color overlay
         });
@@ -983,7 +997,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
 
     canvas.requestRenderAll();
-  }, [productColor, side.layers]);
+  }, [productColor, side.layers, side.colorOptions, side.id, layerColors]);
 
   // Effect to apply color filter to layers when layerColors change or layers are ready
   useEffect(() => {
@@ -1029,7 +1043,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         return;
       }
 
-      const selectedColor = layerColors[side.id]?.[layer.id] || layer.colorOptions[0] || '#FFFFFF';
+      const selectedColor = layerColors[side.id]?.[layer.id] || layer.colorOptions[0]?.hex || '#FFFFFF';
 
       layerImages.forEach((layerImg) => {
         // Remove any existing filters

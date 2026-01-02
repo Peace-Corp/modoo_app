@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { Plus, TextCursor, Layers, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
@@ -362,6 +362,82 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     incrementCanvasVersion();
   }
 
+  // Layer manipulation functions
+  const bringToFront = () => {
+    const canvas = getActiveCanvas();
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectToFront(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendToBack = () => {
+    const canvas = getActiveCanvas();
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      // Find all system objects (background, guides, etc.) that should stay below user objects
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+
+      // Find the highest index among system objects
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+
+      // Move the object to just above the highest system object
+      const currentIndex = objects.indexOf(activeObject);
+      const targetIndex = maxSystemIndex + 1;
+
+      if (currentIndex > targetIndex) {
+        // Remove and re-insert at the correct position
+        canvas.remove(activeObject);
+        canvas.insertAt(targetIndex, activeObject);
+        canvas.setActiveObject(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const bringForward = () => {
+    const canvas = getActiveCanvas();
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectForward(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendBackward = () => {
+    const canvas = getActiveCanvas();
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      // Find all system objects (background, guides, etc.) that should stay below user objects
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+
+      // Find the highest index among system objects
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+
+      // Only send backward if it won't go below system objects
+      const currentIndex = objects.indexOf(activeObject);
+      if (currentIndex > maxSystemIndex + 1) {
+        canvas.sendObjectBackwards(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
   // Generate canvas previews when modal is open
   const canvasPreviews = useMemo(() => {
     if (!isModalOpen) return {};
@@ -416,14 +492,50 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
               초기화
             </button>
             {selectedObject && (
-              <button
-                onClick={handleDeleteObject}
-                className="flex items-center gap-2 rounded-full border border-red-200 px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition"
-                title="삭제"
-              >
-                <Trash2 className="size-4" />
-                삭제
-              </button>
+              <>
+                <div className="h-6 w-px bg-gray-300" />
+                <button
+                  onClick={bringToFront}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  title="맨 앞으로"
+                >
+                  <ChevronsUp className="size-4" />
+                  맨 앞
+                </button>
+                <button
+                  onClick={bringForward}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  title="앞으로"
+                >
+                  <ArrowUp className="size-4" />
+                  앞으로
+                </button>
+                <button
+                  onClick={sendBackward}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  title="뒤로"
+                >
+                  <ArrowDown className="size-4" />
+                  뒤로
+                </button>
+                <button
+                  onClick={sendToBack}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  title="맨 뒤로"
+                >
+                  <ChevronsDown className="size-4" />
+                  맨 뒤
+                </button>
+                <div className="h-6 w-px bg-gray-300" />
+                <button
+                  onClick={handleDeleteObject}
+                  className="flex items-center gap-2 rounded-full border border-red-200 px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition"
+                  title="삭제"
+                >
+                  <Trash2 className="size-4" />
+                  삭제
+                </button>
+              </>
             )}
           </div>
 
@@ -500,12 +612,29 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 </button>
               </div>
 
-              <button onClick={handleResetCanvas} title="초기화">
-                <RefreshCcw className='text-black/80 font-extralight' />
-              </button>
-              {selectedObject && (
-                <button onClick={handleDeleteObject} title="삭제">
-                  <Trash2 className='text-red-400 font-extralight' />
+              {selectedObject ? (
+                <>
+                  {/* Layer controls when object is selected */}
+                  <button onClick={bringToFront} title="맨 앞으로" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                    <ChevronsUp className='text-black/80 size-5' />
+                  </button>
+                  <button onClick={bringForward} title="앞으로" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                    <ArrowUp className='text-black/80 size-5' />
+                  </button>
+                  <button onClick={sendBackward} title="뒤로" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                    <ArrowDown className='text-black/80 size-5' />
+                  </button>
+                  <button onClick={sendToBack} title="맨 뒤로" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                    <ChevronsDown className='text-black/80 size-5' />
+                  </button>
+                  <div className='h-6 w-px bg-gray-300' />
+                  <button onClick={handleDeleteObject} title="삭제" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                    <Trash2 className='text-red-400 size-5' />
+                  </button>
+                </>
+              ) : (
+                <button onClick={handleResetCanvas} title="초기화" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                  <RefreshCcw className='text-black/80' />
                 </button>
               )}
             </div>

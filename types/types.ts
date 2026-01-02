@@ -1,12 +1,17 @@
 
 
 
+export interface ColorOption {
+  hex: string;
+  colorCode: string;
+}
+
 export interface ProductLayer {
   id: string;
   name: string;
   imageUrl: string;
   zIndex: number;
-  colorOptions: string[]; // Array of hex color codes
+  colorOptions: ColorOption[]; // Array of color options with hex and colorCode
 }
 
 export interface ProductSide {
@@ -29,6 +34,8 @@ export interface ProductSide {
   zoomScale?: number;
   // Multi-layer support
   layers?: ProductLayer[];
+  // Color options for single-layered mode (when layers is not used)
+  colorOptions?: ColorOption[];
 }
 
 export interface ProductConfig {
@@ -146,4 +153,48 @@ export interface CanvasObjectData extends CanvasObjectPrintData, CanvasObjectSto
   id?: string;
   objectId?: string;
   [key: string]: unknown; // Allow additional custom properties
+}
+
+// Database types
+export interface SavedDesign {
+  id: string;
+  user_id: string;
+  product_id: string;
+  title: string;
+  color_selections: Record<string, unknown>;
+  canvas_state: Record<string, unknown>;
+  preview_url: string | null;
+  created_at: string;
+  updated_at: string;
+  price_per_item: number;
+  image_urls: Record<string, unknown>;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product_title: string;
+  quantity: number;
+  price_per_item: number;
+  design_id: string | null;
+  design_title: string | null;
+  product_variant_id: string | null;
+  canvas_state: Record<string, unknown>;
+  color_selections: Record<string, unknown>;
+  item_options: {
+    variants: Array<{
+      size_id: string;
+      size_name: string;
+      color_id: string;
+      color_name: string;
+      color_hex: string;
+      quantity: number;
+    }>;
+  };
+  thumbnail_url: string | null;
+  text_svg_exports: Record<string, string> | null;
+  image_urls: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
 }

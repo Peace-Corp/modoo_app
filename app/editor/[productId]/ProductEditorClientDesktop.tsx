@@ -301,8 +301,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                   const currentSide = product.configuration.find(side => side.id === activeSideId);
                   const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
 
-                  return hasLayers ? (
-                    <LayerColorSelector sideId={activeSideId} layers={currentSide!.layers!} />
+                  return hasLayers || (currentSide?.colorOptions && currentSide.colorOptions.length > 0) ? (
+                    <LayerColorSelector side={currentSide!} />
                   ) : (
                     productColors.length > 0 && (
                       <div className="overflow-hidden rounded-lg border border-gray-200 p-3">
