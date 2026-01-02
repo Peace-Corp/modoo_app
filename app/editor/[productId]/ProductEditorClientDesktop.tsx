@@ -15,9 +15,10 @@ import { SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface ProductEditorClientDesktopProps {
   product: Product;
@@ -26,6 +27,7 @@ interface ProductEditorClientDesktopProps {
 export default function ProductEditorClientDesktop({ product }: ProductEditorClientDesktopProps) {
   const searchParams = useSearchParams();
   const cartItemId = searchParams.get('cartItemId');
+  const router = useRouter();
 
   const {
     setEditMode,
@@ -40,6 +42,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   } = useCanvasStore();
 
   const { addItem: addToCart, items: cartStoreItems } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
   const [, setIsLoadingCartItem] = useState(false);
@@ -247,9 +250,12 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   }, [cartItemId, cartStoreItems, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
 
   useEffect(() => {
-    setEditMode(true);
+    // Only enable edit mode for authenticated users
+    if (isAuthenticated) {
+      setEditMode(true);
+    }
     return () => setEditMode(false);
-  }, [setEditMode]);
+  }, [setEditMode, isAuthenticated]);
 
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
@@ -341,13 +347,22 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
             </div>
 
             <div className="mt-5">
-              <button
-                onClick={handleAddToCartClick}
-                disabled={isSaving}
-                className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-              >
-                {isSaving ? '처리 중...' : '장바구니에 담기'}
-              </button>
+              {isAuthenticated ? (
+                <button
+                  onClick={handleAddToCartClick}
+                  disabled={isSaving}
+                  className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+                >
+                  {isSaving ? '처리 중...' : '장바구니에 담기'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push('/login')}
+                  className="w-full bg-blue-600 py-3 text-sm rounded-lg text-white hover:bg-blue-700 transition"
+                >
+                  로그인하기
+                </button>
+              )}
             </div>
           </aside>
         </div>

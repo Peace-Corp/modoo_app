@@ -26,12 +26,12 @@ export default async function HomePage() {
       {/* Header */}
       <Header showHomeNav />
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-5 lg:space-y-7">
+      <div className="lg:pt-5 py-4">
+        <HeroBanner />
+      </div>
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-2 lg:space-y-4">
         {/* Hero Banner */}
         {/* this will only be used in the home screen */}
-        <div className="pt-3 lg:pt-5">
-          <HeroBanner />
-        </div>
 
         {/* Categories */}
         <section className="w-full">

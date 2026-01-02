@@ -2,7 +2,7 @@
 'use client'
 import React, {useEffect, useRef, useState} from 'react';
 import * as fabric from "fabric";
-import { ProductSide } from '@/types/types';
+import { ProductSide, ProductLayer } from '@/types/types';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import ScaleBox from './ScaleBox';
 import { formatMm } from '@/lib/canvasUtils';
@@ -26,6 +26,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const isEditRef = useRef(isEdit);
   const productImageRef = useRef<fabric.FabricImage | null>(null);
   const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
+  const loadSessionRef = useRef(0);
 
   const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, layerColors, resetZoom } = useCanvasStore();
 
@@ -57,6 +58,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
   // Initialize canvas once
   useEffect(() => {
+    const sessionId = ++loadSessionRef.current;
+    let isDisposed = false;
+    const isSessionActive = () => !isDisposed && loadSessionRef.current === sessionId;
+
+    setIsLoading(true);
+    setLayersReady(false);
+    layerImagesRef.current.clear();
+    productImageRef.current = null;
+
     console.log(`[SingleSideCanvas] Initializing canvas for side: ${side.id}`);
     if (!canvasEl.current) {
       console.error(`[SingleSideCanvas] Canvas element not found for side: ${side.id}`);
@@ -166,110 +176,162 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       const sortedLayers = [...side.layers!].sort((a, b) => a.zIndex - b.zIndex);
 
       // Helper function to ensure image is fully loaded and decoded
-      const ensureImageFullyLoaded = async (imageUrl: string, layerName: string, layerId: string): Promise<fabric.FabricImage | null> => {
-        try {
-          // First, load the image using Fabric.js
-          const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+      // This pre-loads the image using native Image() before passing to Fabric.js
+      const ensureImageFullyLoaded = async (imageUrl: string, layerName: string, layerId: string, maxRetries = 3): Promise<fabric.FabricImage | null> => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          if (!isSessionActive()) return null;
 
-          if (!img) {
-            console.error(`[SingleSideCanvas] Failed to load layer image: ${imageUrl} for layer: ${layerName} (${layerId})`);
-            return null;
-          }
+          try {
+            console.log(`[SingleSideCanvas] Attempt ${attempt}/${maxRetries}: Pre-loading image for ${layerName} (${layerId})`);
 
-          // Get the underlying HTMLImageElement
-          const imgElement = img.getElement() as HTMLImageElement;
+            // Step 1: Pre-load using native Image() to ensure it's fully available
+            const nativeImg = new Image();
+            nativeImg.crossOrigin = 'anonymous';
 
-          // Ensure the image is fully loaded
-          if (!imgElement.complete) {
-            console.log(`[SingleSideCanvas] Waiting for image to complete loading: ${layerName} (${layerId})`);
-            await new Promise<void>((resolve, reject) => {
-              imgElement.onload = () => resolve();
-              imgElement.onerror = () => reject(new Error('Image failed to load'));
-              // Add timeout to prevent infinite waiting
-              setTimeout(() => reject(new Error('Image load timeout')), 30000);
+            // Create a promise that resolves when the image is fully loaded
+            const imageLoadPromise = new Promise<HTMLImageElement>((resolve, reject) => {
+              let timeoutId: ReturnType<typeof setTimeout> | null = null;
+              nativeImg.onload = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                console.log(`[SingleSideCanvas] Native image loaded: ${layerName} (${layerId}) - ${nativeImg.naturalWidth}x${nativeImg.naturalHeight}`);
+                resolve(nativeImg);
+              };
+              nativeImg.onerror = (error) => {
+                if (timeoutId) clearTimeout(timeoutId);
+                console.error(`[SingleSideCanvas] Native image failed to load: ${layerName} (${layerId})`, error);
+                reject(new Error(`Failed to load image: ${imageUrl}`));
+              };
+              // Set timeout for image loading
+              timeoutId = setTimeout(() => reject(new Error('Image load timeout')), 30000);
             });
+
+            // Start loading the image
+            nativeImg.src = imageUrl;
+
+            // Wait for the image to load
+            const loadedImg = await imageLoadPromise;
+            if (!isSessionActive()) return null;
+
+            // Step 2: Decode the image to ensure it's fully decoded in memory
+            if (loadedImg.decode) {
+              console.log(`[SingleSideCanvas] Decoding image: ${layerName} (${layerId})`);
+              await loadedImg.decode();
+              console.log(`[SingleSideCanvas] Image decoded successfully: ${layerName} (${layerId})`);
+            }
+            if (!isSessionActive()) return null;
+
+            // Step 3: Verify dimensions
+            const imgWidth = loadedImg.naturalWidth;
+            const imgHeight = loadedImg.naturalHeight;
+
+            if (imgWidth === 0 || imgHeight === 0) {
+              throw new Error(`Invalid dimensions: ${imgWidth}x${imgHeight}`);
+            }
+
+            console.log(`[SingleSideCanvas] Image verified with dimensions: ${imgWidth}x${imgHeight} for ${layerName} (${layerId})`);
+
+            // Step 4: Now create Fabric.js image from the pre-loaded native image
+            // This is much more reliable than fromURL because the image is already loaded
+            const fabricImg = new fabric.FabricImage(loadedImg, {
+              crossOrigin: 'anonymous'
+            });
+            if (!isSessionActive()) return null;
+
+            // Final verification
+            if (!fabricImg || fabricImg.width === 0 || fabricImg.height === 0) {
+              throw new Error(`Fabric image creation failed or has invalid dimensions`);
+            }
+
+            console.log(`[SingleSideCanvas] ✓ Successfully created Fabric image for ${layerName} (${layerId})`);
+            return fabricImg;
+
+          } catch (error) {
+            console.error(`[SingleSideCanvas] Attempt ${attempt}/${maxRetries} failed for ${layerName} (${layerId}):`, error);
+
+            if (attempt === maxRetries) {
+              console.error(`[SingleSideCanvas] All ${maxRetries} attempts failed for ${layerName} (${layerId})`);
+              return null;
+            }
+
+            // Wait before retrying (exponential backoff)
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            console.log(`[SingleSideCanvas] Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
-
-          // Use the decode() API to ensure the image is fully decoded
-          // This is crucial for preventing partial renders
-          if (imgElement.decode) {
-            console.log(`[SingleSideCanvas] Decoding image: ${layerName} (${layerId})`);
-            await imgElement.decode();
-            console.log(`[SingleSideCanvas] Image decoded successfully: ${layerName} (${layerId})`);
-          }
-
-          // Verify dimensions after decode
-          const imgWidth = img.width || 0;
-          const imgHeight = img.height || 0;
-
-          if (imgWidth === 0 || imgHeight === 0) {
-            console.error(`[SingleSideCanvas] Layer image has invalid dimensions after decode: ${imgWidth}x${imgHeight} for layer: ${layerName} (${layerId})`);
-            return null;
-          }
-
-          console.log(`[SingleSideCanvas] Image fully loaded and decoded: ${layerName} (${layerId}) - ${imgWidth}x${imgHeight}`);
-          return img;
-        } catch (error) {
-          console.error(`[SingleSideCanvas] Error ensuring image fully loaded for ${layerName} (${layerId}):`, error);
-          return null;
         }
+
+        return null;
       };
 
-      // Load all layer images with guaranteed full loading
-      const layerLoadPromises = sortedLayers.map(async (layer) => {
-        try {
-          const img = await ensureImageFullyLoaded(layer.imageUrl, layer.name, layer.id);
+      // Load all layer images sequentially (one by one) to guarantee all images load
+      const loadLayersSequentially = async () => {
+        const validResults: Array<{ img: fabric.FabricImage; scale: number; imgWidth: number; imgHeight: number; layer: ProductLayer }> = [];
 
-          if (!img) {
-            return null;
+        console.log(`[SingleSideCanvas] Starting sequential loading of ${sortedLayers.length} layers for side: ${side.id}`);
+
+        for (const layer of sortedLayers) {
+          if (!isSessionActive()) break;
+
+          try {
+            console.log(`[SingleSideCanvas] Loading layer ${layer.name} (${layer.id})...`);
+            const img = await ensureImageFullyLoaded(layer.imageUrl, layer.name, layer.id);
+            if (!isSessionActive()) break;
+
+            if (!img) {
+              console.error(`[SingleSideCanvas] Failed to load layer ${layer.name} (${layer.id}), skipping...`);
+              continue;
+            }
+
+            // Scale the image to fit the canvas
+            const imgWidth = img.width || 0;
+            const imgHeight = img.height || 0;
+
+            // Get zoom scale from side configuration
+            const zoomScale = side.zoomScale || 1.0;
+            const baseScale = Math.min(width / imgWidth, height / imgHeight);
+            const scale = baseScale * zoomScale;
+
+            img.set({
+              scaleX: scale,
+              scaleY: scale,
+              originX: 'center',
+              originY: 'center',
+              left: width / 2,
+              top: height / 2,
+              selectable: false,
+              evented: false,
+              lockMovementX: true,
+              lockMovementY: true,
+              lockRotation: true,
+              lockScalingX: true,
+              lockScalingY: true,
+              hasControls: false,
+              hasBorders: false,
+              data: {
+                id: 'background-product-image',
+                layerId: layer.id
+              },
+            });
+
+            // Store reference to this layer image (before applying filters)
+            layerImagesRef.current.set(layer.id, img);
+
+            console.log(`[SingleSideCanvas] Successfully loaded and configured layer: ${layer.name} (${layer.id}) with dimensions ${imgWidth}x${imgHeight} for side: ${side.id}`);
+            validResults.push({ img, scale, imgWidth, imgHeight, layer });
+          } catch (error) {
+            // Catch individual layer loading errors to prevent one failure from breaking all layers
+            console.error(`[SingleSideCanvas] Error loading layer: ${layer.name} (${layer.id}) from ${layer.imageUrl}`, error);
+            // Continue to next layer instead of stopping the entire process
           }
-
-          // Scale the image to fit the canvas
-          const imgWidth = img.width || 0;
-          const imgHeight = img.height || 0;
-
-          // Get zoom scale from side configuration
-          const zoomScale = side.zoomScale || 1.0;
-          const baseScale = Math.min(width / imgWidth, height / imgHeight);
-          const scale = baseScale * zoomScale;
-
-          img.set({
-            scaleX: scale,
-            scaleY: scale,
-            originX: 'center',
-            originY: 'center',
-            left: width / 2,
-            top: height / 2,
-            selectable: false,
-            evented: false,
-            lockMovementX: true,
-            lockMovementY: true,
-            lockRotation: true,
-            lockScalingX: true,
-            lockScalingY: true,
-            hasControls: false,
-            hasBorders: false,
-            data: {
-              id: 'background-product-image',
-              layerId: layer.id
-            },
-          });
-
-          // Store reference to this layer image (before applying filters)
-          layerImagesRef.current.set(layer.id, img);
-
-          console.log(`[SingleSideCanvas] Successfully configured layer: ${layer.name} (${layer.id}) with dimensions ${imgWidth}x${imgHeight} for side: ${side.id}`);
-          return { img, scale, imgWidth, imgHeight, layer };
-        } catch (error) {
-          // Catch individual layer loading errors to prevent one failure from breaking all layers
-          console.error(`[SingleSideCanvas] Error loading layer: ${layer.name} (${layer.id}) from ${layer.imageUrl}`, error);
-          return null;
         }
-      });
 
-      // Wait for all layers to load
-      Promise.all(layerLoadPromises).then((results) => {
-        const validResults = results.filter(r => r !== null);
+        return validResults;
+      };
+
+      // Execute sequential loading
+      loadLayersSequentially().then((validResults) => {
+        if (!isSessionActive()) return;
+
         if (validResults.length === 0) {
           console.error('[SingleSideCanvas] No valid layer images loaded');
           setIsLoading(false);
@@ -398,6 +460,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Wait for next animation frame to ensure Fabric.js has completed rendering
         // This guarantees all layer images are properly initialized before showing the canvas
         requestAnimationFrame(() => {
+          if (!isSessionActive()) return;
           // Verify all layers are actually rendered on the canvas
           const canvasObjects = canvas.getObjects();
           const layerObjectsOnCanvas = canvasObjects.filter(obj => {
@@ -421,6 +484,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           console.log(`[SingleSideCanvas] All layers loaded and rendered for side: ${side.id} ✓`);
         });
       }).catch((error) => {
+        if (!isSessionActive()) return;
         console.error('[SingleSideCanvas] Error loading layer images:', error);
         setIsLoading(false);
       });
@@ -483,6 +547,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       };
 
       loadSingleImage().then((img) => {
+        if (!isSessionActive()) return;
+
         if (!img) {
           setIsLoading(false);
           return;
@@ -611,6 +677,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Wait for next animation frame to ensure Fabric.js has completed rendering
         // This guarantees the image is properly initialized before showing the canvas
         requestAnimationFrame(() => {
+          if (!isSessionActive()) return;
           // Verify the image is actually rendered on the canvas
           const canvasObjects = canvas.getObjects();
           const productImageOnCanvas = canvasObjects.find(obj => {
@@ -633,6 +700,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         });
       })
       .catch((error) => {
+        if (!isSessionActive()) return;
         console.error('[SingleSideCanvas] Error loading image for', side.name, ':', error);
         setIsLoading(false);
       });
@@ -849,6 +917,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
 
     return () => {
+      isDisposed = true;
+      loadSessionRef.current++;
       unregisterCanvas(side.id);
       canvas.dispose();
       canvasRef.current = null;

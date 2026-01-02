@@ -17,9 +17,10 @@ import { SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface ProductEditorClientProps {
   product: Product;
@@ -28,6 +29,7 @@ interface ProductEditorClientProps {
 export default function ProductEditorClient({ product }: ProductEditorClientProps) {
   const searchParams = useSearchParams();
   const cartItemId = searchParams.get('cartItemId');
+  const router = useRouter();
 
   const {
     isEditMode,
@@ -42,6 +44,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   } = useCanvasStore();
 
   const { addItem: addToCart, items: cartStoreItems } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
   const [isSaving, setIsSaving] = useState(false);
   // const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
@@ -325,16 +328,25 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       {!isEditMode && (
         <div className="w-full fixed bottom-0 left-0 bg-white pb-6 pt-3 px-4 shadow-2xl shadow-black">
           {/* Action Buttons */}
-          <div className="flex items-center justify-center gap-2">
+          {isAuthenticated ? (
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={handleAddToCartClick}
+                disabled={isSaving}
+                className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+              >
+                {isSaving ? '처리 중...' : '장바구니에 담기'}
+              </button>
+              <EditButton className="w-full"/>
+            </div>
+          ) : (
             <button
-              onClick={handleAddToCartClick}
-              disabled={isSaving}
-              className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+              onClick={() => router.push('/login')}
+              className="w-full bg-blue-600 py-3 text-sm rounded-lg text-white hover:bg-blue-700 transition"
             >
-              {isSaving ? '처리 중...' : '장바구니에 담기'}
+              로그인하기
             </button>
-            <EditButton className="w-full"/>
-          </div>
+          )}
         </div>
       )}
 
