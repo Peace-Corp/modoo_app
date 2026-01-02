@@ -137,14 +137,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch all unique saved_designs for cart items that have design_id
+    const uniqueDesignIds = [...new Set(cartItems
+      .map(item => item.saved_design_id)
+      .filter((id): id is string => id !== undefined && id !== null))];
+
+    const savedDesignsMap = new Map<string, {
+      title: string;
+      color_selections: Record<string, unknown>;
+      canvas_state: Record<string, unknown>;
+      preview_url: string | null;
+      image_urls: Record<string, unknown>;
+    }>();
+
+    // Fetch saved designs from database if there are any
+    if (uniqueDesignIds.length > 0) {
+      const { data: savedDesigns, error: designsError } = await supabase
+        .from('saved_designs')
+        .select('id, title, color_selections, canvas_state, preview_url, image_urls')
+        .in('id', uniqueDesignIds);
+
+      if (designsError) {
+        console.error('Error fetching saved designs:', designsError);
+      } else if (savedDesigns) {
+        savedDesigns.forEach(design => {
+          savedDesignsMap.set(design.id, {
+            title: design.title || '',
+            color_selections: design.color_selections || {},
+            canvas_state: design.canvas_state || {},
+            preview_url: design.preview_url || null,
+            image_urls: design.image_urls || {},
+          });
+        });
+      }
+    }
+
     // Group cart items by design_id to combine different options into single order items
     const groupedItems = new Map<string, {
       product_id: string;
       product_title: string;
       design_id: string | null;
+      design_title: string | null;
       canvas_state: Record<string, unknown>;
+      color_selections: Record<string, unknown>;
       thumbnail_url: string | null;
       price_per_item: number;
+      image_urls: Record<string, unknown>;
       variants: Array<{
         size_id: string;
         size_name: string;
@@ -171,13 +209,19 @@ export async function POST(request: NextRequest) {
           quantity: item.quantity,
         });
       } else {
+        // Get saved design data if available
+        const savedDesign = item.saved_design_id ? savedDesignsMap.get(item.saved_design_id) : null;
+
         // Create new group
         groupedItems.set(groupKey, {
           product_id: item.product_id,
           product_title: item.product_title,
           design_id: item.saved_design_id || null,
-          canvas_state: item.canvasState || {},
-          thumbnail_url: item.thumbnail_url || null,
+          design_title: savedDesign?.title || null,
+          canvas_state: savedDesign?.canvas_state || item.canvasState || {},
+          color_selections: savedDesign?.color_selections || {},
+          thumbnail_url: savedDesign?.preview_url || item.thumbnail_url || null,
+          image_urls: savedDesign?.image_urls || {},
           price_per_item: item.price_per_item,
           variants: [{
             size_id: item.size_id,
@@ -203,13 +247,15 @@ export async function POST(request: NextRequest) {
         quantity: totalQuantity,
         price_per_item: group.price_per_item,
         design_id: group.design_id,
+        design_title: group.design_title,
         product_variant_id: null, // For future variant support
         canvas_state: group.canvas_state,
-        color_selections: {}, // TODO: Get from saved_design if needed
+        color_selections: group.color_selections,
         item_options: {
           variants: group.variants,
         },
         thumbnail_url: group.thumbnail_url,
+        image_urls: group.image_urls,
       };
     });
 

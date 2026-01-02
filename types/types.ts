@@ -147,3 +147,47 @@ export interface CanvasObjectData extends CanvasObjectPrintData, CanvasObjectSto
   objectId?: string;
   [key: string]: unknown; // Allow additional custom properties
 }
+
+// Database types
+export interface SavedDesign {
+  id: string;
+  user_id: string;
+  product_id: string;
+  title: string;
+  color_selections: Record<string, unknown>;
+  canvas_state: Record<string, unknown>;
+  preview_url: string | null;
+  created_at: string;
+  updated_at: string;
+  price_per_item: number;
+  image_urls: Record<string, unknown>;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product_title: string;
+  quantity: number;
+  price_per_item: number;
+  design_id: string | null;
+  design_title: string | null;
+  product_variant_id: string | null;
+  canvas_state: Record<string, unknown>;
+  color_selections: Record<string, unknown>;
+  item_options: {
+    variants: Array<{
+      size_id: string;
+      size_name: string;
+      color_id: string;
+      color_name: string;
+      color_hex: string;
+      quantity: number;
+    }>;
+  };
+  thumbnail_url: string | null;
+  text_svg_exports: Record<string, string> | null;
+  image_urls: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}

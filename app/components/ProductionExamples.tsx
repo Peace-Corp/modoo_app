@@ -13,11 +13,8 @@ export default function ProductionExamples() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
 
   const loadExamples = useCallback(async (pageNum: number) => {
     if (loading || !hasMore) return;
@@ -58,50 +55,6 @@ export default function ProductionExamples() {
     loadExamples(0);
   }, []);
 
-  // Auto-scroll animation
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || isPaused) return;
-
-    const scrollSpeed = 0.5; // pixels per frame
-    let lastTimestamp = 0;
-
-    const animate = (timestamp: number) => {
-      if (!scrollContainer) return;
-
-      // Calculate delta time for smooth animation
-      if (lastTimestamp === 0) {
-        lastTimestamp = timestamp;
-      }
-      const deltaTime = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-
-      // Scroll by speed amount
-      scrollContainer.scrollLeft += scrollSpeed * (deltaTime / 16); // normalized to 60fps
-
-      // Check if we've reached near the end
-      const isNearEnd =
-        scrollContainer.scrollLeft + scrollContainer.clientWidth >=
-        scrollContainer.scrollWidth - 100;
-
-      if (isNearEnd && hasMore && !loading) {
-        // Load more items when near the end
-        loadExamples(page + 1);
-      }
-
-      // Continue animation
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isPaused, hasMore, loading, page, loadExamples]);
-
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
 
@@ -139,14 +92,7 @@ export default function ProductionExamples() {
 
       {/* Horizontal scrolling container */}
       <div className="relative max-w-7xl mx-auto">
-        <div
-          ref={scrollContainerRef}
-          className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-          onTouchStart={() => setIsPaused(true)}
-          onTouchEnd={() => setIsPaused(false)}
-        >
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
           {examples.map((example, idx) => (
             <Link
               key={example.id+idx} // for unique id
