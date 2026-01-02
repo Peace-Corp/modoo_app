@@ -35,7 +35,8 @@ export default function FavoritesList() {
               configuration,
               category,
               is_active,
-              size_options
+              size_options,
+              thumbnail_image_link
             )
           `)
           .eq('user_id', user.id)

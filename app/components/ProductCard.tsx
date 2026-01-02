@@ -7,6 +7,7 @@ import { Product } from "@/types/types";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-client";
 import { useAuthStore } from "@/store/useAuthStore";
+import LoginPromptModal from "./LoginPromptModal";
 
 interface ProductCardProps {
   product: Product;
@@ -18,6 +19,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { user, isAuthenticated } = useAuthStore();
   const [isFavorited, setIsFavorited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [reviewStats, setReviewStats] = useState<{
     averageRating: number;
     totalReviews: number;
@@ -89,7 +91,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.stopPropagation();
 
     if (!isAuthenticated || !user) {
-      alert('로그인이 필요합니다.');
+      setShowLoginModal(true);
       return;
     }
 
@@ -129,55 +131,63 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Link href={`/editor/${product.id}`} className="bg-white rounded-sm overflow-hidden shadow-sm">
-      {/* Product Image */}
-      <div className="aspect-4/5 bg-gray-100 relative">
-        {firstSideImage && (
-          <Image
-            src={firstSideImage}
-            alt={product.title}
-            fill
-            className="object-contain"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-          />
-        )}
-        {/* Favorite Button */}
-        <button
-          onClick={handleFavoriteClick}
-          disabled={isLoading}
-          className="absolute right-2 bottom-2 p-2 bg-white rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          <Heart
-            size={18}
-            className={isFavorited ? "fill-red-500 text-red-500" : ""}
-          />
-        </button>
-      </div>
-      {/* Product Details */}
-      <div className="p-2">
-        {/* Category */}
-        {product.category && (
-          <p className="text-black text-xs font-bold capitalize">{product.category}</p>
-        )}
-        {/* Product Name */}
-        <p className="text-sm">{product.title}</p>
-        {/* Pricing */}
-        <p className="font-bold">{formattedPrice}원</p>
-        <p className="text-xs">200개 이상 구매시</p>
-        {/* Reviews */}
-        {reviewStats.totalReviews > 0 ? (
-          <div className="text-[.6em] flex items-center gap-0.5">
-            <Star size={10} className="text-orange-400 fill-orange-400"/>
-            <p className="text-orange-400 font-bold">{reviewStats.averageRating.toFixed(2)}</p>
-            <p className="text-gray-400 text-[.5em]">({reviewStats.totalReviews}{reviewStats.totalReviews >= 100 ? '+' : ''})</p>
-          </div>
-        ) : (
-          <div className="text-[.6em] flex items-center gap-0.5">
-            <Star size={10} className="text-gray-300"/>
-            <p className="text-gray-400 text-[.5em]">리뷰 없음</p>
-          </div>
-        )}
-      </div>
-    </Link>
+    <>
+      <Link href={`/editor/${product.id}`} className="bg-white rounded-sm overflow-hidden shadow-sm">
+        {/* Product Image */}
+        <div className="aspect-4/5 bg-gray-100 relative">
+          {firstSideImage && (
+            <Image
+              src={firstSideImage}
+              alt={product.title}
+              fill
+              className="object-contain"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            />
+          )}
+          {/* Favorite Button */}
+          <button
+            onClick={handleFavoriteClick}
+            disabled={isLoading}
+            className="absolute right-2 bottom-2 p-2 bg-white rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <Heart
+              size={18}
+              className={isFavorited ? "fill-red-500 text-red-500" : ""}
+            />
+          </button>
+        </div>
+        {/* Product Details */}
+        <div className="p-2">
+          {/* Category */}
+          {product.category && (
+            <p className="text-black text-xs font-bold capitalize">{product.category}</p>
+          )}
+          {/* Product Name */}
+          <p className="text-sm">{product.title}</p>
+          {/* Pricing */}
+          <p className="font-bold">{formattedPrice}원</p>
+          <p className="text-xs">200개 이상 구매시</p>
+          {/* Reviews */}
+          {reviewStats.totalReviews > 0 ? (
+            <div className="text-[.6em] flex items-center gap-0.5">
+              <Star size={10} className="text-orange-400 fill-orange-400"/>
+              <p className="text-orange-400 font-bold">{reviewStats.averageRating.toFixed(2)}</p>
+              <p className="text-gray-400 text-[.5em]">({reviewStats.totalReviews}{reviewStats.totalReviews >= 100 ? '+' : ''})</p>
+            </div>
+          ) : (
+            <div className="text-[.6em] flex items-center gap-0.5">
+              <Star size={10} className="text-gray-300"/>
+              <p className="text-gray-400 text-[.5em]">리뷰 없음</p>
+            </div>
+          )}
+        </div>
+      </Link>
+
+      <LoginPromptModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="찜하기 기능을 사용하려면 로그인이 필요합니다."
+      />
+    </>
   )
 }

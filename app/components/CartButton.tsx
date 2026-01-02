@@ -6,9 +6,11 @@ import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
+import LoginPromptModal from "./LoginPromptModal";
 
 export default function CartButton() {
   const [mounted, setMounted] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const items = useCartStore((state) => state.items);
   const setItems = useCartStore((state) => state.setItems);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -80,14 +82,35 @@ export default function CartButton() {
     setMounted(true);
   }, []);
 
+  const handleCartClick = (e: React.MouseEvent) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      setShowLoginModal(true);
+    }
+  };
+
   return (
-    <Link href="/cart" className="relative">
-      <ShoppingBasket className="text-gray-700 size-6"/>
-      {mounted && uniqueDesignCount > 0 && (
-        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-          {uniqueDesignCount > 99 ? '99+' : uniqueDesignCount}
-        </div>
+    <>
+      {isAuthenticated ? (
+        <Link href="/cart" className="relative">
+          <ShoppingBasket className="text-gray-700 size-6"/>
+          {mounted && uniqueDesignCount > 0 && (
+            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {uniqueDesignCount > 99 ? '99+' : uniqueDesignCount}
+            </div>
+          )}
+        </Link>
+      ) : (
+        <button onClick={handleCartClick} className="relative">
+          <ShoppingBasket className="text-gray-700 size-6"/>
+        </button>
       )}
-    </Link>
+
+      <LoginPromptModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="장바구니 기능을 사용하려면 로그인이 필요합니다."
+      />
+    </>
   )
 }
