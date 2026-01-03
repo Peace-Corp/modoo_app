@@ -77,7 +77,7 @@ export default function HeroBanner() {
             centeredSlides: true,
           },
         }}
-        className="h-70 sm:h-72 lg:h-[420px] hero-swiper"
+        className="h-70 sm:h-72 lg:h-84 hero-swiper"
       >
         {bannerSlides.map((slide) => (
           <SwiperSlide key={slide.id}>
