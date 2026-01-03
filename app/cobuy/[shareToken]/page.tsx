@@ -203,7 +203,7 @@ export default function CoBuySharePage() {
             <div>
               <p className="text-sm text-gray-500">디자인 미리보기</p>
               <p className="font-semibold text-gray-900">
-                {design.title || product.title}
+                {design.title || product?.title || ''}
               </p>
             </div>
           </div>

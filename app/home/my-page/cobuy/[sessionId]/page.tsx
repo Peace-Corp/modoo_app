@@ -194,7 +194,7 @@ export default function CoBuyDetailPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
-        <Header back title="공동구매 관리" />
+        <Header back />
         <div className="max-w-3xl mx-auto p-6 text-center">
           <p className="text-gray-500 mb-4">로그인이 필요합니다.</p>
           <button
@@ -211,7 +211,7 @@ export default function CoBuyDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
-        <Header back title="공동구매 관리" />
+        <Header back />
         <div className="max-w-3xl mx-auto p-6 text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
           <p className="text-gray-500 mt-4">공동구매 정보를 불러오는 중...</p>
@@ -223,7 +223,7 @@ export default function CoBuyDetailPage() {
   if (error || !session) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
-        <Header back title="공동구매 관리" />
+        <Header back />
         <div className="max-w-3xl mx-auto p-6 text-center">
           <p className="text-red-500 mb-4">{error || '공동구매 정보를 찾을 수 없습니다.'}</p>
           <button
@@ -241,7 +241,7 @@ export default function CoBuyDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <Header back title="공동구매 관리" />
+      <Header back />
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         <section className="bg-white rounded-2xl shadow-sm p-6">
