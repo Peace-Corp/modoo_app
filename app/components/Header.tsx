@@ -60,9 +60,6 @@ export default function Header({
               {/* Shopping card button */}
               {showHomeNav ? (
                 <div className="hidden lg:flex items-center justify-end gap-4 text-gray-600 lg:w-48">
-                  <button className="hover:text-black transition" aria-label="찜한 상품">
-                    <Heart className="size-5" />
-                  </button>
                   <CartButton />
                   <Link href="/home/my-page" className="hover:text-black transition" aria-label="내 정보">
                     <User className="size-5" />
