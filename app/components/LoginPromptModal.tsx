@@ -26,30 +26,32 @@ export default function LoginPromptModal({
 
   return (
     <div
-      className="fixed w-screen h-screen top-0 left-0 bg-black/50 z-999 flex items-center justify-center p-4"
+      className="fixed inset-0 w-full h-full bg-black/50 z-9999 flex items-center justify-center"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl"
+        className="bg-white w-full h-full flex flex-col items-center justify-center p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          {message}
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
-          >
-            닫기
-          </button>
-          <button
-            onClick={handleLoginClick}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
-          >
-            로그인하기
-          </button>
+        <div className="max-w-md w-full text-center">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">{title}</h3>
+          <p className="text-base text-gray-600 mb-8">
+            {message}
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleLoginClick}
+              className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg font-semibold text-lg hover:bg-blue-700 transition"
+            >
+              로그인하기
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full px-6 py-4 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
+            >
+              닫기
+            </button>
+          </div>
         </div>
       </div>
     </div>

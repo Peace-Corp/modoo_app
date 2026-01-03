@@ -1,5 +1,5 @@
 'use client'
-import { ArrowLeft, ChevronDown, Heart, User } from "lucide-react";
+import { ArrowLeft, Heart, User } from "lucide-react";
 import CartButton from "./CartButton";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -44,9 +44,7 @@ export default function Header({
               </div>
 
               {/* Logo / Placeholder */}
-              {showHomeNav ? (
-                <div className="hidden lg:flex flex-1"></div>
-              ) : (
+              {!showHomeNav && (
                 <div className="h-10 w-32 bg-gray-300 rounded animate-pulse" />
               )}
 
@@ -62,17 +60,10 @@ export default function Header({
               {/* Shopping card button */}
               {showHomeNav ? (
                 <div className="hidden lg:flex items-center justify-end gap-4 text-gray-600 lg:w-48">
-                  <button className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 hover:text-black">
-                    KR
-                    <ChevronDown className="size-3" />
-                  </button>
-                  <button className="hover:text-black transition" aria-label="찜한 상품">
-                    <Heart className="size-5" />
-                  </button>
                   <CartButton />
-                  <button className="hover:text-black transition" aria-label="내 정보">
+                  <Link href="/home/my-page" className="hover:text-black transition" aria-label="내 정보">
                     <User className="size-5" />
-                  </button>
+                  </Link>
                 </div>
               ) : (
                 <CartButton />
