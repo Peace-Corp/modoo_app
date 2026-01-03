@@ -57,10 +57,41 @@ export async function createCoBuySession(
       throw new Error('User must be authenticated to create CoBuy sessions');
     }
 
+    const { data: savedDesign, error: savedDesignError } = await supabase
+      .from('saved_designs')
+      .select('user_id, product_id, title, color_selections, canvas_state, preview_url, price_per_item, image_urls')
+      .eq('id', data.savedDesignId)
+      .single();
+
+    if (savedDesignError || !savedDesign) {
+      console.error('Error fetching saved design:', savedDesignError);
+      throw savedDesignError || new Error('Saved design not found');
+    }
+
+    const { data: screenshot, error: screenshotError } = await supabase
+      .from('saved_design_screenshots')
+      .insert({
+        user_id: savedDesign.user_id,
+        product_id: savedDesign.product_id,
+        title: savedDesign.title,
+        color_selections: savedDesign.color_selections,
+        canvas_state: savedDesign.canvas_state,
+        preview_url: savedDesign.preview_url,
+        price_per_item: savedDesign.price_per_item,
+        image_urls: savedDesign.image_urls,
+      })
+      .select('id')
+      .single();
+
+    if (screenshotError || !screenshot) {
+      console.error('Error creating saved design screenshot:', screenshotError);
+      throw screenshotError || new Error('Failed to create design snapshot');
+    }
+
     // Prepare the session data
     const sessionData = {
       user_id: user.id,
-      saved_design_id: data.savedDesignId,
+      saved_design_screenshot_id: screenshot.id,
       title: data.title,
       description: data.description || null,
       start_date: data.startDate.toISOString(),
@@ -141,7 +172,7 @@ export async function getCoBuySessionByToken(
       .from('cobuy_sessions')
       .select(`
         *,
-        saved_design:saved_designs (
+        saved_design_screenshot:saved_design_screenshots (
           id,
           title,
           preview_url,
@@ -165,8 +196,8 @@ export async function getCoBuySessionByToken(
     }
 
     // Transform the nested product array to object
-    if (session && session.saved_design) {
-      const design = session.saved_design as any;
+    if (session && session.saved_design_screenshot) {
+      const design = session.saved_design_screenshot as any;
       if (Array.isArray(design.product)) {
         design.product = design.product[0];
       }

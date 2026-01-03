@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
-import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesign } from '@/types/types';
+import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
 import ParticipantForm, { ParticipantFormData } from '@/app/components/cobuy/ParticipantForm';
 import CoBuyClosedScreen from '@/app/components/cobuy/CoBuyClosedScreen';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 
-type DesignWithProduct = SavedDesign & { product?: Product };
+type DesignWithProduct = SavedDesignScreenshot & { product?: Product };
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return '-';
@@ -62,7 +62,7 @@ export default function CoBuySharePage() {
     fetchSession();
   }, [shareToken]);
 
-  const design = session?.saved_design as DesignWithProduct | undefined;
+  const design = session?.saved_design_screenshot as DesignWithProduct | undefined;
   const product = design?.product;
 
   const productConfig: ProductConfig | null = useMemo(() => {

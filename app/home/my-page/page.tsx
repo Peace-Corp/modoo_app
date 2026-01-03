@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, Settings, Package, Heart, CreditCard, Bell, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare, Users } from 'lucide-react';
+import { User, Settings, Package, Heart, CreditCard, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare, Users } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { createClient } from '@/lib/supabase-client';
@@ -24,28 +24,26 @@ const shoppingMenuItems: MenuItem[] = [
   { icon: Package, label: '주문 내역', href: '/home/my-page/orders', badge: null },
   { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
   { icon: Users, label: '공동구매', href: '/home/my-page/cobuy', badge: null },
-  { icon: Heart, label: '찜한 상품', href: '/home/my-page/wishlist', badge: null },
+  { icon: Heart, label: '찜한 상품', href: '/home/designs?tab=favorites', badge: null },
   { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
-];
-
-const accountMenuItems: MenuItem[] = [
-  { icon: User, label: '회원 정보', href: '/home/my-page/profile', badge: null },
-  { icon: Bell, label: '알림 설정', href: '/home/my-page/notifications', badge: null },
-  { icon: Settings, label: '환경 설정', href: '/home/my-page/settings', badge: null },
 ];
 
 const supportMenuItems: MenuItem[] = [
   { icon: MessageSquare, label: '나의 문의', href: '/inquiries?tab=my', badge: null },
   { label: '공지사항', href: '/support/notices', badge: 'new' },
-  { label: '자주 묻는 질문', href: '/support/faq', badge: null },
-  { label: '1:1 문의', href: '/support/inquiry', badge: null },
-  { label: '이용약관', href: '/support/terms', badge: null },
+  { label: '이용약관', href: '/policies', badge: null },
   { label: '개인정보 처리방침', href: '/support/privacy', badge: null },
 ];
 
 export default function MyPage() {
   const router = useRouter();
   const { user, isAuthenticated, setUser, logout, setLoading } = useAuthStore();
+  const [stats, setStats] = useState({
+    orders: 0,
+    designs: 0,
+    favorites: 0,
+    reviews: 0,
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -84,6 +82,63 @@ export default function MyPage() {
 
     checkAuth();
   }, [setUser, logout, setLoading]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!isAuthenticated || !user) {
+        setStats({ orders: 0, designs: 0, favorites: 0, reviews: 0 });
+        return;
+      }
+
+      const supabase = createClient();
+
+      const [
+        ordersResult,
+        designsResult,
+        favoritesResult,
+        reviewsResult,
+      ] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+        supabase
+          .from('saved_designs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+        supabase
+          .from('favorites')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+        supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ]);
+
+      if (ordersResult.error) {
+        console.error('Failed to fetch order count:', ordersResult.error);
+      }
+      if (designsResult.error) {
+        console.error('Failed to fetch design count:', designsResult.error);
+      }
+      if (favoritesResult.error) {
+        console.error('Failed to fetch favorite count:', favoritesResult.error);
+      }
+      if (reviewsResult.error) {
+        console.error('Failed to fetch review count:', reviewsResult.error);
+      }
+
+      setStats({
+        orders: ordersResult.count || 0,
+        designs: designsResult.count || 0,
+        favorites: favoritesResult.count || 0,
+        reviews: reviewsResult.count || 0,
+      });
+    };
+
+    fetchStats();
+  }, [isAuthenticated, user]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -138,19 +193,19 @@ export default function MyPage() {
           <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="grid grid-cols-4 gap-4">
               <Link href="/home/my-page/orders" className="flex flex-col items-center gap-1">
-                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xl font-bold text-gray-900">{stats.orders}</div>
                 <div className="text-xs text-gray-500">주문</div>
               </Link>
               <Link href="/home/designs" className="flex flex-col items-center gap-1">
-                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xl font-bold text-gray-900">{stats.designs}</div>
                 <div className="text-xs text-gray-500">디자인</div>
               </Link>
-              <Link href="/home/my-page/wishlist" className="flex flex-col items-center gap-1">
-                <div className="text-xl font-bold text-gray-900">0</div>
+              <Link href="/home/designs?tab=favorites" className="flex flex-col items-center gap-1">
+                <div className="text-xl font-bold text-gray-900">{stats.favorites}</div>
                 <div className="text-xs text-gray-500">찜</div>
               </Link>
               <Link href="/home/my-page/reviews" className="flex flex-col items-center gap-1">
-                <div className="text-xl font-bold text-gray-900">0</div>
+                <div className="text-xl font-bold text-gray-900">{stats.reviews}</div>
                 <div className="text-xs text-gray-500">리뷰</div>
               </Link>
             </div>
@@ -175,14 +230,6 @@ export default function MyPage() {
           <div className="max-w-7xl mx-auto px-4 py-2">
             <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">쇼핑</h3>
             <MenuList items={shoppingMenuItems} />
-          </div>
-        </section>
-
-        {/* Account Section */}
-        <section className="bg-white">
-          <div className="max-w-7xl mx-auto px-4 py-2">
-            <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">계정</h3>
-            <MenuList items={accountMenuItems} />
           </div>
         </section>
 

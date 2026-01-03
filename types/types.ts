@@ -170,6 +170,20 @@ export interface SavedDesign {
   image_urls: Record<string, unknown>;
 }
 
+export interface SavedDesignScreenshot {
+  id: string;
+  user_id: string;
+  product_id: string;
+  title: string;
+  color_selections: Record<string, unknown>;
+  canvas_state: Record<string, unknown>;
+  preview_url: string | null;
+  created_at: string;
+  updated_at: string;
+  price_per_item: number;
+  image_urls: Record<string, unknown>;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -215,7 +229,7 @@ export interface CoBuyCustomField {
 export interface CoBuySession {
   id: string;
   user_id: string;
-  saved_design_id: string;
+  saved_design_screenshot_id: string;
   title: string;
   description: string | null;
   status: 'open' | 'closed' | 'cancelled' | 'finalized';
@@ -257,6 +271,6 @@ export interface CoBuyNotification {
 
 // CoBuy session with related data (for detail views)
 export interface CoBuySessionWithDetails extends CoBuySession {
-  saved_design?: SavedDesign;
+  saved_design_screenshot?: SavedDesignScreenshot;
   participants?: CoBuyParticipant[];
 }

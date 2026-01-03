@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import DesignEditModal from '@/app/components/DesignEditModal';
 import FavoritesList from '@/app/components/FavoritesList';
@@ -47,6 +47,7 @@ interface RawSavedDesign {
 
 export default function DesignsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, user } = useAuthStore();
   const { addItem: addToCart } = useCartStore();
   const [activeTab, setActiveTab] = useState<TabType>('designs');
@@ -120,6 +121,20 @@ export default function DesignsPage() {
 
     fetchDesigns();
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'favorites' || tab === 'designs') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.set('tab', tab);
+    router.replace(`/home/designs?${params.toString()}`);
+  };
 
   const handleDesignClick = (itemId: string) => {
     setSelectedItemId(itemId);
@@ -265,7 +280,7 @@ export default function DesignsPage() {
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200">
           <button
-            onClick={() => setActiveTab('designs')}
+            onClick={() => handleTabChange('designs')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'designs'
                 ? 'text-black border-b-2 border-black'
@@ -275,7 +290,7 @@ export default function DesignsPage() {
             나의 디자인
           </button>
           <button
-            onClick={() => setActiveTab('favorites')}
+            onClick={() => handleTabChange('favorites')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'favorites'
                 ? 'text-black border-b-2 border-black'
