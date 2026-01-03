@@ -22,24 +22,24 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <Header showHomeNav />
-
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-2">
-        {/* Hero Banner and Categories - Flex layout on desktop */}
-        <div className="lg:pt-5 py-4 flex flex-col lg:flex-row lg:gap-6 lg:items-center">
-          {/* Hero Banner */}
-          <div className="w-full lg:w-[78%] lg:shrink-0">
-            <HeroBanner />
-          </div>
-
-          {/* Categories - 2 column grid on desktop */}
-          <section className="w-full lg:w-[22%] mt-2 lg:mt-0">
-            <h2 className="text-base lg:text-lg font-bold text-gray-900 mb-2">카테고리</h2>
-            <CategoriesSection />
-          </section>
+      <div className="lg:pt-5 py-4 flex flex-col lg:flex-row lg:gap-6 lg:items-center">
+        {/* Hero Banner */}
+        <div className="w-full lg:w-[78%] lg:shrink-0">
+          <HeroBanner />
         </div>
+
+        {/* Categories - 2 column grid on desktop */}
+        <section className="w-full lg:w-[22%] mt-2 lg:mt-0 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-base lg:text-lg font-bold text-gray-900 mb-2">카테고리</h2>
+          <CategoriesSection />
+        </section>
+      </div>
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-2">
+
+        {/* Hero Banner and Categories - Flex layout on desktop */}
 
         {/* Featured Products Section */}
         <section className="w-full">
