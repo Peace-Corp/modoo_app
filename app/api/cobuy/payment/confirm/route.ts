@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendMailjetEmail } from '@/lib/mailjet';
 
 const widgetSecretKey = process.env.TOSS_SECRET_KEY;
 
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     const { data: session, error: sessionFetchError } = await supabase
       .from('cobuy_sessions')
-      .select('current_participant_count')
+      .select('id, title, end_date, share_token, current_participant_count')
       .eq('id', sessionId)
       .single();
 
@@ -109,6 +110,56 @@ export async function POST(request: NextRequest) {
 
       if (sessionUpdateError) {
         console.error('Failed to increment CoBuy participant count:', sessionUpdateError);
+      }
+
+      const { data: participantInfo } = await supabase
+        .from('cobuy_participants')
+        .select('id, name, email, selected_size, payment_amount')
+        .eq('id', participantId)
+        .single();
+
+      if (participantInfo?.email) {
+        const shareLink = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/cobuy/${session.share_token}`;
+        const subject = `[공동구매] 결제가 완료되었습니다 - ${session.title}`;
+        const textPart = [
+          `${participantInfo.name}님, 공동구매 결제가 완료되었습니다.`,
+          `공동구매: ${session.title}`,
+          `사이즈: ${participantInfo.selected_size}`,
+          `결제 금액: ${(participantInfo.payment_amount || amount).toLocaleString('ko-KR')}원`,
+          `마감일: ${new Date(session.end_date).toLocaleDateString('ko-KR')}`,
+          `공유 링크: ${shareLink}`,
+        ].join('\n');
+        const htmlPart = `
+          <h2>결제가 완료되었습니다</h2>
+          <p>${participantInfo.name}님, 공동구매 결제가 완료되었습니다.</p>
+          <ul>
+            <li>공동구매: ${session.title}</li>
+            <li>사이즈: ${participantInfo.selected_size}</li>
+            <li>결제 금액: ${(participantInfo.payment_amount || amount).toLocaleString('ko-KR')}원</li>
+            <li>마감일: ${new Date(session.end_date).toLocaleDateString('ko-KR')}</li>
+          </ul>
+          <p>공유 링크: <a href="${shareLink}">${shareLink}</a></p>
+        `;
+
+        const sent = await sendMailjetEmail({
+          to: [{ email: participantInfo.email, name: participantInfo.name || undefined }],
+          subject,
+          textPart,
+          htmlPart,
+          customId: `cobuy-payment-confirmed-${participantInfo.id}`,
+        });
+
+        if (sent) {
+          await supabase.from('cobuy_notifications').insert({
+            cobuy_session_id: session.id,
+            participant_id: participantInfo.id,
+            notification_type: 'payment_confirmed',
+            recipient_email: participantInfo.email,
+            metadata: {
+              payment_amount: participantInfo.payment_amount || amount,
+            },
+          });
+        }
       }
     }
 

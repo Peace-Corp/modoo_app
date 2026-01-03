@@ -170,6 +170,13 @@ export default function CoBuyDetailPage() {
     const updated = await closeCoBuySession(session.id);
     if (updated) {
       setSession(updated);
+      fetch('/api/cobuy/notify/session-closed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId: updated.id }),
+      }).catch((error) => console.error('Failed to notify session closed:', error));
     } else {
       alert('공동구매 마감에 실패했습니다.');
     }

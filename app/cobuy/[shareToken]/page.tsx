@@ -129,6 +129,17 @@ export default function CoBuySharePage() {
     }
 
     const generatedOrderId = `CB-${session.id.slice(0, 8)}-${participant.id.slice(0, 8)}-${Date.now()}`;
+    fetch('/api/cobuy/notify/participant-joined', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionId: session.id,
+        participantId: participant.id,
+      }),
+    }).catch((error) => console.error('Failed to notify participant joined:', error));
+
     setParticipantId(participant.id);
     setParticipantInfo(data);
     setOrderId(generatedOrderId);
