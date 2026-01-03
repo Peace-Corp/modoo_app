@@ -4,6 +4,7 @@ import Header from '@/app/components/Header';
 import { Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import DesignEditModal from '@/app/components/DesignEditModal';
 import QuantityChangeModal from '@/app/components/QuantityChangeModal';
 import {
@@ -27,6 +28,7 @@ interface GroupedCartItem {
 }
 
 export default function CartPage() {
+  const router = useRouter();
   const [items, setItems] = useState<CartItemWithDesign[]>([]);
   const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,6 +38,10 @@ export default function CartPage() {
   const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
   const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
   const [productSizeOptions, setProductSizeOptions] = useState<Record<string, SizeOption[]>>({});
+  const [isTestModeProcessing, setIsTestModeProcessing] = useState(false);
+
+  // Check if test mode is enabled
+  const isTestMode = process.env.NEXT_PUBLIC_TESTMODE === 'true';
 
   // Fetch cart items from Supabase
   const fetchCartItems = async () => {
@@ -112,6 +118,76 @@ export default function CartPage() {
   const handleCheckout = () => {
     // Navigate to checkout page
     window.location.href = '/checkout';
+  };
+
+  const handleTestModeCheckout = async () => {
+    if (items.length === 0) {
+      alert('장바구니가 비어있습니다.');
+      return;
+    }
+
+    setIsTestModeProcessing(true);
+
+    try {
+      // Generate order ID and name
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 9);
+      const orderId = `ORDER-${timestamp}-${randomStr}`;
+
+      const firstItemName = groupedItems[0]?.designName || groupedItems[0]?.productTitle || '주문 상품';
+      const orderName = groupedItems.length > 1
+        ? `${firstItemName} 외 ${groupedItems.length - 1}건`
+        : firstItemName;
+
+      // Hardcoded dummy data
+      const orderData = {
+        id: orderId,
+        name: '테스트 사용자',
+        email: 'test@example.com',
+        phone_num: '01012345678',
+        address: '[12345] 서울시 강남구 테헤란로 123 테스트빌딩 101호',
+        country_code: null,
+        state: null,
+        city: null,
+        postal_code: '12345',
+        address_line_1: '서울시 강남구 테헤란로 123',
+        address_line_2: '테스트빌딩 101호',
+        shipping_method: 'domestic' as const,
+        delivery_fee: 3000,
+        total_amount: finalTotal,
+      };
+
+      // Call test mode API
+      const response = await fetch('/api/checkout/testmode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderData,
+          cartItems: items,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error('API Error Details:', result);
+        throw new Error(result.error || '주문 생성에 실패했습니다.');
+      }
+
+      // Clear cart
+      await clearCartDB();
+      await fetchCartItems();
+
+      // Redirect to success page with test mode indicator
+      router.push(`/checkout/success?orderId=${result.orderId}&testMode=true`);
+    } catch (error) {
+      console.error('Test mode checkout error:', error);
+      alert(error instanceof Error ? error.message : '주문 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsTestModeProcessing(false);
+    }
   };
 
   const handleEditDesign = (cartItemId: string) => {
@@ -431,6 +507,25 @@ export default function CartPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Test Mode Button - Fixed above checkout bar */}
+      {items.length > 0 && isTestMode && (
+        <div className="fixed bottom-24 left-0 right-0 px-4 pb-2">
+          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 shadow-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">⚠️</span>
+              <span className="text-sm font-semibold text-yellow-900">테스트 모드</span>
+            </div>
+            <button
+              onClick={handleTestModeCheckout}
+              disabled={isTestModeProcessing}
+              className="w-full py-2.5 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+            >
+              {isTestModeProcessing ? '주문 생성 중...' : '테스트 주문 생성 (더미 데이터)'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Bottom Fixed Bar */}

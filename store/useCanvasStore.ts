@@ -8,6 +8,7 @@ import {
   type SVGExportResult
 } from '@/lib/canvas-svg-export';
 import { createClient } from '@/lib/supabase-client';
+import { calculateTotalBoundingBoxMm } from '@/lib/canvasUtils';
 
 
 interface CanvasState {
@@ -277,6 +278,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return true;
       });
 
+      // Calculate total bounding box for all user objects
+      // @ts-expect-error - Custom property
+      const scaledImageWidth = canvas.scaledImageWidth;
+      // @ts-expect-error - Custom property
+      const realWorldProductWidth = canvas.realWorldProductWidth || 500;
+      const totalBoundingBox = scaledImageWidth
+        ? calculateTotalBoundingBoxMm(canvas, scaledImageWidth, realWorldProductWidth)
+        : null;
+
       // Create a minimal JSON with only user objects and layer colors
       const canvasData = {
         version: canvas.toJSON().version,
@@ -291,7 +301,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           return json;
         }),
         // Save layer colors for this side
-        layerColors: layerColors[id] || {}
+        layerColors: layerColors[id] || {},
+        // Save total bounding box dimensions in mm
+        totalBoundingBoxMm: totalBoundingBox
       };
 
       savedState[id] = JSON.stringify(canvasData);
@@ -385,6 +397,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return true;
     });
 
+    // Calculate total bounding box for all user objects
+    // @ts-expect-error - Custom property
+    const scaledImageWidth = canvas.scaledImageWidth;
+    // @ts-expect-error - Custom property
+    const realWorldProductWidth = canvas.realWorldProductWidth || 500;
+    const totalBoundingBox = scaledImageWidth
+      ? calculateTotalBoundingBoxMm(canvas, scaledImageWidth, realWorldProductWidth)
+      : null;
+
     // Create a minimal JSON with only user objects and layer colors
     const canvasData = {
       version: canvas.toJSON().version,
@@ -399,7 +420,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         return json;
       }),
       // Save layer colors for this side
-      layerColors: layerColors[id] || {}
+      layerColors: layerColors[id] || {},
+      // Save total bounding box dimensions in mm
+      totalBoundingBoxMm: totalBoundingBox
     };
 
     return JSON.stringify(canvasData);

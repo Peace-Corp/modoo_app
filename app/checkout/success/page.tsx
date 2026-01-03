@@ -40,10 +40,13 @@ function PurchaseCompleteContent() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notificationSent, setNotificationSent] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
 
   useEffect(() => {
     const orderIdParam = searchParams.get('orderId');
+    const testModeParam = searchParams.get('testMode');
     setOrderId(orderIdParam);
+    setIsTestMode(testModeParam === 'true');
 
     // Fetch order details to check payment method
     if (orderIdParam) {
@@ -106,6 +109,19 @@ function PurchaseCompleteContent() {
     <div className="min-h-screen bg-zinc-50 font-sans text-foreground">
       <main className="max-w-2xl mx-auto p-8">
         <div className="bg-white rounded-lg border border-black/6 shadow-sm p-8 md:p-12 text-center">
+          {/* Test Mode Badge */}
+          {isTestMode && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center justify-center gap-2 text-yellow-800">
+                <span className="text-2xl">⚠️</span>
+                <span className="font-semibold">테스트 모드 주문</span>
+              </div>
+              <p className="text-sm text-yellow-700 mt-2">
+                이 주문은 테스트 모드로 생성되었습니다. 실제 결제가 진행되지 않았습니다.
+              </p>
+            </div>
+          )}
+
           {/* Success Icon */}
           <div className="mb-6">
             <div className={`w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto`}>
@@ -127,7 +143,7 @@ function PurchaseCompleteContent() {
 
           {/* Title */}
           <h1 className="text-3xl font-semibold text-black mb-4">
-            결제가 완료되었습니다!
+            {isTestMode ? '테스트 주문이 생성되었습니다!' : '결제가 완료되었습니다!'}
           </h1>
 
           {/* Order ID */}
