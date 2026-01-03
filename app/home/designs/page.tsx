@@ -13,6 +13,7 @@ import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
 import { SizeOption, CartItem, ProductColor } from '@/types/types';
 import { ShoppingCart, Search, Users } from 'lucide-react';
+import Header from '@/app/components/Header';
 
 type TabType = 'designs' | 'favorites';
 
@@ -271,8 +272,13 @@ export default function DesignsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="sticky top-0 bg-white z-40 border-b border-gray-200">
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header showHomeNav />
+      </div>
+
+      {/* Page Header */}
+      <div className="sticky top-0 lg:top-16 bg-white z-40 border-b border-gray-200">
         <div className="px-4 py-4">
           <h1 className="text-xl font-bold">나의 디자인</h1>
         </div>

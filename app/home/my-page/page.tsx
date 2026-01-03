@@ -142,8 +142,10 @@ export default function MyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <Header back={false} />
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header showHomeNav />
+      </div>
 
       {/* Profile Section */}
       <section className="bg-white border-b border-gray-200">
