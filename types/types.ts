@@ -198,3 +198,65 @@ export interface OrderItem {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================================
+// CoBuy (공동구매) Types
+// ============================================================================
+
+export interface CoBuyCustomField {
+  id: string;
+  type: 'text' | 'email' | 'phone' | 'dropdown';
+  label: string;
+  required: boolean;
+  fixed?: boolean; // True for size dropdown (cannot be removed)
+  options?: string[]; // For dropdown type
+}
+
+export interface CoBuySession {
+  id: string;
+  user_id: string;
+  saved_design_id: string;
+  title: string;
+  description: string | null;
+  status: 'open' | 'closed' | 'cancelled' | 'finalized';
+  share_token: string;
+  start_date: string;
+  end_date: string;
+  max_participants: number | null;
+  current_participant_count: number;
+  custom_fields: CoBuyCustomField[];
+  bulk_order_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoBuyParticipant {
+  id: string;
+  cobuy_session_id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  field_responses: Record<string, string>;
+  selected_size: string;
+  payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
+  payment_key: string | null;
+  payment_amount: number | null;
+  paid_at: string | null;
+  joined_at: string;
+}
+
+export interface CoBuyNotification {
+  id: string;
+  cobuy_session_id: string;
+  participant_id: string | null;
+  notification_type: 'participant_joined' | 'session_closing' | 'session_closed' | 'payment_confirmed';
+  recipient_email: string;
+  sent_at: string;
+  metadata: Record<string, unknown> | null;
+}
+
+// CoBuy session with related data (for detail views)
+export interface CoBuySessionWithDetails extends CoBuySession {
+  saved_design?: SavedDesign;
+  participants?: CoBuyParticipant[];
+}
