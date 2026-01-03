@@ -5,7 +5,7 @@ import * as fabric from "fabric";
 import { ProductSide, ProductLayer } from '@/types/types';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import ScaleBox from './ScaleBox';
-import { formatMm } from '@/lib/canvasUtils';
+import { formatMm, calculateObjectDimensionsMm, updateObjectDimensionsData } from '@/lib/canvasUtils';
 
 
 interface SingleSideCanvasProps {
@@ -446,6 +446,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.scaledImageWidth = imgWidth * scale;
         // @ts-expect-error - Custom property
         canvas.scaledImageHeight = imgHeight * scale;
+        // @ts-expect-error - Custom property
+        canvas.realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
 
         // For multi-layer mode, store canvas center as the snap center
         // @ts-expect-error - Custom property
@@ -675,6 +677,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.scaledImageWidth = imgWidth * scale;
         // @ts-expect-error - Custom property
         canvas.scaledImageHeight = imgHeight * scale;
+        // @ts-expect-error - Custom property
+        canvas.realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
 
         canvas.add(guideBox);
 
@@ -724,35 +728,24 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         const scaledPrintTop = canvas.printAreaTop || 0;
 
         // Get real-world product width from product data
-        const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500; // Default to 500mm for t-shirts
+        const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
 
-        // Calculate pixel-to-mm ratio based on the product dimensions, not print area
-        // This matches the calculation in canvasPricing.ts for consistency
-        const pixelToMmRatio = scaledImageWidth ? realWorldProductWidth / scaledImageWidth : 0.25;
+        // Calculate dimensions using the reusable utility function
+        const dimensions = calculateObjectDimensionsMm(obj, {
+          scaledImageWidth,
+          scaledPrintLeft,
+          scaledPrintTop,
+          realWorldProductWidth,
+        });
 
-        // Get object's bounding box dimensions (includes scale and rotation)
-        // These are in the SCALED canvas coordinate system
+        // Get bounding rect for positioning the scale box
         const boundingRect = obj.getBoundingRect();
-        const objWidth = boundingRect.width;
-        const objHeight = boundingRect.height;
-
-        // Calculate object position relative to print area origin
-        // Both values are in the same coordinate space (scaled canvas pixels)
-        const objX = boundingRect.left - scaledPrintLeft;
-        const objY = boundingRect.top - scaledPrintTop;
-
-        // Convert to mm using the product-based ratio
-        // This ensures consistent measurements with the pricing calculation
-        const widthMm = objWidth * pixelToMmRatio;
-        const heightMm = objHeight * pixelToMmRatio;
-        const xMm = objX * pixelToMmRatio;
-        const yMm = objY * pixelToMmRatio;
 
         setScaleBoxDimensions({
-          x: formatMm(xMm),
-          y: formatMm(yMm),
-          width: formatMm(widthMm),
-          height: formatMm(heightMm),
+          x: formatMm(dimensions.x),
+          y: formatMm(dimensions.y),
+          width: formatMm(dimensions.width),
+          height: formatMm(dimensions.height),
         });
 
         // Position above the object's bounding box at the horizontal center
@@ -830,6 +823,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           obj.data.printMethod = 'printing'; // Default to printing
         }
 
+        // Update object dimensions in mm
+        // @ts-expect-error - Custom property
+        const scaledImageWidth = canvas.scaledImageWidth;
+        const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
+        if (scaledImageWidth) {
+          updateObjectDimensionsData(obj, scaledImageWidth, realWorldProductWidth);
+        }
+
         // Only apply clipping in single-image mode (not multi-layer mode)
         if (!hasLayers) {
           // Apply the specific clip area to this object (using values relative to product image)
@@ -861,22 +862,43 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     const snapThreshold = 10;
 
-    // Update scale box during object transformations
+    // Update scale box and dimensions during object transformations
     canvas.on('object:scaling', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
+          // Update dimensions in mm
+          // @ts-expect-error - Custom property
+          const scaledImageWidth = canvas.scaledImageWidth;
+          const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
+          if (scaledImageWidth) {
+            updateObjectDimensionsData(e.target, scaledImageWidth, realWorldProductWidth);
+          }
         }
     });
 
     canvas.on('object:rotating', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
+          // Update dimensions in mm
+          // @ts-expect-error - Custom property
+          const scaledImageWidth = canvas.scaledImageWidth;
+          const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
+          if (scaledImageWidth) {
+            updateObjectDimensionsData(e.target, scaledImageWidth, realWorldProductWidth);
+          }
         }
     });
 
     canvas.on('object:modified', (e) => {
         if (e.target) {
           updateScaleBox(e.target);
+          // Update dimensions in mm
+          // @ts-expect-error - Custom property
+          const scaledImageWidth = canvas.scaledImageWidth;
+          const realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
+          if (scaledImageWidth) {
+            updateObjectDimensionsData(e.target, scaledImageWidth, realWorldProductWidth);
+          }
         }
         // Increment canvas version when object is modified (color, size, etc.)
         incrementCanvasVersion();

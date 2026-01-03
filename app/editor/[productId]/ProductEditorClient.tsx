@@ -13,7 +13,7 @@ import { Share } from "lucide-react";
 import { FaStar } from "react-icons/fa";
 import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
-import { SavedDesign } from "@/lib/designService";
+import { saveDesign, SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
@@ -21,6 +21,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
 import { useAuthStore } from "@/store/useAuthStore";
+import SaveDesignModal from "@/app/components/SaveDesignModal";
 
 interface ProductEditorClientProps {
   product: Product;
@@ -48,6 +49,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const [isSaving, setIsSaving] = useState(false);
   // const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
+  const [isSaveDesignOpen, setIsSaveDesignOpen] = useState(false);
   const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
 
@@ -142,6 +144,36 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       console.error('Add to cart failed:', error);
       alert('장바구니 추가 중 오류가 발생했습니다.');
       throw error; // Re-throw to prevent success modal from showing
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDesignOnly = async (designTitle: string) => {
+    setIsSaving(true);
+    try {
+      const canvasState = saveAllCanvasState();
+      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
+
+      const savedDesign = await saveDesign({
+        productId: product.id,
+        title: designTitle.trim(),
+        productColor: productColor,
+        canvasState: canvasState,
+        previewImage: previewImage,
+        pricePerItem: pricePerItem,
+      });
+
+      if (!savedDesign) {
+        alert('디자인 저장에 실패했습니다.');
+        return;
+      }
+
+      alert('디자인이 저장되었습니다.');
+      setIsSaveDesignOpen(false);
+    } catch (error) {
+      console.error('Save design failed:', error);
+      alert('디자인 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -331,6 +363,13 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {isAuthenticated ? (
             <div className="flex items-center justify-center gap-2">
               <button
+                onClick={() => setIsSaveDesignOpen(true)}
+                disabled={isSaving}
+                className="w-full border border-black py-3 text-sm rounded-lg text-black disabled:border-gray-300 disabled:text-gray-400 disabled:cursor-not-allowed transition"
+              >
+                디자인 저장
+              </button>
+              <button
                 onClick={handleAddToCartClick}
                 disabled={isSaving}
                 className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
@@ -357,6 +396,13 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         onConfirm={handleSaveToCart}
         sizeOptions={product.size_options || []}
         pricePerItem={pricePerItem}
+        isSaving={isSaving}
+      />
+
+      <SaveDesignModal
+        isOpen={isSaveDesignOpen}
+        onClose={() => setIsSaveDesignOpen(false)}
+        onConfirm={handleSaveDesignOnly}
         isSaving={isSaving}
       />
 

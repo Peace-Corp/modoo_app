@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import DesignEditModal from '@/app/components/DesignEditModal';
 import FavoritesList from '@/app/components/FavoritesList';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase-client';
 import QuantitySelectorModal from '@/app/components/QuantitySelectorModal';
+import CreateCoBuyModal from '@/app/components/cobuy/CreateCoBuyModal';
 import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
 import { SizeOption, CartItem, ProductColor } from '@/types/types';
-import { ShoppingCart, Search } from 'lucide-react';
+import { ShoppingCart, Search, Users } from 'lucide-react';
 
 type TabType = 'designs' | 'favorites';
 
@@ -46,6 +47,7 @@ interface RawSavedDesign {
 
 export default function DesignsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, user } = useAuthStore();
   const { addItem: addToCart } = useCartStore();
   const [activeTab, setActiveTab] = useState<TabType>('designs');
@@ -62,6 +64,10 @@ export default function DesignsPage() {
   const [productSizeOptions, setProductSizeOptions] = useState<SizeOption[]>([]);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // CoBuy modal state
+  const [isCreateCoBuyModalOpen, setIsCreateCoBuyModalOpen] = useState(false);
+  const [selectedDesignForCoBuy, setSelectedDesignForCoBuy] = useState<SavedDesign | null>(null);
 
   // Fetch designs from database
   useEffect(() => {
@@ -116,6 +122,20 @@ export default function DesignsPage() {
     fetchDesigns();
   }, [isAuthenticated, user]);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'favorites' || tab === 'designs') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.set('tab', tab);
+    router.replace(`/home/designs?${params.toString()}`);
+  };
+
   const handleDesignClick = (itemId: string) => {
     setSelectedItemId(itemId);
     setIsModalOpen(true);
@@ -124,6 +144,13 @@ export default function DesignsPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedItemId(null);
+  };
+
+  // Handle CoBuy button click
+  const handleCoBuyClick = (design: SavedDesign, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening the edit modal
+    setSelectedDesignForCoBuy(design);
+    setIsCreateCoBuyModalOpen(true);
   };
 
   // Handle add to cart button click
@@ -253,7 +280,7 @@ export default function DesignsPage() {
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200">
           <button
-            onClick={() => setActiveTab('designs')}
+            onClick={() => handleTabChange('designs')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'designs'
                 ? 'text-black border-b-2 border-black'
@@ -263,7 +290,7 @@ export default function DesignsPage() {
             나의 디자인
           </button>
           <button
-            onClick={() => setActiveTab('favorites')}
+            onClick={() => handleTabChange('favorites')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'favorites'
                 ? 'text-black border-b-2 border-black'
@@ -378,14 +405,26 @@ export default function DesignsPage() {
                         </p>
                       </button>
 
-                      {/* Add to Cart Button */}
-                      <button
-                        onClick={(e) => handleAddToCartClick(design, e)}
-                        className="w-full py-2 px-3 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        <span>장바구니에 담기</span>
-                      </button>
+                      {/* Action Buttons */}
+                      <div className="flex flex-col gap-2">
+                        {/* Add to Cart Button */}
+                        <button
+                          onClick={(e) => handleAddToCartClick(design, e)}
+                          className="w-full py-2 px-3 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <ShoppingCart className="w-4 h-4" />
+                          <span>장바구니에 담기</span>
+                        </button>
+
+                        {/* CoBuy Button */}
+                        <button
+                          onClick={(e) => handleCoBuyClick(design, e)}
+                          className="w-full py-2 px-3 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Users className="w-4 h-4" />
+                          <span>공동구매</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -417,6 +456,13 @@ export default function DesignsPage() {
         pricePerItem={selectedDesign?.price_per_item || 0}
         isSaving={isSaving}
         defaultDesignName={selectedDesign?.title || selectedDesign?.product.title || ''}
+      />
+
+      {/* CoBuy Creation Modal */}
+      <CreateCoBuyModal
+        isOpen={isCreateCoBuyModalOpen}
+        onClose={() => setIsCreateCoBuyModalOpen(false)}
+        design={selectedDesignForCoBuy}
       />
     </div>
   );
