@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, Settings, Package, Heart, CreditCard, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare, Users } from 'lucide-react';
+import { User, Package, Heart, CreditCard, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare, Users } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { createClient } from '@/lib/supabase-client';
@@ -165,10 +165,6 @@ export default function MyPage() {
                 <p className="text-sm text-gray-500">{user?.email}</p>
               </div>
 
-              {/* Settings Icon */}
-              <Link href="/settings" className="p-2 hover:bg-gray-100 rounded-full">
-                <Settings className="w-5 h-5 text-gray-600" />
-              </Link>
             </div>
           ) : (
             <div className="flex items-center justify-between">
