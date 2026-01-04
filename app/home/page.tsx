@@ -7,11 +7,12 @@ import InquiryBoardSection from "@/app/components/InquiryBoardSection";
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
 import { CATEGORIES } from "@/lib/categories";
+import { cache } from "react";
 
-export default async function HomePage() {
+const getActiveProducts = cache(async (): Promise<Product[]> => {
   const supabase = await createClient();
 
-  const { data: products, error } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .select('*')
     .eq('is_active', true)
@@ -19,7 +20,23 @@ export default async function HomePage() {
 
   if (error) {
     console.error('Error fetching products:', error);
+    return [];
   }
+
+  return (data ?? []) as Product[];
+});
+
+const getCategoryItems = cache(() =>
+  CATEGORIES.map((category) => ({
+    key: category.key,
+    name: category.name,
+    icon: category.icon,
+    href: `/home/search?category=${encodeURIComponent(category.key)}`,
+  }))
+);
+
+export default async function HomePage() {
+  const products = await getActiveProducts();
 
   return (
     <div className="min-h-screen bg-white">
@@ -45,9 +62,9 @@ export default async function HomePage() {
             <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 급상승</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
-            {products && products.length > 0 ? (
+            {products.length > 0 ? (
               products.map((product) => (
-                <ProductCard key={product.id} product={product as Product}/>
+                <ProductCard key={product.id} product={product}/>
             ))
           ) : (
               <div className="col-span-full text-center py-12 text-sm lg:text-base text-gray-500">
@@ -69,16 +86,18 @@ export default async function HomePage() {
 }
 
 function CategoriesSection() {
+  const categoryItems = getCategoryItems();
+
   return (
     <div>
       {/* Mobile: horizontal scroll, Desktop: 2-column grid */}
       <div className="flex gap-2 overflow-x-auto pb-2 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:overflow-visible">
-        {CATEGORIES.map((category) => (
+        {categoryItems.map((category) => (
           <CategoryButton
             key={category.key}
             name={category.name}
             icon={category.icon}
-            href={`/home/search?category=${encodeURIComponent(category.key)}`}
+            href={category.href}
           />
         ))}
       </div>
