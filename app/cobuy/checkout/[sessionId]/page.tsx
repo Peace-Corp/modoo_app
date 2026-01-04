@@ -6,7 +6,7 @@ import Script from 'next/script';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getCoBuySession, getParticipants } from '@/lib/cobuyService';
-import { CoBuyParticipant, CoBuySession } from '@/types/types';
+import { CoBuyParticipant, CoBuySessionWithDetails } from '@/types/types';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
@@ -39,7 +39,7 @@ export default function CoBuyCheckoutPage() {
   const sessionId = params.sessionId as string;
   const { user, isAuthenticated } = useAuthStore();
 
-  const [session, setSession] = useState<CoBuySession | null>(null);
+  const [session, setSession] = useState<CoBuySessionWithDetails | null>(null);
   const [participants, setParticipants] = useState<CoBuyParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,7 +153,7 @@ export default function CoBuyCheckoutPage() {
     [aggregatedVariants]
   );
 
-  const designSnapshot = session?.saved_design_screenshots as unknown as {
+  const designSnapshot = session?.saved_design_screenshot as unknown as {
     price_per_item: number;
     title: string;
     preview_url: string | null;
@@ -274,7 +274,9 @@ export default function CoBuyCheckoutPage() {
 
   // Callback to save order data before payment request
   const handleBeforePaymentRequest = () => {
-    if (!validateForm()) return false;
+    if (!validateForm()) {
+      throw new Error('Invalid checkout form');
+    }
 
     const orderData = {
       id: orderId,
@@ -305,7 +307,6 @@ export default function CoBuyCheckoutPage() {
       variants: aggregatedVariants,
     }));
 
-    return true;
   };
 
   if (!isAuthenticated) {
@@ -720,7 +721,13 @@ export default function CoBuyCheckoutPage() {
               orderName={orderName}
               customerName={customerInfo.name}
               customerEmail={customerInfo.email}
-              onBeforePayment={handleBeforePaymentRequest}
+              successUrl={typeof window !== 'undefined'
+                ? `${window.location.origin}/checkout/success`
+                : '/checkout/success'}
+              failUrl={typeof window !== 'undefined'
+                ? `${window.location.origin}/toss/fail`
+                : '/toss/fail'}
+              onBeforePaymentRequest={handleBeforePaymentRequest}
             />
           )}
         </div>
