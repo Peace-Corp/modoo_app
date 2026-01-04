@@ -145,6 +145,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calculate total product amount from participants' orders
+    const { data: participantPayments, error: paymentsError } = await supabase
+      .from('cobuy_participants')
+      .select('payment_amount')
+      .eq('cobuy_session_id', sessionId)
+      .eq('payment_status', 'completed');
+
+    if (paymentsError) {
+      console.error('Error fetching participant payments:', paymentsError);
+    }
+
+    const totalProductAmount = participantPayments?.reduce(
+      (sum, p) => sum + (p.payment_amount || 0),
+      0
+    ) || 0;
+
+    // Total amount = product amount (already paid by participants) + delivery fee (paid by creator)
+    const fullOrderAmount = totalProductAmount + orderData.delivery_fee;
+
     // Create the bulk order
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -162,7 +181,7 @@ export async function POST(request: NextRequest) {
         address_line_1: orderData.address_line_1,
         address_line_2: orderData.address_line_2,
         delivery_fee: orderData.delivery_fee,
-        total_amount: orderData.total_amount,
+        total_amount: fullOrderAmount, // Full order value for record-keeping
         payment_method: 'toss',
         payment_key: null, // Will be set by payment confirmation
         payment_status: 'pending',

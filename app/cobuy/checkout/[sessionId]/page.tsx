@@ -159,7 +159,7 @@ export default function CoBuyCheckoutPage() {
     preview_url: string | null;
   } | undefined;
   const pricePerItem = designSnapshot?.price_per_item || 0;
-  const totalPrice = totalQuantity * pricePerItem;
+  const totalPrice = totalQuantity * pricePerItem; // For order record only, not charged to creator
 
   const deliveryFee = useMemo(() => {
     if (shippingMethod === 'domestic') return 3000;
@@ -167,7 +167,8 @@ export default function CoBuyCheckoutPage() {
     return 0; // pickup
   }, [shippingMethod]);
 
-  const finalTotal = totalPrice + deliveryFee;
+  // Creator only pays for delivery fee (products already paid by participants)
+  const finalTotal = deliveryFee;
 
   // Generate order ID and name
   const { orderId, orderName } = useMemo(() => {
@@ -399,11 +400,8 @@ export default function CoBuyCheckoutPage() {
                   </p>
                 ))}
               </div>
-              <div className="flex justify-between items-center mt-1">
+              <div className="mt-1">
                 <span className="text-xs text-gray-600">총 {totalQuantity}개</span>
-                <span className="text-sm font-medium text-black">
-                  {totalPrice.toLocaleString('ko-KR')}원
-                </span>
               </div>
             </div>
           </div>
@@ -687,22 +685,21 @@ export default function CoBuyCheckoutPage() {
         {/* Payment Summary */}
         <div className="bg-white mt-2 p-4">
           <h2 className="font-medium text-black mb-3">결제 금액</h2>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3">
+            <p className="text-xs text-blue-700">
+              💰 상품 금액은 참여자들이 이미 결제 완료했습니다
+            </p>
+          </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">상품 금액</span>
-              <span className="text-black">{totalPrice.toLocaleString('ko-KR')}원</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">배송비</span>
-              <span className="text-black">{deliveryFee.toLocaleString('ko-KR')}원</span>
-            </div>
-            <div className="h-px bg-gray-200 my-3"></div>
             <div className="flex justify-between items-center">
-              <span className="font-medium text-black">총 결제금액</span>
+              <span className="font-medium text-black">배송비</span>
               <span className="text-xl font-bold text-black">
-                {finalTotal.toLocaleString('ko-KR')}원
+                {deliveryFee.toLocaleString('ko-KR')}원
               </span>
             </div>
+            {deliveryFee === 0 && (
+              <p className="text-xs text-gray-500 mt-1">직접 픽업으로 배송비가 무료입니다</p>
+            )}
           </div>
         </div>
 
