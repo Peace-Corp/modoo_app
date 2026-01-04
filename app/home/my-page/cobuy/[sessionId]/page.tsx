@@ -12,7 +12,7 @@ import {
   requestCancellation
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck } from 'lucide-react';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   open: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -198,6 +198,20 @@ export default function CoBuyDetailPage() {
     setIsUpdating(false);
   };
 
+  const handleCreateOrders = () => {
+    if (!session) return;
+
+    const completedParticipants = participants.filter(p => p.payment_status === 'completed');
+
+    if (completedParticipants.length === 0) {
+      alert('결제가 완료된 참여자가 없습니다.');
+      return;
+    }
+
+    // Redirect to checkout page
+    router.push(`/cobuy/checkout/${session.id}`);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
@@ -292,20 +306,32 @@ export default function CoBuyDetailPage() {
                   </>
                 )}
               </button>
-              <button
-                onClick={handleCloseSession}
-                disabled={isUpdating || session.status !== 'open'}
-                className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                마감하기
-              </button>
-              <button
-                onClick={handleCancelSession}
-                disabled={isUpdating || session.status === 'cancelled'}
-                className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                취소 요청
-              </button>
+              {session.status !== 'finalized' && (
+                <>
+                  <button
+                    onClick={handleCloseSession}
+                    disabled={isUpdating || session.status !== 'open'}
+                    className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    마감하기
+                  </button>
+                  <button
+                    onClick={handleCancelSession}
+                    disabled={isUpdating || session.status === 'cancelled'}
+                    className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    취소 요청
+                  </button>
+                  <button
+                    onClick={handleCreateOrders}
+                    disabled={session.status === 'cancelled' || completedCount === 0}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                    <span>주문 생성</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </section>

@@ -130,13 +130,28 @@ export async function createCoBuySession(
 export async function getCoBuySession(
   sessionId: string,
   userId?: string
-): Promise<CoBuySession | null> {
+): Promise<CoBuySessionWithDetails | null> {
   const supabase = createClient();
 
   try {
     let query = supabase
       .from('cobuy_sessions')
-      .select('*')
+      .select(`
+        *,
+        saved_design_screenshot:saved_design_screenshots (
+          id,
+          user_id,
+          product_id,
+          title,
+          color_selections,
+          canvas_state,
+          preview_url,
+          created_at,
+          updated_at,
+          price_per_item,
+          image_urls
+        )
+      `)
       .eq('id', sessionId);
 
     if (userId) {
@@ -150,7 +165,7 @@ export async function getCoBuySession(
       throw error;
     }
 
-    return session;
+    return session as CoBuySessionWithDetails;
   } catch (error) {
     console.error('Failed to fetch CoBuy session:', error);
     return null;

@@ -66,7 +66,7 @@ export default function FavoritesList() {
   if (isLoading) {
     return (
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="bg-gray-100 rounded-lg h-64 animate-pulse" />
           ))}
@@ -95,7 +95,7 @@ export default function FavoritesList() {
 
   return (
     <div className="p-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {favoriteProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

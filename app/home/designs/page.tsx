@@ -364,7 +364,7 @@ export default function DesignsPage() {
               <p className="text-sm text-gray-400">다른 검색어로 시도해보세요</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredDesigns.map((design) => {
                 return (
                   <div

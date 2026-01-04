@@ -132,7 +132,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <>
-      <Link href={`/editor/${product.id}`} className="bg-white rounded-sm overflow-hidden shadow-sm">
+      <Link href={`/editor/${product.id}`} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
         {/* Product Image */}
         <div className="aspect-4/5 bg-gray-100 relative">
           {firstSideImage && (
@@ -148,36 +148,36 @@ export default function ProductCard({ product }: ProductCardProps) {
           <button
             onClick={handleFavoriteClick}
             disabled={isLoading}
-            className="absolute right-2 bottom-2 p-2 bg-white rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="absolute right-2 bottom-2 p-1.5 lg:p-2 bg-white rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 shadow-sm"
           >
             <Heart
-              size={18}
-              className={isFavorited ? "fill-red-500 text-red-500" : ""}
+              size={16}
+              className={`lg:w-[18px] lg:h-[18px] ${isFavorited ? "fill-red-500 text-red-500" : "text-gray-600"}`}
             />
           </button>
         </div>
         {/* Product Details */}
-        <div className="p-2">
+        <div className="p-2 lg:p-3">
           {/* Category */}
           {product.category && (
-            <p className="text-black text-xs font-bold capitalize">{product.category}</p>
+            <p className="text-black text-[10px] lg:text-xs font-bold capitalize mb-0.5">{product.category}</p>
           )}
           {/* Product Name */}
-          <p className="text-sm">{product.title}</p>
+          <p className="text-xs lg:text-sm text-gray-900 line-clamp-2 mb-1 lg:mb-1.5">{product.title}</p>
           {/* Pricing */}
-          <p className="font-bold">{formattedPrice}원</p>
-          <p className="text-xs">200개 이상 구매시</p>
+          <p className="text-sm lg:text-base font-bold text-gray-900 mb-0.5">{formattedPrice}원</p>
+          <p className="text-[10px] lg:text-xs text-gray-500 mb-1 lg:mb-1.5">200개 이상 구매시</p>
           {/* Reviews */}
           {reviewStats.totalReviews > 0 ? (
-            <div className="text-[.6em] flex items-center gap-0.5">
-              <Star size={10} className="text-orange-400 fill-orange-400"/>
-              <p className="text-orange-400 font-bold">{reviewStats.averageRating.toFixed(2)}</p>
-              <p className="text-gray-400 text-[.5em]">({reviewStats.totalReviews}{reviewStats.totalReviews >= 100 ? '+' : ''})</p>
+            <div className="flex items-center gap-1">
+              <Star size={12} className="text-orange-400 fill-orange-400 lg:w-3.5 lg:h-3.5"/>
+              <p className="text-[10px] lg:text-xs text-orange-400 font-bold">{reviewStats.averageRating.toFixed(2)}</p>
+              <p className="text-[10px] lg:text-xs text-gray-400">({reviewStats.totalReviews}{reviewStats.totalReviews >= 100 ? '+' : ''})</p>
             </div>
           ) : (
-            <div className="text-[.6em] flex items-center gap-0.5">
-              <Star size={10} className="text-gray-300"/>
-              <p className="text-gray-400 text-[.5em]">리뷰 없음</p>
+            <div className="flex items-center gap-1">
+              <Star size={12} className="text-gray-300 lg:w-3.5 lg:h-3.5"/>
+              <p className="text-[10px] lg:text-xs text-gray-400">리뷰 없음</p>
             </div>
           )}
         </div>
