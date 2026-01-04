@@ -82,7 +82,7 @@ export default function HeroBanner() {
         {bannerSlides.map((slide) => (
           <SwiperSlide key={slide.id}>
             <div
-              className={`h-full ${slide.bgColor} rounded-2xl lg:rounded-[18px] flex flex-col items-start justify-end text-white py-4 lg:py-5 px-4 lg:px-5 bg-cover bg-center bg-no-repeat relative overflow-hidden lg:aspect-square lg:max-w-[420px] lg:mx-auto`}
+              className={`h-full ${slide.bgColor} rounded-2xl lg:rounded-[20px] flex flex-col items-start justify-end text-white py-5 lg:py-6 px-5 lg:px-6 bg-cover bg-center bg-no-repeat relative overflow-hidden lg:aspect-square lg:max-w-[420px] lg:mx-auto`}
               style={slide.bgImage ? { backgroundImage: `url(${slide.bgImage})`, backgroundPosition: `${slide.bgPosition}`, backgroundSize: 'cover' } : undefined}
             >
               {/* Gradient overlay */}
@@ -90,8 +90,8 @@ export default function HeroBanner() {
 
               {/* Content */}
               <div className="relative z-10">
-                <h2 className="text-2xl lg:text-2xl font-bold">{slide.title}</h2>
-                <p className="text-sm lg:text-sm text-white/90">{slide.subtitle}</p>
+                <h2 className="text-xl lg:text-2xl font-bold mb-1">{slide.title}</h2>
+                <p className="text-sm lg:text-base text-white/90">{slide.subtitle}</p>
               </div>
             </div>
           </SwiperSlide>

@@ -83,21 +83,21 @@ export default function ProductionExamples() {
   }
 
   return (
-    <section id="production-examples" className="w-full pt-2">
+    <section id="production-examples" className="w-full">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-black font-bold">제작 사례</h2>
+        <div className="flex items-center justify-between mb-4 lg:mb-6">
+          <h2 className="text-lg lg:text-xl font-bold text-gray-900">제작 사례</h2>
         </div>
       </div>
 
       {/* Horizontal scrolling container */}
       <div className="relative max-w-7xl mx-auto">
-        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
+        <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-4 scrollbar-hide">
           {examples.map((example, idx) => (
             <Link
               key={example.id+idx} // for unique id
               href={`/product/${example.product_id}`}
-              className="group shrink-0 w-50 sm:w-[320px] bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              className="group shrink-0 w-64 sm:w-80 lg:w-[340px] bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="relative aspect-4/3 w-full overflow-hidden bg-gray-100">
                 <Image
@@ -105,14 +105,14 @@ export default function ProductionExamples() {
                   alt={example.title}
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  sizes="320px"
+                  sizes="(max-width: 640px) 256px, (max-width: 1024px) 320px, 340px"
                 />
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-1">
+              <div className="p-3 lg:p-4">
+                <h3 className="text-sm lg:text-base font-semibold text-gray-900 mb-1 lg:mb-2 line-clamp-1">
                   {example.title}
                 </h3>
-                <p className="text-sm text-gray-600 line-clamp-2">
+                <p className="text-xs lg:text-sm text-gray-600 line-clamp-2">
                   {example.description}
                 </p>
               </div>
@@ -121,7 +121,7 @@ export default function ProductionExamples() {
 
           {/* Loading indicator */}
           {loading && (
-            <div className="shrink-0 w-70 sm:w-[320px] flex items-center justify-center">
+            <div className="shrink-0 w-64 sm:w-80 lg:w-[340px] flex items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
           )}
@@ -137,7 +137,7 @@ export default function ProductionExamples() {
 
           {/* End message */}
           {!hasMore && examples.length > 0 && (
-            <div className="shrink-0 w-50 flex items-center justify-center text-gray-500 text-sm">
+            <div className="shrink-0 w-64 flex items-center justify-center text-gray-500 text-xs lg:text-sm">
               모든 사례를 확인했습니다
             </div>
           )}

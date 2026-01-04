@@ -25,40 +25,38 @@ export default async function HomePage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <Header showHomeNav />
-      <div className="lg:pt-5 py-4 flex flex-col lg:flex-row lg:gap-6 lg:items-center">
+      <div className="lg:pt-6 py-4 flex flex-col lg:flex-row lg:gap-6 lg:items-start">
         {/* Hero Banner */}
         <div className="w-full lg:w-[78%] lg:shrink-0">
           <HeroBanner />
         </div>
 
         {/* Categories - 2 column grid on desktop */}
-        <section className="w-full lg:w-[22%] mt-2 lg:mt-0 px-4 sm:px-6 lg:px-8">
-          <h2 className="text-base lg:text-lg font-bold text-gray-900 mb-2">카테고리</h2>
+        <section className="w-full lg:w-[22%] mt-4 lg:mt-0 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-3 lg:mb-4">카테고리</h2>
           <CategoriesSection />
         </section>
       </div>
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-2">
-
-        {/* Hero Banner and Categories - Flex layout on desktop */}
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8 lg:space-y-12 py-6 lg:py-8">
 
         {/* Featured Products Section */}
         <section className="w-full">
-          <div className="flex items-center justify-between mb-3 lg:mb-5">
-            <p className="text-base lg:text-lg font-bold text-gray-900">인기 급상승</p>
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
+            <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 급상승</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
             {products && products.length > 0 ? (
               products.map((product) => (
                 <ProductCard key={product.id} product={product as Product}/>
             ))
           ) : (
-              <div className="col-span-full text-center py-8 text-gray-500">
+              <div className="col-span-full text-center py-12 text-sm lg:text-base text-gray-500">
                 상품이 없습니다
               </div>
             )}
           </div>
         </section>
-        
+
         {/* Production Examples Section */}
         <ProductionExamples />
 
