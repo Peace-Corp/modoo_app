@@ -187,6 +187,7 @@ export async function POST(request: NextRequest) {
         payment_status: 'pending',
         order_status: 'pending',
         order_category: 'cobuy', // Mark as CoBuy order
+        cobuy_session_id: sessionId, // Bidirectional relationship with cobuy_sessions
       })
       .select()
       .single();
