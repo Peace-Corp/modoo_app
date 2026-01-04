@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Script from 'next/script';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getCoBuySession, getParticipants } from '@/lib/cobuyService';
@@ -114,14 +115,20 @@ export default function CoBuyCheckoutPage() {
 
   // Auto-fill user profile info
   useEffect(() => {
-    if (user && useProfileInfo) {
+    if (isAuthenticated && user && useProfileInfo) {
       setCustomerInfo({
-        name: user.user_metadata?.name || '',
+        name: user.name || '',
         email: user.email || '',
-        phone: user.user_metadata?.phone || '',
+        phone: user.phone || '',
+      });
+    } else if (!useProfileInfo) {
+      setCustomerInfo({
+        name: '',
+        email: '',
+        phone: '',
       });
     }
-  }, [user, useProfileInfo]);
+  }, [isAuthenticated, user, useProfileInfo]);
 
   // Aggregate participant selections into variants
   const aggregatedVariants = useMemo(() => {
@@ -146,17 +153,21 @@ export default function CoBuyCheckoutPage() {
     [aggregatedVariants]
   );
 
-  const designSnapshot = session?.saved_design_screenshots as unknown as { price_per_item: number } | undefined;
+  const designSnapshot = session?.saved_design_screenshots as unknown as {
+    price_per_item: number;
+    title: string;
+    preview_url: string | null;
+  } | undefined;
   const pricePerItem = designSnapshot?.price_per_item || 0;
-  const subtotal = totalQuantity * pricePerItem;
+  const totalPrice = totalQuantity * pricePerItem;
 
   const deliveryFee = useMemo(() => {
     if (shippingMethod === 'domestic') return 3000;
-    if (shippingMethod === 'international') return 15000;
+    if (shippingMethod === 'international') return 5000;
     return 0; // pickup
   }, [shippingMethod]);
 
-  const totalAmount = subtotal + deliveryFee;
+  const finalTotal = totalPrice + deliveryFee;
 
   // Generate order ID and name
   const { orderId, orderName } = useMemo(() => {
@@ -168,6 +179,22 @@ export default function CoBuyCheckoutPage() {
     return { orderId: id, orderName: name };
   }, [session?.title]);
 
+  // Open Daum Address API
+  const handleAddressSearch = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    new (window as any).daum.Postcode({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      oncomplete: function(data: any) {
+        setDomesticAddress({
+          roadAddress: data.roadAddress,
+          jibunAddress: data.jibunAddress,
+          detailAddress: '',
+          postalCode: data.zonecode,
+        });
+      }
+    }).open();
+  };
+
   const handleTestModeCheckout = async () => {
     if (!validateForm()) return;
 
@@ -178,7 +205,7 @@ export default function CoBuyCheckoutPage() {
       phone_num: customerInfo.phone,
       shipping_method: shippingMethod,
       delivery_fee: deliveryFee,
-      total_amount: totalAmount,
+      total_amount: finalTotal,
       ...(shippingMethod === 'domestic' && {
         address_line_1: domesticAddress.roadAddress,
         address_line_2: domesticAddress.detailAddress,
@@ -228,7 +255,7 @@ export default function CoBuyCheckoutPage() {
     }
 
     if (shippingMethod === 'domestic') {
-      if (!domesticAddress.roadAddress || !domesticAddress.postalCode) {
+      if (!domesticAddress.roadAddress || !domesticAddress.detailAddress) {
         alert('배송지 주소를 입력해주세요.');
         return false;
       }
@@ -244,9 +271,45 @@ export default function CoBuyCheckoutPage() {
     return true;
   };
 
+  // Callback to save order data before payment request
+  const handleBeforePaymentRequest = () => {
+    if (!validateForm()) return false;
+
+    const orderData = {
+      id: orderId,
+      name: customerInfo.name,
+      email: customerInfo.email,
+      phone_num: customerInfo.phone,
+      shipping_method: shippingMethod,
+      delivery_fee: deliveryFee,
+      total_amount: finalTotal,
+      country_code: shippingMethod === 'international' ? internationalAddress.country : (shippingMethod === 'domestic' ? 'KR' : null),
+      state: shippingMethod === 'international' ? internationalAddress.state : null,
+      city: shippingMethod === 'international' ? internationalAddress.city : null,
+      postal_code: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.postalCode : internationalAddress.postalCode)
+        : null,
+      address_line_1: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.roadAddress : internationalAddress.addressLine1)
+        : null,
+      address_line_2: shippingMethod !== 'pickup'
+        ? (shippingMethod === 'domestic' ? domesticAddress.detailAddress : internationalAddress.addressLine2)
+        : null,
+    };
+
+    // Store in sessionStorage for use in success page
+    sessionStorage.setItem('pendingCoBuyOrder', JSON.stringify({
+      sessionId,
+      orderData,
+      variants: aggregatedVariants,
+    }));
+
+    return true;
+  };
+
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-gray-50">
         <Header back />
         <div className="max-w-3xl mx-auto p-6 text-center">
           <p className="text-gray-500 mb-4">로그인이 필요합니다.</p>
@@ -257,11 +320,10 @@ export default function CoBuyCheckoutPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-gray-50">
         <Header back />
-        <div className="max-w-3xl mx-auto p-6 text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
-          <p className="text-gray-500 mt-4">로딩 중...</p>
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
         </div>
       </div>
     );
@@ -269,7 +331,7 @@ export default function CoBuyCheckoutPage() {
 
   if (error || !session || participants.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-gray-50">
         <Header back />
         <div className="max-w-3xl mx-auto p-6 text-center">
           <p className="text-red-500 mb-4">
@@ -287,244 +349,366 @@ export default function CoBuyCheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <Header back />
+    <>
+      {/* Daum Postcode API */}
+      <Script
+        src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+        strategy="lazyOnload"
+      />
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">공동구매 주문 생성</h1>
+      <div className="min-h-screen bg-gray-50 pb-32">
+        {/* Header */}
+        <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
+          <Header back />
+        </div>
+
+        {/* Page Title */}
+        <div className="bg-white px-4 py-4 border-b border-gray-200">
+          <h1 className="text-xl font-bold text-black">공동구매 주문/결제</h1>
+          <p className="text-sm text-gray-600 mt-1">공동구매: {session.title}</p>
+        </div>
 
         {/* Order Summary */}
-        <section className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">주문 요약</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">공동구매 제목</span>
-              <span className="font-medium">{session.title}</span>
+        <div className="bg-white mt-2 p-4">
+          <h2 className="font-medium text-black mb-3">주문 상품</h2>
+          <div className="flex gap-3 pb-3">
+            <div className="w-16 h-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden">
+              {designSnapshot?.preview_url ? (
+                <img
+                  src={designSnapshot.preview_url}
+                  alt={designSnapshot.title}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">총 참여 인원</span>
-              <span className="font-medium">{totalQuantity}명</span>
-            </div>
-            {aggregatedVariants.map((variant, idx) => (
-              <div key={idx} className="flex justify-between text-sm pl-4">
-                <span className="text-gray-500">사이즈 {variant.size}</span>
-                <span className="text-gray-700">{variant.quantity}개</span>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-black truncate">
+                {designSnapshot?.title || session.title}
+              </h3>
+              {/* Show all size variants */}
+              <div className="mt-1 space-y-0.5">
+                {aggregatedVariants.map((variant, idx) => (
+                  <p key={idx} className="text-xs text-gray-500">
+                    사이즈 {variant.size} - {variant.quantity}개
+                  </p>
+                ))}
               </div>
-            ))}
-            <div className="flex justify-between text-sm pt-3 border-t">
-              <span className="text-gray-600">개당 가격</span>
-              <span className="font-medium">{pricePerItem.toLocaleString()}원</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">상품 금액</span>
-              <span className="font-medium">{subtotal.toLocaleString()}원</span>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-gray-600">총 {totalQuantity}개</span>
+                <span className="text-sm font-medium text-black">
+                  {totalPrice.toLocaleString('ko-KR')}원
+                </span>
+              </div>
             </div>
           </div>
-        </section>
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              💡 {participants.length}명의 참여자 결제가 완료되었습니다
+            </p>
+          </div>
+        </div>
 
-        {/* Customer Info */}
-        <section className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">주문자 정보</h2>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <input
-                type="checkbox"
-                id="useProfileInfo"
-                checked={useProfileInfo}
-                onChange={(e) => setUseProfileInfo(e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="useProfileInfo" className="text-sm text-gray-700">
-                프로필 정보 사용
-              </label>
-            </div>
-            <input
-              type="text"
-              placeholder="이름"
-              value={customerInfo.name}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-            <input
-              type="email"
-              placeholder="이메일"
-              value={customerInfo.email}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-            <input
-              type="tel"
-              placeholder="전화번호"
-              value={customerInfo.phone}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-              className="w-full px-4 py-2 border rounded-lg"
-            />
+        {/* Customer Information */}
+        <div className="bg-white mt-2 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-medium text-black">주문자 정보</h2>
+            {isAuthenticated && user && (
+              <button
+                onClick={() => setUseProfileInfo(!useProfileInfo)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                {useProfileInfo ? '직접 입력' : '프로필 정보 사용'}
+              </button>
+            )}
           </div>
-        </section>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">이름</label>
+              <input
+                type="text"
+                value={customerInfo.name}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                disabled={isAuthenticated && useProfileInfo}
+                className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
+                  isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
+                }`}
+                placeholder="이름을 입력하세요"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">이메일</label>
+              <input
+                type="email"
+                value={customerInfo.email}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
+                disabled={isAuthenticated && useProfileInfo}
+                className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
+                  isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
+                }`}
+                placeholder="example@email.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">휴대폰 번호</label>
+              <input
+                type="tel"
+                value={customerInfo.phone}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                disabled={isAuthenticated && useProfileInfo}
+                className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
+                  isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
+                }`}
+                placeholder="010-1234-5678"
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Shipping Method */}
-        <section className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">배송 방법</h2>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-              <input
-                type="radio"
-                name="shipping"
-                value="domestic"
-                checked={shippingMethod === 'domestic'}
-                onChange={() => setShippingMethod('domestic')}
-              />
-              <div className="flex-1">
-                <div className="font-medium">국내 배송</div>
-                <div className="text-sm text-gray-500">3,000원</div>
+        <div className="bg-white mt-2 p-4">
+          <h2 className="font-medium text-black mb-4">배송 방법</h2>
+          <div className="space-y-2">
+            <button
+              onClick={() => setShippingMethod('domestic')}
+              className={`w-full p-4 rounded-lg border-2 transition text-left ${
+                shippingMethod === 'domestic'
+                  ? 'border-black bg-gray-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-black">국내배송</p>
+                  <p className="text-xs text-gray-500 mt-1">배송비 3,000원</p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  shippingMethod === 'domestic' ? 'border-black' : 'border-gray-300'
+                }`}>
+                  {shippingMethod === 'domestic' && (
+                    <div className="w-3 h-3 rounded-full bg-black"></div>
+                  )}
+                </div>
               </div>
-            </label>
-            <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-              <input
-                type="radio"
-                name="shipping"
-                value="international"
-                checked={shippingMethod === 'international'}
-                onChange={() => setShippingMethod('international')}
-              />
-              <div className="flex-1">
-                <div className="font-medium">해외 배송</div>
-                <div className="text-sm text-gray-500">15,000원</div>
-              </div>
-            </label>
-            <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-              <input
-                type="radio"
-                name="shipping"
-                value="pickup"
-                checked={shippingMethod === 'pickup'}
-                onChange={() => setShippingMethod('pickup')}
-              />
-              <div className="flex-1">
-                <div className="font-medium">직접 픽업</div>
-                <div className="text-sm text-gray-500">무료</div>
-              </div>
-            </label>
-          </div>
-        </section>
+            </button>
 
-        {/* Address */}
-        {shippingMethod !== 'pickup' && (
-          <section className="bg-white rounded-2xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">배송지 정보</h2>
-            {shippingMethod === 'domestic' ? (
-              <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="도로명 주소"
-                  value={domesticAddress.roadAddress}
-                  onChange={(e) =>
-                    setDomesticAddress({ ...domesticAddress, roadAddress: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="상세 주소"
-                  value={domesticAddress.detailAddress}
-                  onChange={(e) =>
-                    setDomesticAddress({ ...domesticAddress, detailAddress: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="우편번호"
-                  value={domesticAddress.postalCode}
-                  onChange={(e) =>
-                    setDomesticAddress({ ...domesticAddress, postalCode: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
+            <button
+              onClick={() => setShippingMethod('international')}
+              className={`w-full p-4 rounded-lg border-2 transition text-left ${
+                shippingMethod === 'international'
+                  ? 'border-black bg-gray-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-black">해외배송</p>
+                  <p className="text-xs text-gray-500 mt-1">배송비 5,000원</p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  shippingMethod === 'international' ? 'border-black' : 'border-gray-300'
+                }`}>
+                  {shippingMethod === 'international' && (
+                    <div className="w-3 h-3 rounded-full bg-black"></div>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="space-y-4">
+            </button>
+
+            <button
+              onClick={() => setShippingMethod('pickup')}
+              className={`w-full p-4 rounded-lg border-2 transition text-left ${
+                shippingMethod === 'pickup'
+                  ? 'border-black bg-gray-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-black">직접 픽업하기</p>
+                  <p className="text-xs text-gray-500 mt-1">배송비 무료</p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  shippingMethod === 'pickup' ? 'border-black' : 'border-gray-300'
+                }`}>
+                  {shippingMethod === 'pickup' && (
+                    <div className="w-3 h-3 rounded-full bg-black"></div>
+                  )}
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Address Input - Domestic */}
+        {shippingMethod === 'domestic' && (
+          <div className="bg-white mt-2 p-4">
+            <h2 className="font-medium text-black mb-4">배송지 정보</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">주소</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={domesticAddress.postalCode}
+                    readOnly
+                    className="w-24 px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                    placeholder="우편번호"
+                  />
+                  <button
+                    onClick={handleAddressSearch}
+                    className="px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
+                  >
+                    주소 검색
+                  </button>
+                </div>
+              </div>
+              {domesticAddress.roadAddress && (
+                <>
+                  <input
+                    type="text"
+                    value={domesticAddress.roadAddress}
+                    readOnly
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                    placeholder="도로명 주소"
+                  />
+                  <input
+                    type="text"
+                    value={domesticAddress.jibunAddress}
+                    readOnly
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                    placeholder="지번 주소"
+                  />
+                  <input
+                    type="text"
+                    value={domesticAddress.detailAddress}
+                    onChange={(e) => setDomesticAddress({ ...domesticAddress, detailAddress: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="상세 주소를 입력하세요"
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Address Input - International */}
+        {shippingMethod === 'international' && (
+          <div className="bg-white mt-2 p-4">
+            <h2 className="font-medium text-black mb-4">배송지 정보</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Country</label>
                 <input
                   type="text"
-                  placeholder="Country"
                   value={internationalAddress.country}
-                  onChange={(e) =>
-                    setInternationalAddress({ ...internationalAddress, country: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="State/Province"
-                  value={internationalAddress.state}
-                  onChange={(e) =>
-                    setInternationalAddress({ ...internationalAddress, state: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="City"
-                  value={internationalAddress.city}
-                  onChange={(e) =>
-                    setInternationalAddress({ ...internationalAddress, city: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="Address Line 1"
-                  value={internationalAddress.addressLine1}
-                  onChange={(e) =>
-                    setInternationalAddress({ ...internationalAddress, addressLine1: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="Address Line 2 (Optional)"
-                  value={internationalAddress.addressLine2}
-                  onChange={(e) =>
-                    setInternationalAddress({ ...internationalAddress, addressLine2: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="Postal Code"
-                  value={internationalAddress.postalCode}
-                  onChange={(e) =>
-                    setInternationalAddress({ ...internationalAddress, postalCode: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg"
+                  onChange={(e) => setInternationalAddress({ ...internationalAddress, country: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Enter country"
                 />
               </div>
-            )}
-          </section>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">State/Province</label>
+                <input
+                  type="text"
+                  value={internationalAddress.state}
+                  onChange={(e) => setInternationalAddress({ ...internationalAddress, state: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Enter state or province"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">City</label>
+                <input
+                  type="text"
+                  value={internationalAddress.city}
+                  onChange={(e) => setInternationalAddress({ ...internationalAddress, city: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Enter city"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Postal Code</label>
+                <input
+                  type="text"
+                  value={internationalAddress.postalCode}
+                  onChange={(e) => setInternationalAddress({ ...internationalAddress, postalCode: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Enter postal code"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Address Line 1</label>
+                <input
+                  type="text"
+                  value={internationalAddress.addressLine1}
+                  onChange={(e) => setInternationalAddress({ ...internationalAddress, addressLine1: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Street address"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Address Line 2</label>
+                <input
+                  type="text"
+                  value={internationalAddress.addressLine2}
+                  onChange={(e) => setInternationalAddress({ ...internationalAddress, addressLine2: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Apt, suite, etc. (optional)"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pickup Information */}
+        {shippingMethod === 'pickup' && (
+          <div className="bg-white mt-2 p-4">
+            <h2 className="font-medium text-black mb-3">픽업 안내</h2>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700 mb-2">
+                <strong>픽업 장소:</strong> 서울시 강남구 테헤란로 123
+              </p>
+              <p className="text-sm text-gray-700 mb-2">
+                <strong>운영 시간:</strong> 평일 10:00 - 18:00
+              </p>
+              <p className="text-sm text-gray-500">
+                주문 완료 후 영업일 기준 3-5일 후 픽업 가능합니다.
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Payment Summary */}
-        <section className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">결제 금액</h2>
-          <div className="space-y-3">
+        <div className="bg-white mt-2 p-4">
+          <h2 className="font-medium text-black mb-3">결제 금액</h2>
+          <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">상품 금액</span>
-              <span>{subtotal.toLocaleString()}원</span>
+              <span className="text-black">{totalPrice.toLocaleString('ko-KR')}원</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">배송비</span>
-              <span>{deliveryFee.toLocaleString()}원</span>
+              <span className="text-black">{deliveryFee.toLocaleString('ko-KR')}원</span>
             </div>
-            <div className="flex justify-between text-lg font-bold pt-3 border-t">
-              <span>총 결제 금액</span>
-              <span className="text-blue-600">{totalAmount.toLocaleString()}원</span>
+            <div className="h-px bg-gray-200 my-3"></div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-black">총 결제금액</span>
+              <span className="text-xl font-bold text-black">
+                {finalTotal.toLocaleString('ko-KR')}원
+              </span>
             </div>
           </div>
-        </section>
+        </div>
 
         {/* Payment Widget */}
-        <section className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">결제 수단</h2>
+        <div className="bg-white mt-2 p-4">
+          <h2 className="font-medium text-black mb-4">결제 수단</h2>
           {process.env.NEXT_PUBLIC_TESTMODE === 'true' ? (
             <button
               onClick={handleTestModeCheckout}
@@ -534,43 +718,16 @@ export default function CoBuyCheckoutPage() {
             </button>
           ) : (
             <TossPaymentWidget
-              amount={totalAmount}
+              amount={finalTotal}
               orderId={orderId}
               orderName={orderName}
               customerName={customerInfo.name}
               customerEmail={customerInfo.email}
-              onBeforePayment={() => validateForm()}
-              metadata={{
-                sessionId,
-                orderData: {
-                  id: orderId,
-                  name: customerInfo.name,
-                  email: customerInfo.email,
-                  phone_num: customerInfo.phone,
-                  shipping_method: shippingMethod,
-                  delivery_fee: deliveryFee,
-                  total_amount: totalAmount,
-                  ...(shippingMethod === 'domestic' && {
-                    address_line_1: domesticAddress.roadAddress,
-                    address_line_2: domesticAddress.detailAddress,
-                    postal_code: domesticAddress.postalCode,
-                    country_code: 'KR',
-                  }),
-                  ...(shippingMethod === 'international' && {
-                    country_code: internationalAddress.country,
-                    state: internationalAddress.state,
-                    city: internationalAddress.city,
-                    postal_code: internationalAddress.postalCode,
-                    address_line_1: internationalAddress.addressLine1,
-                    address_line_2: internationalAddress.addressLine2,
-                  }),
-                },
-                variants: aggregatedVariants,
-              }}
+              onBeforePayment={handleBeforePaymentRequest}
             />
           )}
-        </section>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
