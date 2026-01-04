@@ -5,6 +5,12 @@ import { FaStar } from 'react-icons/fa';
 import { useParams } from 'next/navigation';
 import Header from '@/app/components/Header';
 
+// Generate static params for static export
+export async function generateStaticParams() {
+  return []
+}
+
+
 interface Review {
   id: string;
   rating: number;

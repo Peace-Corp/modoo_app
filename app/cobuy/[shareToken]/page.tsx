@@ -10,6 +10,12 @@ import ParticipantForm, { ParticipantFormData } from '@/app/components/cobuy/Par
 import CoBuyClosedScreen from '@/app/components/cobuy/CoBuyClosedScreen';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 
+// Generate static params for static export
+export async function generateStaticParams() {
+  return []
+}
+
+
 type DesignWithProduct = SavedDesignScreenshot & { product?: Product };
 
 const formatDate = (dateString?: string | null) => {

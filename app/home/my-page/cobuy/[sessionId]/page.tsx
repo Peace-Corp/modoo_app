@@ -14,6 +14,12 @@ import {
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
 import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck } from 'lucide-react';
 
+// Generate static params for static export
+export async function generateStaticParams() {
+  return []
+}
+
+
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   open: { label: '모집중', color: 'bg-green-100 text-green-800' },
   closed: { label: '마감', color: 'bg-gray-100 text-gray-800' },

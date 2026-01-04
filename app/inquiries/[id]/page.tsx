@@ -7,6 +7,12 @@ import { createClient } from '@/lib/supabase-client';
 import { ChevronLeft, MessageSquare, Send } from 'lucide-react';
 import Image from 'next/image';
 
+// Generate static params for static export
+export async function generateStaticParams() {
+  return []
+}
+
+
 const STATUS_LABELS: Record<InquiryStatus, string> = {
   pending: '대기중',
   ongoing: '진행중',

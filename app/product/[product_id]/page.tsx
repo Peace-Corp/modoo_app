@@ -1,3 +1,9 @@
+
+// Generate static params for static export
+export async function generateStaticParams() {
+  return []
+}
+
 type ProductDetailPageProps = {
   params: Promise<{
     product_id: string;

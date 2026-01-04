@@ -9,6 +9,12 @@ import { getCoBuySession, getParticipants } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySessionWithDetails } from '@/types/types';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 
+// Generate static params for static export
+export async function generateStaticParams() {
+  return []
+}
+
+
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 
 interface CustomerInfo {

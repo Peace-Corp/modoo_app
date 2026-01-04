@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   description: "An App for creating your own customized products",
 };
 
+// For Capacitor builds: Don't require all dynamic routes to be pre-generated
+// Dynamic routes will be handled client-side at runtime
+export const dynamicParams = false;
+
 export default function RootLayout({
   children,
 }: Readonly<{

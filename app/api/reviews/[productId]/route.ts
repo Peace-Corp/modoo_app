@@ -1,6 +1,11 @@
 import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Skip this route during static export (Capacitor builds)
+export async function generateStaticParams() {
+  return []
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
