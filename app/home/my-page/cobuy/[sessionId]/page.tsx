@@ -40,7 +40,6 @@ export default function CoBuyDetailPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isCreatingOrders, setIsCreatingOrders] = useState(false);
 
   const fetchSessionData = async () => {
     if (!sessionId || !user) return;
@@ -199,7 +198,7 @@ export default function CoBuyDetailPage() {
     setIsUpdating(false);
   };
 
-  const handleCreateOrders = async () => {
+  const handleCreateOrders = () => {
     if (!session) return;
 
     const completedParticipants = participants.filter(p => p.payment_status === 'completed');
@@ -209,44 +208,8 @@ export default function CoBuyDetailPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `결제 완료된 ${completedParticipants.length}명의 참여자에 대해 주문을 생성하시겠습니까?\n\n` +
-      `이 작업은 되돌릴 수 없으며, 세션이 완료 상태로 변경됩니다.`
-    );
-
-    if (!confirmed) return;
-
-    setIsCreatingOrders(true);
-
-    try {
-      const response = await fetch('/api/cobuy/create-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId: session.id }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        alert(
-          `주문 생성 완료!\n\n` +
-          `성공: ${result.createdOrdersCount}건\n` +
-          (result.failedOrdersCount > 0 ? `실패: ${result.failedOrdersCount}건` : '')
-        );
-
-        // Refresh session data
-        await fetchSessionData();
-      } else {
-        alert(`주문 생성 실패: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error creating orders:', error);
-      alert('주문 생성 중 오류가 발생했습니다.');
-    } finally {
-      setIsCreatingOrders(false);
-    }
+    // Redirect to checkout page
+    router.push(`/cobuy/checkout/${session.id}`);
   };
 
   if (!isAuthenticated) {
@@ -361,20 +324,11 @@ export default function CoBuyDetailPage() {
                   </button>
                   <button
                     onClick={handleCreateOrders}
-                    disabled={isCreatingOrders || session.status === 'cancelled' || completedCount === 0}
+                    disabled={session.status === 'cancelled' || completedCount === 0}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {isCreatingOrders ? (
-                      <>
-                        <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-                        <span>생성 중...</span>
-                      </>
-                    ) : (
-                      <>
-                        <PackageCheck className="w-4 h-4" />
-                        <span>주문 생성</span>
-                      </>
-                    )}
+                    <PackageCheck className="w-4 h-4" />
+                    <span>주문 생성</span>
                   </button>
                 </>
               )}
