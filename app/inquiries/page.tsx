@@ -6,6 +6,7 @@ import { InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
 import { ChevronLeft, MessageSquare, Plus, Search } from 'lucide-react';
 import Image from 'next/image';
+import { routes } from '@/lib/routes';
 
 export default function InquiriesPage() {
   const router = useRouter();
@@ -236,7 +237,7 @@ export default function InquiriesPage() {
             {filteredInquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
-                onClick={() => router.push(`/inquiries/${inquiry.id}`)}
+                onClick={() => router.push(routes.inquiryDetail(inquiry.id))}
                 className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer"
               >
                 {/* Header */}

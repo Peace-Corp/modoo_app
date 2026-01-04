@@ -6,7 +6,7 @@
  * This script temporarily moves problematic folders during Capacitor builds:
  * - API routes (cannot be statically exported)
  * - Auth callback (dynamic route)
- * - Dynamic client routes (incompatible with generateStaticParams)
+ * - Dynamic segments that are replaced by query-based mobile routes
  *
  * After the build, it restores them for web development.
  */
@@ -22,12 +22,13 @@ const BACKUP_DIR = path.join(__dirname, '../.capacitor-build');
 const FOLDERS_TO_MOVE = [
   'api',
   'auth/callback',
-  'cobuy',
-  'editor',
-  'product',
-  'reviews',
-  'inquiries',
-  'home'  // Includes all home routes and nested dynamic routes
+  'cobuy/[shareToken]',
+  'cobuy/checkout/[sessionId]',
+  'editor/[productId]',
+  'product/[product_id]',
+  'reviews/[productId]',
+  'inquiries/[id]',
+  'home/my-page/cobuy/[sessionId]',
 ];
 
 function moveFolder(relativePath) {
@@ -63,8 +64,8 @@ async function build() {
 
   try {
     console.log('\n🚀 Starting Capacitor build...\n');
-    console.log('⚠️  Note: Building minimal version for testing core mobile functionality');
-    console.log('   Dynamic routes will be handled client-side via the API client\n');
+    console.log('⚠️  Note: Building mobile-ready version with query-based routes');
+    console.log('   Dynamic segments are replaced by static pages that read search params\n');
 
     // Move folders out of the way
     for (const folder of FOLDERS_TO_MOVE) {
@@ -76,7 +77,7 @@ async function build() {
     console.log('\n📱 Building Next.js for Capacitor (static export)...\n');
 
     // Run Next.js build with Capacitor flag
-    execSync('CAPACITOR_BUILD=true next build', {
+    execSync('CAPACITOR_BUILD=true next build --webpack', {
       stdio: 'inherit',
       env: { ...process.env, CAPACITOR_BUILD: 'true' }
     });

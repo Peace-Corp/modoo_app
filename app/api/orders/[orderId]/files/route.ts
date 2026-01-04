@@ -1,11 +1,6 @@
 import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Skip this route during static export (Capacitor builds)
-export async function generateStaticParams() {
-  return []
-}
-
 /**
  * GET /api/orders/[orderId]/files
  *

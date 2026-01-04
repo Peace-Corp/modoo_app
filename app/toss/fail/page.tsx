@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { routes } from "@/lib/routes";
 
 function FailPageContent() {
   const searchParams = useSearchParams();
@@ -32,7 +33,7 @@ function FailPageContent() {
             <div className="text-right" id="code">{`${searchParams.get("code")}`}</div>
           </div>
         </div>
-      <Link href="/home" className="bg-gray-300 w-full py-4 rounded-sm">Back to Home</Link>
+      <Link href={routes.home()} className="bg-gray-300 w-full py-4 rounded-sm">Back to Home</Link>
       </div>
     </div>
   );

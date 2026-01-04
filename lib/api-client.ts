@@ -78,15 +78,21 @@ async function callEdgeFunction<T>(
   const { method, body, headers } = options;
   const supabase = createClient();
 
+  const queryIndex = endpoint.indexOf('?');
+  const endpointPath = queryIndex >= 0 ? endpoint.slice(0, queryIndex) : endpoint;
+  const queryString = queryIndex >= 0 ? endpoint.slice(queryIndex + 1) : '';
+
   // Convert API endpoint to Edge Function name
   // e.g., /api/reviews/123 -> reviews-get
   // e.g., /api/cobuy/create-order -> cobuy-create-order
-  const functionName = endpointToFunctionName(endpoint, method);
+  const functionName = endpointToFunctionName(endpointPath, method);
+  const invokeName = queryString ? `${functionName}?${queryString}` : functionName;
 
   try {
-    const { data, error } = await supabase.functions.invoke(functionName, {
+    const { data, error } = await supabase.functions.invoke(invokeName, {
       body,
       headers,
+      method,
     });
 
     if (error) {
@@ -95,7 +101,7 @@ async function callEdgeFunction<T>(
 
     return data as T;
   } catch (error) {
-    console.error(`Edge Function error (${functionName}):`, error);
+    console.error(`Edge Function error (${invokeName}):`, error);
     throw error;
   }
 }
@@ -110,7 +116,11 @@ async function callEdgeFunction<T>(
  */
 function endpointToFunctionName(endpoint: string, method: string = 'GET'): string {
   // Remove /api prefix if present
+  const normalizedMethod = method.toUpperCase();
   let path = endpoint.replace(/^\/api\/?/, '');
+
+  // Strip query params
+  path = path.split('?')[0];
 
   // Remove dynamic segments (convert /reviews/123 to /reviews)
   path = path.replace(/\/[0-9a-f-]+(?=\/|$)/gi, '');
@@ -118,15 +128,30 @@ function endpointToFunctionName(endpoint: string, method: string = 'GET'): strin
   // Remove trailing slashes
   path = path.replace(/\/$/, '');
 
+  const mappingKey = `${normalizedMethod} /${path}`;
+  const functionMap: Record<string, string> = {
+    'GET /reviews': 'reviews-get',
+    'POST /toss/confirm': 'toss-confirm',
+    'POST /cobuy/create-order': 'cobuy-create-order',
+    'POST /cobuy/payment/confirm': 'cobuy-payment-confirm',
+    'POST /cobuy/participant/delete': 'cobuy-participant-delete',
+    'POST /cobuy/notify/participant-joined': 'cobuy-notify-participant-joined',
+    'POST /cobuy/notify/session-closing': 'cobuy-notify-session-closing',
+    'POST /cobuy/notify/session-closed': 'cobuy-notify-session-closed',
+    'POST /checkout/testmode': 'checkout-testmode',
+    'POST /convert-image': 'convert-image',
+    'GET /orders/files': 'orders-files-get',
+  };
+
+  if (functionMap[mappingKey]) {
+    return functionMap[mappingKey];
+  }
+
   // Convert to lowercase and replace slashes with hyphens
   const baseName = path.toLowerCase().replace(/\//g, '-') || 'index';
 
   // Add method suffix for POST/PUT/DELETE (GET is default)
-  if (method !== 'GET') {
-    return `${baseName}-${method.toLowerCase()}`;
-  }
-
-  return baseName;
+  return `${baseName}-${normalizedMethod.toLowerCase()}`;
 }
 
 /**
@@ -137,7 +162,10 @@ export const api = {
   // Reviews
   reviews: {
     async get(productId: string) {
-      return apiRequest(`/reviews/${productId}`);
+      const endpoint = isNative()
+        ? `/reviews?productId=${encodeURIComponent(productId)}`
+        : `/reviews/${productId}`;
+      return apiRequest(endpoint);
     },
   },
 

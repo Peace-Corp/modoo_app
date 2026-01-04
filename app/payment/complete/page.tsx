@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle } from 'lucide-react';
+import { routes } from '@/lib/routes';
 
 function PaymentCompleteContent() {
   const router = useRouter();
@@ -14,7 +15,7 @@ function PaymentCompleteContent() {
   useEffect(() => {
     // Verify that we have an order ID
     if (!orderId) {
-      router.push('/home');
+      router.push(routes.home());
       return;
     }
 
@@ -68,7 +69,7 @@ function PaymentCompleteContent() {
             </Link>
 
             <Link
-              href="/home"
+              href={routes.home()}
               className="w-full block px-6 py-3 bg-gray-100 text-black rounded-lg font-medium hover:bg-gray-200 transition text-center"
             >
               계속 쇼핑하기

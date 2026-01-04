@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/useAuthStore'
 import { Mail, Lock, User, Phone } from 'lucide-react'
+import { routes } from '@/lib/routes'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -34,7 +35,7 @@ export default function LoginPage() {
           setError('이메일을 확인하여 인증을 완료해주세요!')
         } else {
           // User is auto-confirmed, redirect to home
-          router.push('/home')
+          router.push(routes.home())
           router.refresh()
         }
       } else {
@@ -46,7 +47,7 @@ export default function LoginPage() {
         }
 
         // Login successful, redirect to home
-        router.push('/home')
+        router.push(routes.home())
         router.refresh()
       }
     } catch (err) {

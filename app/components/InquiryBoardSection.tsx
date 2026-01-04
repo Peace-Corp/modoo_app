@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase-client';
 import { InquiryWithDetails } from '@/types/types';
 import { MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
+import { routes } from '@/lib/routes';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -98,7 +99,7 @@ export default function InquiryBoardSection() {
                 {inquiries.map((inquiry) => (
                   <Link
                     key={inquiry.id}
-                    href={`/inquiries/${inquiry.id}`}
+                    href={routes.inquiryDetail(inquiry.id)}
                     className="block bg-white rounded-lg p-3 lg:p-4 shadow-sm hover:shadow-md transition"
                   >
                     <div className="flex items-start justify-between">

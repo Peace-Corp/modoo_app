@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import LoginPromptModal from "./LoginPromptModal";
+import { routes } from "@/lib/routes";
 
 interface ProductCardProps {
   product: Product;
@@ -132,7 +133,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <>
-      <Link href={`/editor/${product.id}`} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      <Link href={routes.editor(product.id)} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
         {/* Product Image */}
         <div className="aspect-4/5 bg-gray-100 relative">
           {firstSideImage && (

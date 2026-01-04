@@ -1,24 +1,18 @@
 import { createClient } from "@/lib/supabase";
 import { Product } from "@/types/types";
 import { notFound } from "next/navigation";
-import ProductEditorClient from "./ProductEditorClient";
-import ProductEditorClientDesktop from "./ProductEditorClientDesktop";
+import ProductEditorClient from "../components/ProductEditorClient";
+import ProductEditorClientDesktop from "../components/ProductEditorClientDesktop";
 import { headers } from "next/headers";
 
-// Generate static params for static export
-export async function generateStaticParams() {
-  return []
-}
-
-
 interface PageProps {
-  params: Promise<{
+  params: {
     productId: string;
-  }>;
+  };
 }
 
 export default async function ProductEditorPage({ params }: PageProps) {
-  const { productId } = await params;
+  const { productId } = params;
   const supabase = await createClient();
   const userAgent = (await headers()).get('user-agent') || '';
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);

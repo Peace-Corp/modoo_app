@@ -7,6 +7,7 @@ import { getUserCoBuySessions } from '@/lib/cobuyService';
 import { CoBuySession } from '@/types/types';
 import { Users, Calendar, Clock, Link as LinkIcon, Copy, CheckCircle } from 'lucide-react';
 import Header from '@/app/components/Header';
+import { routes } from '@/lib/routes';
 
 export default function CoBuyListPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function CoBuyListPage() {
   }, [isAuthenticated, user]);
 
   const copyShareLink = (shareToken: string) => {
-    const shareUrl = `${window.location.origin}/cobuy/${shareToken}`;
+    const shareUrl = `${window.location.origin}${routes.cobuyShare(shareToken)}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedToken(shareToken);
     setTimeout(() => setCopiedToken(null), 2000);
@@ -189,7 +190,7 @@ export default function CoBuyListPage() {
                     {/* Actions */}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => router.push(`/home/my-page/cobuy/${session.id}`)}
+                        onClick={() => router.push(routes.cobuyMyPageDetail(session.id))}
                         className="flex-1 py-2 px-4 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
                       >
                         관리하기

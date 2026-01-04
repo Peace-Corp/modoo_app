@@ -1,23 +1,12 @@
 
-// Generate static params for static export
-export async function generateStaticParams() {
-  return []
-}
+import ProductDetailClient from '../ProductDetailClient';
 
 type ProductDetailPageProps = {
-  params: Promise<{
+  params: {
     product_id: string;
-  }>;
+  };
 };
 
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const { product_id } = await params;
-
-  console.log('Product ID:', product_id);
-
-  return (
-    <div>
-      <h1>Product ID: {product_id}</h1>
-    </div>
-  );
+export default function ProductDetailPage({ params }: ProductDetailPageProps) {
+  return <ProductDetailClient productId={params.product_id} />;
 }

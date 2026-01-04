@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -6,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { CircleUser, PanelRightDashedIcon, PencilLine, PersonStanding, PlusCircle, Search } from 'lucide-react';
 import CartButton from './CartButton';
 import { BsPerson } from 'react-icons/bs';
+import { routes } from '@/lib/routes';
 
 type NavItem = {
   id: string;
@@ -21,7 +21,7 @@ export default function BottomNavBar() {
     {
       id: 'home',
       label: '홈',
-      href: '/home',
+      href: routes.home(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -31,7 +31,7 @@ export default function BottomNavBar() {
     {
       id: 'search',
       label: '검색',
-      href: '/home/search',
+      href: routes.search(),
       icon: (
         <Search />
       ),
@@ -39,7 +39,7 @@ export default function BottomNavBar() {
     {
       id: 'designs',
       label: '내 디자인',
-      href: '/home/designs',
+      href: routes.designs(),
       icon: (
         <PencilLine />
       ),
@@ -47,7 +47,7 @@ export default function BottomNavBar() {
     {
       id: 'mypage',
       label: '내정보',
-      href: '/home/my-page',
+      href: routes.myPage(),
       icon: (
         <CircleUser />
       ),
@@ -56,8 +56,8 @@ export default function BottomNavBar() {
 
   // Helper function to check if a nav item is active
   const isActive = (href: string) => {
-    if (href === '/home') {
-      return pathname === '/home';
+    if (href === routes.home()) {
+      return pathname === '/' || pathname === '/home';
     }
     return pathname?.startsWith(href);
   };

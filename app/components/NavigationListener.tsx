@@ -23,8 +23,8 @@ export default function NavigationListener() {
     }
 
     // Check if we're navigating away from the editor page
-    const wasOnEditor = previousPathname.current?.startsWith('/editor/');
-    const isOnEditor = pathname.startsWith('/editor/');
+    const wasOnEditor = previousPathname.current === '/editor' || previousPathname.current?.startsWith('/editor/');
+    const isOnEditor = pathname === '/editor' || pathname.startsWith('/editor/');
 
     // Reset canvas state when:
     // 1. Navigating away from editor to any other page

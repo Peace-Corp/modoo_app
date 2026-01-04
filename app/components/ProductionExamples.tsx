@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-client';
 import { ProductionExample } from '@/types/types';
 import Image from 'next/image';
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -96,7 +97,7 @@ export default function ProductionExamples() {
           {examples.map((example, idx) => (
             <Link
               key={example.id+idx} // for unique id
-              href={`/product/${example.product_id}`}
+              href={routes.product(example.product_id)}
               className="group shrink-0 w-64 sm:w-80 lg:w-[340px] bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="relative aspect-4/3 w-full overflow-hidden bg-gray-100">

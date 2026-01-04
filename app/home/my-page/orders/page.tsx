@@ -6,6 +6,7 @@ import Header from '@/app/components/Header';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Package } from 'lucide-react';
+import { routes } from '@/lib/routes';
 
 type OrderItem = {
   id: string;
@@ -116,7 +117,7 @@ export default function OrdersPage() {
               마음에 드는 상품을 담아 주문해보세요
             </p>
             <button
-              onClick={() => router.push('/home')}
+              onClick={() => router.push(routes.home())}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               쇼핑하러 가기

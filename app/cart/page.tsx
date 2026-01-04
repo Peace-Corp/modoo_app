@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DesignEditModal from '@/app/components/DesignEditModal';
 import QuantityChangeModal from '@/app/components/QuantityChangeModal';
+import { routes } from '@/lib/routes';
 import {
   getCartItemsWithDesigns,
   removeCartItem,
@@ -364,7 +365,7 @@ export default function CartPage() {
             원하는 상품을 담아보세요
           </p>
           <Link
-            href="/home"
+            href={routes.home()}
             className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
           >
             상품 보러가기

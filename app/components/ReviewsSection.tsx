@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { FaStar } from 'react-icons/fa';
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
+import { api } from '@/lib/api-client';
 
 interface Review {
   id: string;
@@ -28,8 +30,7 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch(`/api/reviews/${productId}?limit=${limit}`);
-        const data = await response.json();
+        const data = await api.reviews.get(productId);
 
         if (data.reviews) {
           setReviews(data.reviews);
@@ -87,7 +88,7 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
           </div>
         </div>
         <Link
-          href={`/reviews/${productId}`}
+          href={routes.reviews(productId)}
           className="text-sm text-blue-600 hover:underline"
         >
           전체 보기
