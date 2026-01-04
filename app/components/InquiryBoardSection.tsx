@@ -70,7 +70,7 @@ export default function InquiryBoardSection() {
   return (
     <section className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 lg:mb-6">
+      <div className="flex items-center justify-between mb-3 lg:mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg lg:text-xl font-bold text-gray-900">문의 게시판</h2>
         </div>

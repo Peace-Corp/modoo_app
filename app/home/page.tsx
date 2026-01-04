@@ -37,11 +37,11 @@ export default async function HomePage() {
           <CategoriesSection />
         </section>
       </div>
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8 lg:space-y-12 py-6 lg:py-8">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6 lg:space-y-8 py-4 lg:py-6">
 
         {/* Featured Products Section */}
         <section className="w-full">
-          <div className="flex items-center justify-between mb-4 lg:mb-6">
+          <div className="flex items-center justify-between mb-3 lg:mb-4">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 급상승</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">

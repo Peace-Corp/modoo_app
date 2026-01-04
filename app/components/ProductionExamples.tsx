@@ -85,7 +85,7 @@ export default function ProductionExamples() {
   return (
     <section id="production-examples" className="w-full">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-4 lg:mb-6">
+        <div className="flex items-center justify-between mb-3 lg:mb-4">
           <h2 className="text-lg lg:text-xl font-bold text-gray-900">제작 사례</h2>
         </div>
       </div>
