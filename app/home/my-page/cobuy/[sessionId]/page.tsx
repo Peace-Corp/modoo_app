@@ -12,7 +12,7 @@ import {
   requestCancellation
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck } from 'lucide-react';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   open: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -40,6 +40,7 @@ export default function CoBuyDetailPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isCreatingOrders, setIsCreatingOrders] = useState(false);
 
   const fetchSessionData = async () => {
     if (!sessionId || !user) return;
@@ -198,6 +199,56 @@ export default function CoBuyDetailPage() {
     setIsUpdating(false);
   };
 
+  const handleCreateOrders = async () => {
+    if (!session) return;
+
+    const completedParticipants = participants.filter(p => p.payment_status === 'completed');
+
+    if (completedParticipants.length === 0) {
+      alert('결제가 완료된 참여자가 없습니다.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `결제 완료된 ${completedParticipants.length}명의 참여자에 대해 주문을 생성하시겠습니까?\n\n` +
+      `이 작업은 되돌릴 수 없으며, 세션이 완료 상태로 변경됩니다.`
+    );
+
+    if (!confirmed) return;
+
+    setIsCreatingOrders(true);
+
+    try {
+      const response = await fetch('/api/cobuy/create-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId: session.id }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(
+          `주문 생성 완료!\n\n` +
+          `성공: ${result.createdOrdersCount}건\n` +
+          (result.failedOrdersCount > 0 ? `실패: ${result.failedOrdersCount}건` : '')
+        );
+
+        // Refresh session data
+        await fetchSessionData();
+      } else {
+        alert(`주문 생성 실패: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating orders:', error);
+      alert('주문 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsCreatingOrders(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
@@ -292,20 +343,41 @@ export default function CoBuyDetailPage() {
                   </>
                 )}
               </button>
-              <button
-                onClick={handleCloseSession}
-                disabled={isUpdating || session.status !== 'open'}
-                className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                마감하기
-              </button>
-              <button
-                onClick={handleCancelSession}
-                disabled={isUpdating || session.status === 'cancelled'}
-                className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                취소 요청
-              </button>
+              {session.status !== 'finalized' && (
+                <>
+                  <button
+                    onClick={handleCloseSession}
+                    disabled={isUpdating || session.status !== 'open'}
+                    className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    마감하기
+                  </button>
+                  <button
+                    onClick={handleCancelSession}
+                    disabled={isUpdating || session.status === 'cancelled'}
+                    className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    취소 요청
+                  </button>
+                  <button
+                    onClick={handleCreateOrders}
+                    disabled={isCreatingOrders || session.status === 'cancelled' || completedCount === 0}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isCreatingOrders ? (
+                      <>
+                        <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
+                        <span>생성 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <PackageCheck className="w-4 h-4" />
+                        <span>주문 생성</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </section>
