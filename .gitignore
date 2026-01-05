@@ -10,9 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 
-.mcp.json
-
-
 # testing
 /coverage
 
@@ -42,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# capacitor
+/.capacitor-build
+/ios
+/android
+.capacitor
