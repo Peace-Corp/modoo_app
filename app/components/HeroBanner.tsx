@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import { Autoplay } from 'swiper/modules';
 import { createClient } from '@/lib/supabase-client';
 import { HeroBanner as HeroBannerType } from '@/types/types';
+import Link from 'next/link';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
+import Image from 'next/image';
 
 export default function HeroBanner() {
   const [banners, setBanners] = useState<HeroBannerType[]>([]);
@@ -27,6 +29,7 @@ export default function HeroBanner() {
 
         if (error) throw error;
 
+        console.log('Fetched banners from Supabase:', data);
         setBanners(data || []);
       } catch (err) {
         console.error('Error fetching hero banners:', err);
@@ -82,23 +85,63 @@ export default function HeroBanner() {
         }}
         className="h-70 sm:h-72 lg:h-84 hero-swiper"
       >
-        {banners.map((banner) => (
-          <SwiperSlide key={banner.id}>
-            <div
-              className={`h-full ${banner.bg_color} rounded-2xl lg:rounded-[20px] flex flex-col items-start justify-end text-white py-5 lg:py-6 px-5 lg:px-6 bg-cover bg-center bg-no-repeat relative overflow-hidden lg:aspect-square lg:max-w-105 lg:mx-auto`}
-              style={banner.bg_image ? { backgroundImage: `url(${banner.bg_image})`, backgroundPosition: `${banner.bg_position || 'center'}`, backgroundSize: 'cover' } : undefined}
-            >
+        {banners.map((banner) => {
+          console.log('Rendering banner:', banner.id, 'with image:', banner.image_link);
+
+          const BannerContent = (
+            <>
+              {/* Background Image - Using regular img tag for better compatibility */}
+              {banner.image_link && (
+                <>
+                  <Image
+                    src={banner.image_link}
+                    alt={banner.title}
+                    fill
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                  {/* Debug: Show image URL */}
+                  <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-1 rounded z-30 max-w-[200px] truncate">
+                    {banner.bg_image}
+                  </div>
+                </>
+              )}
+
+              {!banner.image_link && (
+                <div className="absolute inset-0 flex items-center justify-center text-white/50 text-sm">
+                  No image URL
+                </div>
+              )}
+
               {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent rounded-2xl lg:rounded-[20px] pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent rounded-2xl lg:rounded-[20px] pointer-events-none z-10" />
 
               {/* Content */}
-              <div className="relative z-10">
+              <div className="relative z-20">
                 <h2 className="text-xl lg:text-2xl font-bold mb-1">{banner.title}</h2>
                 <p className="text-sm lg:text-base text-white/90">{banner.subtitle}</p>
               </div>
-            </div>
-          </SwiperSlide>
-        ))}
+            </>
+          );
+
+          return (
+            <SwiperSlide key={banner.id}>
+              {banner.redirect_link ? (
+                <Link
+                  href={banner.redirect_link}
+                  className={`h-full rounded-2xl lg:rounded-[20px] flex flex-col items-start justify-end text-white py-5 lg:py-6 px-5 lg:px-6 relative overflow-hidden lg:aspect-square lg:max-w-105 lg:mx-auto cursor-pointer hover:opacity-95 transition-opacity`}
+                >
+                  {BannerContent}
+                </Link>
+              ) : (
+                <div
+                  className={`h-full rounded-2xl lg:rounded-[20px] flex flex-col items-start justify-end text-white py-5 lg:py-6 px-5 lg:px-6 relative overflow-hidden lg:aspect-square lg:max-w-105 lg:mx-auto`}
+                >
+                  {BannerContent}
+                </div>
+              )}
+            </SwiperSlide>
+          );
+        })}
       </Swiper>
     </section>
   );

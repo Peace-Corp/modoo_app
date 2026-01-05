@@ -97,11 +97,12 @@ export interface HeroBanner {
   id: string;
   title: string;
   subtitle: string;
-  bg_color: string;
+  // bg_color: string;
   bg_image: string | null;
-  bg_position: string | null;
-  is_active: boolean;
+  image_link: string | null;
+  redirect_link: string | null;
   sort_order: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
