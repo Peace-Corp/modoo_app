@@ -465,38 +465,65 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
   if (isDesktop) {
     return (
       <>
-        <div className="w-full flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-3 shadow-sm">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={addText}
-              className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
-              title="텍스트 추가"
-            >
-              <TextCursor className="size-4" />
-              텍스트
-            </button>
-            <button
-              onClick={addImage}
-              className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
-              title="이미지 추가"
-            >
-              <FileImage className="size-4" />
-              이미지
-            </button>
-            <button
-              onClick={handleResetCanvas}
-              className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
-              title="초기화"
-            >
-              <RefreshCcw className="size-4" />
-              초기화
-            </button>
-            {selectedObject && (
-              <>
-                <div className="h-6 w-px bg-gray-300" />
+        <div className="w-full space-y-3">
+          {/* Main Toolbar */}
+          <div className="w-full flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={addText}
+                className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                title="텍스트 추가"
+              >
+                <TextCursor className="size-4" />
+                텍스트
+              </button>
+              <button
+                onClick={addImage}
+                className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                title="이미지 추가"
+              >
+                <FileImage className="size-4" />
+                이미지
+              </button>
+              <button
+                onClick={handleResetCanvas}
+                className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                title="초기화"
+              >
+                <RefreshCcw className="size-4" />
+                초기화
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => zoomOut()}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+                title="축소"
+              >
+                <ZoomOut className='text-black/80 size-5' />
+              </button>
+              <span className='text-sm text-gray-600 min-w-14 text-center font-medium'>
+                {Math.round(currentZoom * 100)}%
+              </span>
+              <button
+                onClick={() => zoomIn()}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+                title="확대"
+              >
+                <ZoomIn className='text-black/80 size-5' />
+              </button>
+            </div>
+          </div>
+
+          {/* Layer Manipulation Controls - Only shown when object is selected */}
+          {selectedObject && (
+            <div className="w-full flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50/50 px-5 py-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-700 mr-2">레이어 조정:</span>
                 <button
                   onClick={bringToFront}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                   title="맨 앞으로"
                 >
                   <ChevronsUp className="size-4" />
@@ -504,7 +531,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 </button>
                 <button
                   onClick={bringForward}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                   title="앞으로"
                 >
                   <ArrowUp className="size-4" />
@@ -512,7 +539,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 </button>
                 <button
                   onClick={sendBackward}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                   title="뒤로"
                 >
                   <ArrowDown className="size-4" />
@@ -520,44 +547,24 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 </button>
                 <button
                   onClick={sendToBack}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                   title="맨 뒤로"
                 >
                   <ChevronsDown className="size-4" />
                   맨 뒤
                 </button>
-                <div className="h-6 w-px bg-gray-300" />
-                <button
-                  onClick={handleDeleteObject}
-                  className="flex items-center gap-2 rounded-full border border-red-200 px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition"
-                  title="삭제"
-                >
-                  <Trash2 className="size-4" />
-                  삭제
-                </button>
-              </>
-            )}
-          </div>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => zoomOut()}
-              className="p-1.5 hover:bg-gray-100 rounded-full transition"
-              title="축소"
-            >
-              <ZoomOut className='text-black/80 size-5' />
-            </button>
-            <span className='text-xs text-gray-600 min-w-12 text-center'>
-              {Math.round(currentZoom * 100)}%
-            </span>
-            <button
-              onClick={() => zoomIn()}
-              className="p-1.5 hover:bg-gray-100 rounded-full transition"
-              title="확대"
-            >
-              <ZoomIn className='text-black/80 size-5' />
-            </button>
-          </div>
+              <button
+                onClick={handleDeleteObject}
+                className="flex items-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition"
+                title="삭제"
+              >
+                <Trash2 className="size-4" />
+                삭제
+              </button>
+            </div>
+          )}
         </div>
 
         {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
@@ -591,27 +598,6 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
             </button>
 
             <div className='flex items-center gap-3'>
-              {/* Zoom controls */}
-              <div className='flex items-center gap-1 border-r border-gray-300 pr-3'>
-                <button
-                  onClick={() => zoomOut()}
-                  className='p-1.5 hover:bg-gray-100 rounded transition'
-                  title="축소"
-                >
-                  <ZoomOut className='text-black/80 size-5' />
-                </button>
-                <span className='text-xs text-gray-600 min-w-12 text-center'>
-                  {Math.round(currentZoom * 100)}%
-                </span>
-                <button
-                  onClick={() => zoomIn()}
-                  className='p-1.5 hover:bg-gray-100 rounded transition'
-                  title="확대"
-                >
-                  <ZoomIn className='text-black/80 size-5' />
-                </button>
-              </div>
-
               {selectedObject ? (
                 <>
                   {/* Layer controls when object is selected */}
@@ -633,9 +619,31 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                   </button>
                 </>
               ) : (
-                <button onClick={handleResetCanvas} title="초기화" className='p-1.5 hover:bg-gray-100 rounded transition'>
-                  <RefreshCcw className='text-black/80' />
-                </button>
+                <>
+                  {/* Zoom controls when no object is selected */}
+                  <div className='flex items-center gap-1 border-r border-gray-300 pr-3'>
+                    <button
+                      onClick={() => zoomOut()}
+                      className='p-1.5 hover:bg-gray-100 rounded transition'
+                      title="축소"
+                    >
+                      <ZoomOut className='text-black/80 size-5' />
+                    </button>
+                    <span className='text-xs text-gray-600 min-w-12 text-center'>
+                      {Math.round(currentZoom * 100)}%
+                    </span>
+                    <button
+                      onClick={() => zoomIn()}
+                      className='p-1.5 hover:bg-gray-100 rounded transition'
+                      title="확대"
+                    >
+                      <ZoomIn className='text-black/80 size-5' />
+                    </button>
+                  </div>
+                  <button onClick={handleResetCanvas} title="초기화" className='p-1.5 hover:bg-gray-100 rounded transition'>
+                    <RefreshCcw className='text-black/80' />
+                  </button>
+                </>
               )}
             </div>
           </div>
