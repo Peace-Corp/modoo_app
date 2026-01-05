@@ -29,7 +29,7 @@ export default function CategoryButton({ name, icon, onClick, href, isActive = f
         isActive ? 'opacity-100' : 'opacity-70 hover:opacity-100'
       }`}
     >
-      <div className={`size-16 sm:size-18 lg:size-20 rounded-xl lg:rounded-2xl flex items-center justify-center transition-colors bg-gray-50 hover:bg-gray-100 ${
+      <div className={`size-16 sm:size-18 lg:size-20 rounded-xl lg:rounded-2xl flex items-center justify-center transition-colors border border-black/40 hover:bg-gray-100 ${
         isActive ? 'ring-2 ring-blue-500 box-content' : ''
       }`}>
         {icon ? (

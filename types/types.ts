@@ -93,6 +93,20 @@ export interface ProductionExample {
   updated_at: string;
 }
 
+export interface HeroBanner {
+  id: string;
+  title: string;
+  subtitle: string;
+  // bg_color: string;
+  bg_image: string | null;
+  image_link: string | null;
+  redirect_link: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export type InquiryStatus = 'pending' | 'ongoing' | 'completed';
 
 export interface Inquiry {
