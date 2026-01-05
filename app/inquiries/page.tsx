@@ -125,6 +125,14 @@ export default function InquiriesPage() {
     return '/placeholder-product.png';
   };
 
+  const censorName = (name: string) => {
+    if (!name || name.length === 0) return '';
+    if (name.length === 1) return name;
+
+    // Show first character and replace the rest with asterisks
+    return name[0] + '*'.repeat(name.length - 1);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
@@ -275,7 +283,7 @@ export default function InquiriesPage() {
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <div className="flex items-center gap-2">
                       {inquiry.user && (
-                        <span className="font-medium">{inquiry.user.name}</span>
+                        <span className="font-medium">{censorName(inquiry.user.name)}</span>
                       )}
                       <span>•</span>
                       <span>{formatDate(inquiry.created_at)}</span>
