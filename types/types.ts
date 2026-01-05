@@ -137,8 +137,8 @@ export interface InquiryReply {
 
 export interface InquiryWithDetails extends Inquiry {
   products?: (InquiryProduct & { product: Product })[];
-  replies?: (InquiryReply & { admin?: { email: string } })[];
-  user?: { email: string };
+  replies?: (InquiryReply & { admin?: { name: string } })[];
+  user?: { name: string };
 }
 
 // Print option types

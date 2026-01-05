@@ -56,7 +56,7 @@ export default function InquiriesPage() {
         .from('inquiries')
         .select(`
           *,
-          user:profiles!inquiries_user_id_fkey(email),
+          user:profiles!inquiries_user_id_fkey(name),
           products:inquiry_products(
             id,
             product_id,
@@ -66,7 +66,7 @@ export default function InquiriesPage() {
             id,
             content,
             created_at,
-            admin:profiles!inquiry_replies_admin_id_fkey(email)
+            admin:profiles!inquiry_replies_admin_id_fkey(name)
           )
         `)
         .order('created_at', { ascending: false });
@@ -208,7 +208,7 @@ export default function InquiriesPage() {
       </header>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-4xl mx-auto">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
         ) : filteredInquiries.length === 0 ? (
@@ -232,12 +232,12 @@ export default function InquiriesPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="">
             {filteredInquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
                 onClick={() => router.push(`/inquiries/${inquiry.id}`)}
-                className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer"
+                className="bg-white p-4 transition cursor-pointer border-b border-black/30"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
@@ -245,7 +245,7 @@ export default function InquiriesPage() {
                     {isAdmin && inquiry.user && (
                       <div className="mb-2">
                         <span className="text-xs text-gray-500">
-                          {inquiry.user.email}
+                          {inquiry.user.name}
                         </span>
                       </div>
                     )}

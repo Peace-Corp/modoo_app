@@ -109,12 +109,12 @@ export default function ProductionExamples() {
                 />
               </div>
               <div className="p-3 lg:p-4">
-                <h3 className="text-sm lg:text-base font-semibold text-gray-900 mb-1 lg:mb-2 line-clamp-1">
+                <h3 className="text-md lg:text-base font-semibold text-gray-900 mb-1 lg:mb-2 line-clamp-1">
                   {example.title}
                 </h3>
-                <p className="text-xs lg:text-sm text-gray-600 line-clamp-2">
-                  {example.description}
-                </p>
+                {/* <p className="text-xs lg:text-sm text-gray-600 line-clamp-2"> */}
+                  {/* {example.description} */}
+                {/* </p> */}
               </div>
             </Link>
           ))}
@@ -127,20 +127,20 @@ export default function ProductionExamples() {
           )}
 
           {/* Intersection observer target */}
-          {hasMore && (
+          {/* {hasMore && (
             <div
               ref={loadMoreRef}
               className="shrink-0 w-4"
               aria-hidden="true"
             />
-          )}
+          )} */}
 
           {/* End message */}
-          {!hasMore && examples.length > 0 && (
+          {/* {!hasMore && examples.length > 0 && (
             <div className="shrink-0 w-64 flex items-center justify-center text-gray-500 text-xs lg:text-sm">
               모든 사례를 확인했습니다
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
