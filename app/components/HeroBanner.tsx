@@ -1,52 +1,55 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import { createClient } from '@/lib/supabase-client';
+import { HeroBanner as HeroBannerType } from '@/types/types';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
-const bannerSlides = [
-  {
-    id: 1,
-    title: 'Summer Sale',
-    subtitle: 'Up to 50% off on selected items',
-    bgColor: 'bg-gray-200',
-    bgImage: '/pictures/male_model.png',
-    bgPosition: 'top'
-  },
-  {
-    id: 2,
-    title: 'New Arrivals',
-    subtitle: 'Check out our latest collection',
-    bgColor: 'bg-gray-200',
-    bgImage: '/pictures/female_model.png',
-    bgPosition: 'center'
-  },
-  {
-    id: 3,
-    title: 'Flash Deals',
-    subtitle: 'Limited time offers',
-    bgColor: 'bg-gray-200',
-    bgImage: '/pictures/varsity_model.png',
-    bgPosition: 'top'
-  },
-  {
-    id: 4,
-    title: 'Flash Deals',
-    subtitle: 'Limited time offers',
-    bgColor: 'bg-gray-200',
-  },
-  {
-    id: 5,
-    title: 'Flash Deals',
-    subtitle: 'Limited time offers',
-    bgColor: 'bg-gray-200',
-  },
-];
-
 export default function HeroBanner() {
+  const [banners, setBanners] = useState<HeroBannerType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchBanners() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('hero_banners')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+
+        setBanners(data || []);
+      } catch (err) {
+        console.error('Error fetching hero banners:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch banners');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBanners();
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="w-full">
+        <div className="h-70 sm:h-72 lg:h-84 bg-gray-100 rounded-2xl animate-pulse" />
+      </section>
+    );
+  }
+
+  if (error || banners.length === 0) {
+    return null; // Hide banner section if there's an error or no banners
+  }
   return (
     <section className="w-full">
       <style dangerouslySetInnerHTML={{
@@ -79,19 +82,19 @@ export default function HeroBanner() {
         }}
         className="h-70 sm:h-72 lg:h-84 hero-swiper"
       >
-        {bannerSlides.map((slide) => (
-          <SwiperSlide key={slide.id}>
+        {banners.map((banner) => (
+          <SwiperSlide key={banner.id}>
             <div
-              className={`h-full ${slide.bgColor} rounded-2xl lg:rounded-[20px] flex flex-col items-start justify-end text-white py-5 lg:py-6 px-5 lg:px-6 bg-cover bg-center bg-no-repeat relative overflow-hidden lg:aspect-square lg:max-w-[420px] lg:mx-auto`}
-              style={slide.bgImage ? { backgroundImage: `url(${slide.bgImage})`, backgroundPosition: `${slide.bgPosition}`, backgroundSize: 'cover' } : undefined}
+              className={`h-full ${banner.bg_color} rounded-2xl lg:rounded-[20px] flex flex-col items-start justify-end text-white py-5 lg:py-6 px-5 lg:px-6 bg-cover bg-center bg-no-repeat relative overflow-hidden lg:aspect-square lg:max-w-105 lg:mx-auto`}
+              style={banner.bg_image ? { backgroundImage: `url(${banner.bg_image})`, backgroundPosition: `${banner.bg_position || 'center'}`, backgroundSize: 'cover' } : undefined}
             >
               {/* Gradient overlay */}
               <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent rounded-2xl lg:rounded-[20px] pointer-events-none" />
 
               {/* Content */}
               <div className="relative z-10">
-                <h2 className="text-xl lg:text-2xl font-bold mb-1">{slide.title}</h2>
-                <p className="text-sm lg:text-base text-white/90">{slide.subtitle}</p>
+                <h2 className="text-xl lg:text-2xl font-bold mb-1">{banner.title}</h2>
+                <p className="text-sm lg:text-base text-white/90">{banner.subtitle}</p>
               </div>
             </div>
           </SwiperSlide>

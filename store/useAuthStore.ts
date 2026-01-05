@@ -17,6 +17,9 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 
+  // Initialize auth state by checking current session
+  initialize: () => Promise<void>;
+
   // Set user data and mark as authenticated
   setUser: (user: UserData) => void;
 
@@ -45,6 +48,45 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: true,
+
+      initialize: async () => {
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+
+          if (session?.user) {
+            // User is authenticated
+            const userData: UserData = {
+              id: session.user.id,
+              email: session.user.email!,
+              name: session.user.user_metadata?.name,
+              avatar_url: session.user.user_metadata?.avatar_url,
+              phone: session.user.phone,
+              created_at: session.user.created_at,
+            };
+
+            set({
+              user: userData,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          } else {
+            // No session, user is not authenticated
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error);
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
+      },
 
       setUser: (user) =>
         set({
