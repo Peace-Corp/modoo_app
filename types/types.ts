@@ -141,6 +141,20 @@ export interface InquiryWithDetails extends Inquiry {
   user?: { name: string };
 }
 
+export interface Faq {
+  id: string;
+  question: string;
+  answer: string;
+  category: string | null;
+  tags: string[];
+  sort_order: number;
+  is_published: boolean;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Print option types
 export type PrintMethod = 'embroidery' | 'printing';
 
