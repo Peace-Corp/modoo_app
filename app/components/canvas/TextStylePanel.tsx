@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as fabric from 'fabric';
 import {
   AlignLeft,
@@ -6,6 +6,8 @@ import {
   AlignRight,
   AlignJustify,
   Bold,
+  Check,
+  ChevronDown,
   Italic,
   Underline,
   Strikethrough,
@@ -38,6 +40,8 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const [charSpacing, setCharSpacing] = useState<number>(0);
   const [textBackgroundColor, setTextBackgroundColor] = useState<string>('');
   const [opacity, setOpacity] = useState<number>(1);
+  const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
+  const fontDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Font families available
   const fontFamilies = [
@@ -72,6 +76,32 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
       setOpacity((selectedObject.opacity as number) || 1);
     }
   }, [selectedObject]);
+
+  useEffect(() => {
+    setIsFontDropdownOpen(false);
+  }, [activeTab, selectedObject]);
+
+  useEffect(() => {
+    if (!isFontDropdownOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && fontDropdownRef.current && !fontDropdownRef.current.contains(target)) {
+        setIsFontDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFontDropdownOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFontDropdownOpen]);
 
   // Update selected object properties
   const updateTextProperty = (property: string, value: any) => {
@@ -211,17 +241,57 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                   <Type className="size-4" />
                   글꼴
                 </label>
-                <select
-                  value={fontFamily}
-                  onChange={(e) => handleFontFamilyChange(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                >
-                  {fontFamilies.map((font) => (
-                    <option key={font} value={font}>
-                      {font}
-                    </option>
-                  ))}
-                </select>
+                <div ref={fontDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={isFontDropdownOpen}
+                    onClick={() => setIsFontDropdownOpen((prev) => !prev)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent flex items-center justify-between gap-2"
+                  >
+                    <span className="truncate" style={{ fontFamily }}>
+                      {fontFamily}
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-gray-600" />
+                  </button>
+
+                  {isFontDropdownOpen && (
+                    <div
+                      role="listbox"
+                      aria-label="Font family"
+                      className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+                    >
+                      {fontFamilies.map((font) => {
+                        const isSelected = font === fontFamily;
+                        return (
+                          <button
+                            key={font}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              handleFontFamilyChange(font);
+                              setIsFontDropdownOpen(false);
+                            }}
+                            className={`w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 ${
+                              isSelected ? 'bg-gray-100' : ''
+                            }`}
+                          >
+                            <span className="w-4 shrink-0">
+                              {isSelected ? <Check className="size-4" /> : null}
+                            </span>
+                            <span className="flex-1 min-w-0 truncate" style={{ fontFamily: font }}>
+                              {font}
+                            </span>
+                            <span className="shrink-0 text-sm text-gray-500" style={{ fontFamily: font }}>
+                              Aa 가나다
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Font Size */}
