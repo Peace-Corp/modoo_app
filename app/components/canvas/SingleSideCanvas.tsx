@@ -90,6 +90,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     transparentCorners: false,
     borderColor: 'blue',
     borderScaleFactor: 1,
+    _controlsVisibility: {
+      mt: false,
+      mb: false,
+      ml: false,
+      mr: false,
+    }
 }
 
     // Register this canvas to the global store
