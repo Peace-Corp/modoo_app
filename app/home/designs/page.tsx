@@ -273,12 +273,12 @@ export default function DesignsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Desktop Header */}
-      <div className="hidden lg:block">
-        <Header showHomeNav />
-      </div>
 
       {/* Page Header */}
-      <div className="sticky top-0 lg:top-16 bg-white z-40 border-b border-gray-200">
+      <div className="sticky top-0 bg-white z-40 border-b border-gray-200">
+        <div className="hidden lg:block">
+          <Header showHomeNav />
+        </div>
         <div className="px-4 py-4">
           <h1 className="text-xl font-bold">나의 디자인</h1>
         </div>

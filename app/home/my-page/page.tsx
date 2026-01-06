@@ -143,7 +143,7 @@ export default function MyPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Desktop Header */}
-      <div className="hidden lg:block">
+      <div className="hidden md:block">
         <Header showHomeNav />
       </div>
 

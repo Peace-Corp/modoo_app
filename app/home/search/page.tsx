@@ -83,13 +83,14 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Desktop Header */}
-      <div className="hidden lg:block">
-        <Header showHomeNav />
-      </div>
+      
 
       {/* Search Section */}
-      <div className="bg-white shadow-sm sticky top-0 lg:top-16 z-10">
+      <div className="bg-white shadow-sm sticky top-0 z-10">
+        {/* Desktop Header */}
+        <div className="hidden md:block">
+          <Header showHomeNav />
+        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           {/* Search Bar */}
           <div className="relative">
