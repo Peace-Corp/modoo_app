@@ -220,7 +220,7 @@ export default function InquiryDetailPage() {
             </span>
             {isAdmin && inquiry.user && (
               <span className="text-sm text-gray-500">
-                {inquiry.user.email}
+                {inquiry.user.name}
               </span>
             )}
           </div>
