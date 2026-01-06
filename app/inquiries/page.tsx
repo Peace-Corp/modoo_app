@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { InquiryWithDetails } from '@/types/types';
+import { Faq, InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
-import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle } from 'lucide-react';
 import Image from 'next/image';
 
 const ITEMS_PER_PAGE = 10;
@@ -15,13 +15,16 @@ export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState<InquiryWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'my' | 'faq'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [faqTotalCount, setFaqTotalCount] = useState(0);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Calculate total pages
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil((activeTab === 'faq' ? faqTotalCount : totalCount) / ITEMS_PER_PAGE);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -31,74 +34,108 @@ export default function InquiriesPage() {
   // Set initial tab from URL params
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'my') {
-      setActiveTab('my');
-    }
+    if (tab === 'my' || tab === 'faq') setActiveTab(tab);
+    else setActiveTab('all');
   }, [searchParams]);
 
   useEffect(() => {
-    const fetchInquiries = async () => {
+    const loadUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user || null);
+      setAuthChecked(true);
+    };
+
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'my' && authChecked && !user) {
+      alert('로그인이 필요합니다.');
+      router.push('/login?redirect=/inquiries?tab=my');
+    }
+  }, [activeTab, authChecked, user, router]);
+
+  useEffect(() => {
+    const fetchContent = async () => {
+      if (activeTab === 'my' && !authChecked) return;
+      if (activeTab === 'my' && authChecked && !user) return;
+
       setIsLoading(true);
       const supabase = createClient();
 
-      // Build query
-      let query = supabase
-        .from('inquiries')
-        .select(`
-          *,
-          user:profiles!inquiries_user_id_fkey(name),
-          products:inquiry_products(
-            id,
-            product_id,
-            product:products(*)
-          ),
-          replies:inquiry_replies(
-            id,
-            content,
-            created_at,
-            admin:profiles!inquiry_replies_admin_id_fkey(name)
-          )
-        `, { count: 'exact' });
-
-      // Apply filters
-      if (activeTab === 'my' && user) {
-        query = query.eq('user_id', user.id);
-      }
-
-      if (searchQuery.trim() !== '') {
-        query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
-      }
-
-      // Apply pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to);
+      try {
+        if (activeTab === 'faq') {
+          let query = supabase
+            .from('faqs')
+            .select('*', { count: 'exact' })
+            .eq('is_published', true);
 
-      if (!error && data) {
-        setInquiries(data as InquiryWithDetails[]);
-        setTotalCount(count || 0);
-      } else {
-        console.error('Error fetching inquiries:', error);
+          if (searchQuery.trim() !== '') {
+            query = query.ilike('question', `%${searchQuery.trim()}%`);
+          }
+
+          const { data, error, count } = await query
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false })
+            .range(from, to);
+
+          if (!error && data) {
+            setFaqs(data as Faq[]);
+            setFaqTotalCount(count || 0);
+          } else {
+            console.error('Error fetching FAQs:', error);
+          }
+
+          return;
+        }
+
+        let query = supabase
+          .from('inquiries')
+          .select(`
+            *,
+            user:profiles!inquiries_user_id_fkey(name),
+            products:inquiry_products(
+              id,
+              product_id,
+              product:products(*)
+            ),
+            replies:inquiry_replies(
+              id,
+              content,
+              created_at,
+              admin:profiles!inquiry_replies_admin_id_fkey(name)
+            )
+          `, { count: 'exact' });
+
+        if (activeTab === 'my' && user?.id) {
+          query = query.eq('user_id', user.id);
+        }
+
+        if (searchQuery.trim() !== '') {
+          query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
+        }
+
+        const { data, error, count } = await query
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (!error && data) {
+          setInquiries(data as InquiryWithDetails[]);
+          setTotalCount(count || 0);
+        } else {
+          console.error('Error fetching inquiries:', error);
+        }
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
     };
 
-    const checkUserAndFetchInquiries = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      setUser(user || null);
-
-      await fetchInquiries();
-    };
-
-    checkUserAndFetchInquiries();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, activeTab, searchQuery]);
+    fetchContent();
+  }, [currentPage, activeTab, searchQuery, authChecked, user, user?.id]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -194,6 +231,21 @@ export default function InquiriesPage() {
             >
               나의 문의
             </button>
+            <button
+              onClick={() => {
+                setActiveTab('faq');
+                router.push('/inquiries?tab=faq');
+              }}
+              className={`
+                flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
+                ${activeTab === 'faq'
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }
+              `}
+            >
+              FAQ
+            </button>
           </div>
 
           {/* Search */}
@@ -203,7 +255,7 @@ export default function InquiriesPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="제목이나 내용으로 검색..."
+              placeholder={activeTab === 'faq' ? '질문으로 검색...' : '제목이나 내용으로 검색...'}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition"
             />
           </div>
@@ -214,6 +266,48 @@ export default function InquiriesPage() {
       <div className="max-w-4xl mx-auto">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
+        ) : activeTab === 'faq' ? (
+          faqs.length === 0 ? (
+            <div className="text-center py-12">
+              <HelpCircle className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500 mb-6">
+                {searchQuery ? '검색 결과가 없습니다.' : '등록된 FAQ가 없습니다.'}
+              </p>
+            </div>
+          ) : (
+            <div className="">
+              {faqs.map((faq) => (
+                <details
+                  key={faq.id}
+                  className="bg-white p-4 transition border-b border-black/30"
+                >
+                  <summary className="cursor-pointer">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-lg">{faq.question}</span>
+                      {faq.category && (
+                        <span className="text-xs text-gray-500">{faq.category}</span>
+                      )}
+                    </div>
+                  </summary>
+                  <div className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">
+                    {faq.answer}
+                  </div>
+                  {faq.tags && faq.tags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {faq.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </details>
+              ))}
+            </div>
+          )
         ) : inquiries.length === 0 ? (
           <div className="text-center py-12">
             <MessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
@@ -235,133 +329,131 @@ export default function InquiriesPage() {
             )}
           </div>
         ) : (
-          <>
-            <div className="">
-              {inquiries.map((inquiry) => (
-                <div
-                  key={inquiry.id}
-                  onClick={() => router.push(`/inquiries/${inquiry.id}`)}
-                  className="bg-white p-4 transition cursor-pointer border-b border-black/30"
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {inquiry.content}
-                      </p>
-                    </div>
+          <div className="">
+            {inquiries.map((inquiry) => (
+              <div
+                key={inquiry.id}
+                onClick={() => router.push(`/inquiries/${inquiry.id}`)}
+                className="bg-white p-4 transition cursor-pointer border-b border-black/30"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {inquiry.content}
+                    </p>
                   </div>
+                </div>
 
-                  {/* Products */}
-                  {inquiry.products && inquiry.products.length > 0 && (
-                    <div className="flex gap-2 mb-3 overflow-x-auto">
-                      {inquiry.products.slice(0, 3).map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden relative"
-                        >
-                          <Image
-                            src={getProductImageUrl(item.product)}
-                            alt={item.product?.title || 'Product'}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                      ))}
-                      {inquiry.products.length > 3 && (
-                        <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <span className="text-xs text-gray-600 font-medium">
-                            +{inquiry.products.length - 3}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-2">
-                      {inquiry.user && (
-                        <span className="font-medium">{censorName(inquiry.user.name)}</span>
-                      )}
-                      <span>•</span>
-                      <span>{formatDate(inquiry.created_at)}</span>
-                    </div>
-                    {inquiry.replies && inquiry.replies.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="w-4 h-4" />
-                        <span>{inquiry.replies.length}</span>
+                {/* Products */}
+                {inquiry.products && inquiry.products.length > 0 && (
+                  <div className="flex gap-2 mb-3 overflow-x-auto">
+                    {inquiry.products.slice(0, 3).map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden relative"
+                      >
+                        <Image
+                          src={getProductImageUrl(item.product)}
+                          alt={item.product?.title || 'Product'}
+                          fill
+                          className="object-contain"
+                        />
+                      </div>
+                    ))}
+                    {inquiry.products.length > 3 && (
+                      <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <span className="text-xs text-gray-600 font-medium">
+                          +{inquiry.products.length - 3}
+                        </span>
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center gap-2">
+                    {inquiry.user && (
+                      <span className="font-medium">{censorName(inquiry.user.name)}</span>
+                    )}
+                    <span>•</span>
+                    <span>{formatDate(inquiry.created_at)}</span>
+                  </div>
+                  {inquiry.replies && inquiry.replies.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <MessageSquare className="w-4 h-4" />
+                      <span>{inquiry.replies.length}</span>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 py-8">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                    // Show first page, last page, current page, and pages around current
-                    const shouldShow =
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 1 && page <= currentPage + 1);
-
-                    const shouldShowEllipsis =
-                      (page === 2 && currentPage > 3) ||
-                      (page === totalPages - 1 && currentPage < totalPages - 2);
-
-                    if (shouldShowEllipsis) {
-                      return (
-                        <span key={page} className="px-2 text-gray-400">
-                          ...
-                        </span>
-                      );
-                    }
-
-                    if (!shouldShow) return null;
-
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`
-                          min-w-[40px] px-3 py-2 rounded-lg transition
-                          ${
-                            currentPage === page
-                              ? 'bg-black text-white'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }
-                        `}
-                      >
-                        {page}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
               </div>
-            )}
-          </>
+            ))}
+          </div>
         )}
+
+        {!isLoading &&
+          totalPages > 1 &&
+          (activeTab === 'faq' ? faqs.length > 0 : inquiries.length > 0) && (
+            <div className="flex items-center justify-center gap-2 py-8">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  const shouldShow =
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1);
+
+                  const shouldShowEllipsis =
+                    (page === 2 && currentPage > 3) ||
+                    (page === totalPages - 1 && currentPage < totalPages - 2);
+
+                  if (shouldShowEllipsis) {
+                    return (
+                      <span key={page} className="px-2 text-gray-400">
+                        ...
+                      </span>
+                    );
+                  }
+
+                  if (!shouldShow) return null;
+
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`
+                        min-w-[40px] px-3 py-2 rounded-lg transition
+                        ${
+                          currentPage === page
+                            ? 'bg-black text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                        }
+                      `}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
       </div>
     </div>
   );
