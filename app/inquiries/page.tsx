@@ -199,7 +199,7 @@ export default function InquiriesPage() {
             <button
               onClick={() => {
                 setActiveTab('all');
-                router.push('/inquiries');
+                router.replace('/inquiries');
               }}
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -215,11 +215,11 @@ export default function InquiriesPage() {
               onClick={() => {
                 if (!user) {
                   alert('로그인이 필요합니다.');
-                  router.push('/login?redirect=/inquiries?tab=my');
+                  router.replace('/login?redirect=/inquiries?tab=my');
                   return;
                 }
                 setActiveTab('my');
-                router.push('/inquiries?tab=my');
+                router.replace('/inquiries?tab=my');
               }}
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -234,7 +234,7 @@ export default function InquiriesPage() {
             <button
               onClick={() => {
                 setActiveTab('faq');
-                router.push('/inquiries?tab=faq');
+                router.replace('/inquiries?tab=faq');
               }}
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
