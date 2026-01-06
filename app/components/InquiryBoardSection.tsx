@@ -99,7 +99,7 @@ export default function InquiryBoardSection() {
                   <Link
                     key={inquiry.id}
                     href={`/inquiries/${inquiry.id}`}
-                    className="block bg-white rounded-lg p-3 lg:p-4 shadow-sm hover:shadow-md transition"
+                    className="block bg-white p-2 lg:p-4 border-b border-black/20 transition"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

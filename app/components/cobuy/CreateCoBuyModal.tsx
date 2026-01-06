@@ -160,8 +160,8 @@ export default function CreateCoBuyModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-md max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">공동구매 만들기</h2>
@@ -175,7 +175,7 @@ export default function CreateCoBuyModal({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4">
           {/* Step 1: Confirmation */}
           {currentStep === 'confirm' && (
             <div className="text-center py-8">
@@ -293,15 +293,15 @@ export default function CreateCoBuyModal({
 
           {/* Step 3: Custom Fields */}
           {currentStep === 'custom-fields' && (
-            <div className="space-y-6">
+            <div className="space-y-4 overflow-auto">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <ListPlus className="w-5 h-5 text-blue-600 mt-0.5" />
                   <div>
                     <p className="font-medium text-blue-900 mb-1">참여자 정보 수집</p>
                     <p className="text-sm text-blue-700">
-                      참여자들에게 받고 싶은 정보를 추가하세요. (최대 10개)
+                      참여자들에게 받고 싶은 정보를 추가하세요.
                     </p>
+                    <p className='text-sm text-blue-700'>(eg. 이니셜, 학번, 이름).</p>
                   </div>
                 </div>
               </div>

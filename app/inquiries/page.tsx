@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
-import { ChevronLeft, MessageSquare, Plus, Search } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function InquiriesPage() {
   const router = useRouter();
@@ -13,30 +15,18 @@ export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState<InquiryWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Derived state using useMemo
-  const filteredInquiries = useMemo(() => {
-    let filtered = [...inquiries];
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-    // Filter by tab (all or my)
-    if (activeTab === 'my' && user) {
-      filtered = filtered.filter(inquiry => inquiry.user_id === user.id);
-    }
-
-    // Filter by search query
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(inquiry =>
-        inquiry.title.toLowerCase().includes(query) ||
-        inquiry.content.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [inquiries, activeTab, user, searchQuery]);
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery]);
 
   // Set initial tab from URL params
   useEffect(() => {
@@ -51,12 +41,12 @@ export default function InquiriesPage() {
       setIsLoading(true);
       const supabase = createClient();
 
-      // Fetch all inquiries with related data
-      const { data, error } = await supabase
+      // Build query
+      let query = supabase
         .from('inquiries')
         .select(`
           *,
-          user:profiles!inquiries_user_id_fkey(email),
+          user:profiles!inquiries_user_id_fkey(name),
           products:inquiry_products(
             id,
             product_id,
@@ -66,13 +56,30 @@ export default function InquiriesPage() {
             id,
             content,
             created_at,
-            admin:profiles!inquiry_replies_admin_id_fkey(email)
+            admin:profiles!inquiry_replies_admin_id_fkey(name)
           )
-        `)
-        .order('created_at', { ascending: false });
+        `, { count: 'exact' });
+
+      // Apply filters
+      if (activeTab === 'my' && user) {
+        query = query.eq('user_id', user.id);
+      }
+
+      if (searchQuery.trim() !== '') {
+        query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
+      }
+
+      // Apply pagination
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (!error && data) {
         setInquiries(data as InquiryWithDetails[]);
+        setTotalCount(count || 0);
       } else {
         console.error('Error fetching inquiries:', error);
       }
@@ -86,24 +93,12 @@ export default function InquiriesPage() {
 
       setUser(user || null);
 
-      // Check if user is admin
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        const isAdminUser = profile?.role === 'admin';
-        setIsAdmin(isAdminUser);
-      }
-
       await fetchInquiries();
     };
 
     checkUserAndFetchInquiries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentPage, activeTab, searchQuery]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -128,6 +123,14 @@ export default function InquiriesPage() {
       return product.configuration[0].imageUrl;
     }
     return '/placeholder-product.png';
+  };
+
+  const censorName = (name: string) => {
+    if (!name || name.length === 0) return '';
+    if (name.length === 1) return name;
+
+    // Show first character and replace the rest with asterisks
+    return name[0] + '*'.repeat(name.length - 1);
   };
 
   return (
@@ -208,10 +211,10 @@ export default function InquiriesPage() {
       </header>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-4xl mx-auto">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
-        ) : filteredInquiries.length === 0 ? (
+        ) : inquiries.length === 0 ? (
           <div className="text-center py-12">
             <MessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500 mb-6">
@@ -232,69 +235,132 @@ export default function InquiriesPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredInquiries.map((inquiry) => (
-              <div
-                key={inquiry.id}
-                onClick={() => router.push(`/inquiries/${inquiry.id}`)}
-                className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    {isAdmin && inquiry.user && (
-                      <div className="mb-2">
-                        <span className="text-xs text-gray-500">
-                          {inquiry.user.email}
-                        </span>
-                      </div>
-                    )}
-                    <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {inquiry.content}
-                    </p>
+          <>
+            <div className="">
+              {inquiries.map((inquiry) => (
+                <div
+                  key={inquiry.id}
+                  onClick={() => router.push(`/inquiries/${inquiry.id}`)}
+                  className="bg-white p-4 transition cursor-pointer border-b border-black/30"
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {inquiry.content}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Products */}
-                {inquiry.products && inquiry.products.length > 0 && (
-                  <div className="flex gap-2 mb-3 overflow-x-auto">
-                    {inquiry.products.slice(0, 3).map((item: any) => (
-                      <div
-                        key={item.id}
-                        className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden relative"
-                      >
-                        <Image
-                          src={getProductImageUrl(item.product)}
-                          alt={item.product?.title || 'Product'}
-                          fill
-                          className="object-contain"
-                        />
-                      </div>
-                    ))}
-                    {inquiry.products.length > 3 && (
-                      <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <span className="text-xs text-gray-600 font-medium">
-                          +{inquiry.products.length - 3}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Footer */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>{formatDate(inquiry.created_at)}</span>
-                  {inquiry.replies && inquiry.replies.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>{inquiry.replies.length}</span>
+                  {/* Products */}
+                  {inquiry.products && inquiry.products.length > 0 && (
+                    <div className="flex gap-2 mb-3 overflow-x-auto">
+                      {inquiry.products.slice(0, 3).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden relative"
+                        >
+                          <Image
+                            src={getProductImageUrl(item.product)}
+                            alt={item.product?.title || 'Product'}
+                            fill
+                            className="object-contain"
+                          />
+                        </div>
+                      ))}
+                      {inquiry.products.length > 3 && (
+                        <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <span className="text-xs text-gray-600 font-medium">
+                            +{inquiry.products.length - 3}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center gap-2">
+                      {inquiry.user && (
+                        <span className="font-medium">{censorName(inquiry.user.name)}</span>
+                      )}
+                      <span>•</span>
+                      <span>{formatDate(inquiry.created_at)}</span>
+                    </div>
+                    {inquiry.replies && inquiry.replies.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <MessageSquare className="w-4 h-4" />
+                        <span>{inquiry.replies.length}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 py-8">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // Show first page, last page, current page, and pages around current
+                    const shouldShow =
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1);
+
+                    const shouldShowEllipsis =
+                      (page === 2 && currentPage > 3) ||
+                      (page === totalPages - 1 && currentPage < totalPages - 2);
+
+                    if (shouldShowEllipsis) {
+                      return (
+                        <span key={page} className="px-2 text-gray-400">
+                          ...
+                        </span>
+                      );
+                    }
+
+                    if (!shouldShow) return null;
+
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`
+                          min-w-[40px] px-3 py-2 rounded-lg transition
+                          ${
+                            currentPage === page
+                              ? 'bg-black text-white'
+                              : 'border border-gray-300 hover:bg-gray-50'
+                          }
+                        `}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
