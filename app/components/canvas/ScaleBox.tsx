@@ -15,7 +15,7 @@ interface ScaleBoxProps {
 
 /**
  * ScaleBox component that displays real-world dimensions and position (in mm)
- * above selected canvas objects
+ * below selected canvas objects
  */
 const ScaleBox: React.FC<ScaleBoxProps> = ({ x, y, width, height, position, visible }) => {
   if (!visible) return null;
@@ -26,10 +26,10 @@ const ScaleBox: React.FC<ScaleBoxProps> = ({ x, y, width, height, position, visi
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: 'translate(-50%, 100%)',
+        transform: 'translate(-50%, 0)',
       }}
     >
-      <div className="bg-black/80 text-white px-3 py-2 rounded-lg shadow-lg backdrop-blur-sm mb-2">
+      <div className="bg-black/80 text-white px-3 py-2 rounded-lg shadow-lg backdrop-blur-sm">
         <div className="flex flex-col gap-1 text-xs font-medium whitespace-nowrap">
           <div className="flex items-center gap-2">
             <span className="text-white/60">Position:</span>
@@ -45,11 +45,12 @@ const ScaleBox: React.FC<ScaleBoxProps> = ({ x, y, width, height, position, visi
           </div>
         </div>
       </div>
-      {/* Arrow pointing down to object */}
+      {/* Arrow pointing up to object */}
       <div
-        className="absolute left-1/2 -top-3 w-0 h-0"
+        className="absolute left-1/2 w-0 h-0"
         style={{
-          transform: 'translate(-50%, 50%)',
+          top: -6,
+          transform: 'translateX(-50%)',
           borderLeft: '6px solid transparent',
           borderRight: '6px solid transparent',
           borderBottom: '6px solid rgba(0, 0, 0, 0.8)',

@@ -754,10 +754,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           height: formatMm(dimensions.height),
         });
 
-        // Position above the object's bounding box at the horizontal center
+        // Position at the bottom of the object's bounding box at the horizontal center
         setScaleBoxPosition({
           x: boundingRect.left + boundingRect.width / 2,
-          y: boundingRect.top - 10,
+          y: boundingRect.top + boundingRect.height + 14,
         });
 
         setScaleBoxVisible(true);
