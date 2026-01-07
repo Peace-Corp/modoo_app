@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
+import { Info } from 'lucide-react';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
 import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
@@ -40,6 +40,8 @@ export default function CoBuySharePage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [participantInfo, setParticipantInfo] = useState<ParticipantFormData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isDiscountInfoOpen, setIsDiscountInfoOpen] = useState(false);
+  const discountInfoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!shareToken) return;
@@ -62,8 +64,33 @@ export default function CoBuySharePage() {
     fetchSession();
   }, [shareToken]);
 
+  useEffect(() => {
+    if (!isDiscountInfoOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (discountInfoRef.current?.contains(target)) return;
+      setIsDiscountInfoOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDiscountInfoOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDiscountInfoOpen]);
+
   const design = session?.saved_design_screenshot as DesignWithProduct | undefined;
   const product = design?.product;
+
+  const paidParticipantCount = session?.current_participant_count ?? 0;
+  const paidProgressPercent = Math.min(100, Math.round((paidParticipantCount / 100) * 100))
 
   const productConfig: ProductConfig | null = useMemo(() => {
     if (!product?.configuration) return null;
@@ -197,6 +224,44 @@ export default function CoBuySharePage() {
             <span>기간: {formatDate(session.start_date)} ~ {formatDate(session.end_date)}</span>
             <span>참여 인원: {session.current_participant_count}{session.max_participants ? ` / ${session.max_participants}` : ''}</span>
             <span>가격: {formatPrice(design.price_per_item)}</span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-2 px-5">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <div className="group relative flex items-center gap-1" ref={discountInfoRef}>
+                <span>할인 적용 진행률</span>
+                <button
+                  type="button"
+                  aria-label="할인 정보"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  onClick={() => setIsDiscountInfoOpen((prev) => !prev)}
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+                <div
+                  role="tooltip"
+                  className={[
+                    "absolute left-0 top-7 z-10 w-56 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm",
+                    isDiscountInfoOpen
+                      ? "visible opacity-100"
+                      : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+                    "transition-opacity duration-150",
+                  ].join(' ')}
+                >
+                  주문 수가 100개에 도달하면 가격이 내려갑니다.
+                </div>
+              </div>
+              <span>
+                {paidParticipantCount} / {100} ({paidProgressPercent}%)
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-[width] duration-300"
+                style={{ width: `${paidProgressPercent}%` }}
+              />
+            </div>
           </div>
         </header>
 
