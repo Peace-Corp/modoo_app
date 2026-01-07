@@ -151,14 +151,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
       panRestoreStateRef.current = {
         selection: canvas.selection,
-        // @ts-expect-error - Fabric.js property exists at runtime
         skipTargetFind: canvas.skipTargetFind || false,
         defaultCursor: canvas.defaultCursor || 'default',
       };
 
       canvas.discardActiveObject();
       canvas.selection = false;
-      // @ts-expect-error - Fabric.js property exists at runtime
       canvas.skipTargetFind = true;
       canvas.setCursor('grabbing');
 
@@ -194,7 +192,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       const restore = panRestoreStateRef.current;
       if (restore) {
         canvas.selection = restore.selection;
-        // @ts-expect-error - Fabric.js property exists at runtime
         canvas.skipTargetFind = restore.skipTargetFind;
       }
 
@@ -208,8 +205,13 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       canvas.requestRenderAll();
     };
 
-    const handleMouseDown = (opt: fabric.IEvent<MouseEvent>) => {
+    type CanvasPointerEvent = fabric.TPointerEventInfo<fabric.TPointerEvent> & {
+      alreadySelected?: boolean;
+    };
+
+    const handleMouseDown = (opt: CanvasPointerEvent) => {
       const evt = opt.e;
+      if (evt instanceof TouchEvent) return;
       if (evt.button !== 0) return;
       if (!isSpacePressedRef.current) return;
       if (canvas.getZoom() <= 1) return;
@@ -218,9 +220,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       startPan(evt.clientX, evt.clientY);
     };
 
-    const handleMouseMove = (opt: fabric.IEvent<MouseEvent>) => {
+    const handleMouseMove = (opt: CanvasPointerEvent) => {
       if (!isMousePanningRef.current) return;
       const evt = opt.e;
+      if (evt instanceof TouchEvent) return;
       evt.preventDefault();
       continuePan(evt.clientX, evt.clientY);
     };
@@ -264,13 +267,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       if (!isTouchPanningRef.current) {
         panRestoreStateRef.current = {
           selection: canvas.selection,
-          // @ts-expect-error - Fabric.js property exists at runtime
           skipTargetFind: canvas.skipTargetFind || false,
           defaultCursor: canvas.defaultCursor || 'default',
         };
         canvas.discardActiveObject();
         canvas.selection = false;
-        // @ts-expect-error - Fabric.js property exists at runtime
         canvas.skipTargetFind = true;
         canvas.setCursor('grabbing');
       }
