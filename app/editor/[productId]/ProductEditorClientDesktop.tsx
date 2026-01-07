@@ -12,7 +12,7 @@ import Header from "@/app/components/Header";
 import { Share } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
-import { SavedDesign } from "@/lib/designService";
+import { saveDesign, SavedDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
@@ -20,6 +20,21 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
 import { useAuthStore } from "@/store/useAuthStore";
+import SaveDesignModal from "@/app/components/SaveDesignModal";
+import CreateCoBuyModal from "@/app/components/cobuy/CreateCoBuyModal";
+import PurchaseOptionModal from "@/app/components/PurchaseOptionModal";
+
+type CoBuyDesign = {
+  id: string;
+  title: string | null;
+  preview_url: string | null;
+  price_per_item: number;
+  product: {
+    id: string;
+    title: string;
+    size_options?: Product["size_options"];
+  };
+};
 
 interface ProductEditorClientDesktopProps {
   product: Product;
@@ -46,6 +61,10 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const { isAuthenticated } = useAuthStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
+  const [isPurchaseOptionOpen, setIsPurchaseOptionOpen] = useState(false);
+  const [isSaveDesignOpen, setIsSaveDesignOpen] = useState(false);
+  const [isCreateCoBuyOpen, setIsCreateCoBuyOpen] = useState(false);
+  const [coBuyDesign, setCoBuyDesign] = useState<CoBuyDesign | null>(null);
   const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
 
@@ -62,6 +81,62 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   // Open quantity selector modal
   const handleAddToCartClick = () => {
     setIsQuantitySelectorOpen(true);
+  };
+
+  const handlePurchaseClick = () => {
+    setIsPurchaseOptionOpen(true);
+  };
+
+  const handleSelectCartPurchase = () => {
+    setIsPurchaseOptionOpen(false);
+    setIsQuantitySelectorOpen(true);
+  };
+
+  const handleSelectCoBuyPurchase = () => {
+    setIsPurchaseOptionOpen(false);
+    setIsSaveDesignOpen(true);
+  };
+
+  const handleSaveDesignForCoBuy = async (designTitle: string) => {
+    setIsSaving(true);
+    try {
+      const canvasState = saveAllCanvasState();
+      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
+
+      const savedDesign = await saveDesign({
+        productId: product.id,
+        title: designTitle.trim(),
+        productColor: productColor,
+        canvasState: canvasState,
+        previewImage: previewImage,
+        pricePerItem: pricePerItem,
+      });
+
+      if (!savedDesign) {
+        alert('디자인 저장에 실패했습니다.');
+        return;
+      }
+
+      setCoBuyDesign({
+        id: savedDesign.id,
+        title: savedDesign.title,
+        preview_url: savedDesign.preview_url,
+        price_per_item: pricePerItem,
+        product: {
+          id: product.id,
+          title: product.title,
+          size_options: product.size_options,
+        },
+      });
+
+      setIsSaveDesignOpen(false);
+      setIsCreateCoBuyOpen(true);
+    } catch (error) {
+      console.error('Save design failed:', error);
+      alert('디자인 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Save design to cart and clear state
@@ -355,11 +430,11 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
               {/* Purchase Button */}
               {isAuthenticated ? (
                 <button
-                  onClick={handleAddToCartClick}
+                  onClick={handlePurchaseClick}
                   disabled={isSaving}
                   className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
                 >
-                  {isSaving ? '처리 중...' : '저장하고 구매하기'}
+                  {isSaving ? '처리 중...' : '구매하기'}
                 </button>
               ) : (
                 <button
@@ -385,6 +460,31 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         sizeOptions={product.size_options || []}
         pricePerItem={pricePerItem}
         isSaving={isSaving}
+      />
+
+      <PurchaseOptionModal
+        isOpen={isPurchaseOptionOpen}
+        onClose={() => setIsPurchaseOptionOpen(false)}
+        onSelectCoBuy={handleSelectCoBuyPurchase}
+        onSelectCart={handleSelectCartPurchase}
+        isDisabled={isSaving}
+      />
+
+      <SaveDesignModal
+        isOpen={isSaveDesignOpen}
+        onClose={() => setIsSaveDesignOpen(false)}
+        onConfirm={handleSaveDesignForCoBuy}
+        isSaving={isSaving}
+        defaultDesignName={product.title}
+      />
+
+      <CreateCoBuyModal
+        isOpen={isCreateCoBuyOpen}
+        onClose={() => {
+          setIsCreateCoBuyOpen(false);
+          setCoBuyDesign(null);
+        }}
+        design={coBuyDesign}
       />
 
       {/* Saved Designs Modal */}
