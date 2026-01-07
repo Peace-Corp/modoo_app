@@ -352,13 +352,14 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
             </div>
 
             <div className="mt-5">
+              {/* Purchase Button */}
               {isAuthenticated ? (
                 <button
                   onClick={handleAddToCartClick}
                   disabled={isSaving}
                   className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
                 >
-                  {isSaving ? '처리 중...' : '장바구니에 담기'}
+                  {isSaving ? '처리 중...' : '저장하고 구매하기'}
                 </button>
               ) : (
                 <button
