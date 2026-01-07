@@ -20,6 +20,7 @@ import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
+import DescriptionImageSection from "@/app/components/DescriptionImageSection";
 import { useAuthStore } from "@/store/useAuthStore";
 import SaveDesignModal from "@/app/components/SaveDesignModal";
 import CreateCoBuyModal from "@/app/components/cobuy/CreateCoBuyModal";
@@ -69,6 +70,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const [coBuyDesign, setCoBuyDesign] = useState<CoBuyDesign | null>(null);
   const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
+  const descriptionImageUrl = product.description_image ?? null;
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -424,6 +426,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
           {/* Reviews Section */}
           <ReviewsSection productId={product.id} limit={10} />
+
+          {/* Description Image Section */}
+          <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
         </div>
       )}
 

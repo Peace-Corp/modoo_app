@@ -25,7 +25,7 @@ const shoppingMenuItems: MenuItem[] = [
   { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
   { icon: Users, label: '공동구매', href: '/home/my-page/cobuy', badge: null },
   { icon: Heart, label: '찜한 상품', href: '/home/designs?tab=favorites', badge: null },
-  { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
+  // { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
 ];
 
 const supportMenuItems: MenuItem[] = [
@@ -202,7 +202,7 @@ export default function MyPage() {
                 <div className="text-xl font-bold text-gray-900">{stats.favorites}</div>
                 <div className="text-xs text-gray-500">찜</div>
               </Link>
-              <Link href="/home/my-page/reviews" className="flex flex-col items-center gap-1">
+              <Link href="/reviews/my" className="flex flex-col items-center gap-1">
                 <div className="text-xl font-bold text-gray-900">{stats.reviews}</div>
                 <div className="text-xs text-gray-500">리뷰</div>
               </Link>

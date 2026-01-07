@@ -9,6 +9,7 @@ import { Package } from 'lucide-react';
 
 type OrderItem = {
   id: string;
+  product_id: string;
   product_title: string | null;
   quantity: number | null;
   thumbnail_url: string | null;
@@ -38,6 +39,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -55,7 +57,7 @@ export default function OrdersPage() {
 
       const { data, error: fetchError } = await supabase
         .from('orders')
-        .select('id, created_at, order_status, payment_status, total_amount, order_items(id, product_title, quantity, thumbnail_url)')
+        .select('id, created_at, order_status, payment_status, total_amount, order_items(id, product_id, product_title, quantity, thumbnail_url)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -184,6 +186,16 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => setReviewOrder(order)}
+                      disabled={itemCount === 0}
+                      className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      리뷰 작성하기
+                    </button>
+                  </div>
+
                   {order.payment_status && (
                     <div className="mt-3 text-xs text-gray-500">
                       결제 상태: {order.payment_status}
@@ -195,6 +207,68 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {reviewOrder && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setReviewOrder(null)}
+          />
+          <div className="relative w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl p-4 md:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">상품 선택</h2>
+              <button
+                onClick={() => setReviewOrder(null)}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                닫기
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-4">
+              리뷰를 작성할 상품을 선택해주세요.
+            </p>
+
+            <div className="space-y-2 max-h-[60vh] overflow-auto">
+              {(reviewOrder.order_items || []).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      productId: item.product_id,
+                      orderId: reviewOrder.id,
+                    });
+                    router.push(`/reviews/my/create?${params.toString()}`);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-left"
+                >
+                  <div className="w-12 h-12 rounded-md border border-gray-200 bg-gray-100 overflow-hidden shrink-0">
+                    {item.thumbnail_url ? (
+                      <img
+                        src={item.thumbnail_url}
+                        alt={item.product_title || '주문 상품'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                        없음
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900">
+                      {item.product_title || '주문 상품'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      수량: {item.quantity || 0}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

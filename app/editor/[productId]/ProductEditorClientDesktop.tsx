@@ -19,6 +19,7 @@ import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
+import DescriptionImageSection from "@/app/components/DescriptionImageSection";
 import { useAuthStore } from "@/store/useAuthStore";
 import SaveDesignModal from "@/app/components/SaveDesignModal";
 import CreateCoBuyModal from "@/app/components/cobuy/CreateCoBuyModal";
@@ -44,6 +45,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const searchParams = useSearchParams();
   const cartItemId = searchParams.get('cartItemId');
   const router = useRouter();
+  const descriptionImageUrl = product.description_image ?? null;
 
   const {
     setEditMode,
@@ -450,6 +452,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
         <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm border border-gray-200">
           <ReviewsSection productId={product.id} limit={10} />
+          <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
         </div>
       </div>
 

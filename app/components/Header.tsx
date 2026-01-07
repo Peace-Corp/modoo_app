@@ -1,5 +1,5 @@
 'use client'
-import { ArrowLeft, Heart, User } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 import CartButton from "./CartButton";
 import { useRouter } from "next/navigation";
 import Link from "next/link";

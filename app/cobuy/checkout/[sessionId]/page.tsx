@@ -172,9 +172,12 @@ export default function CoBuyCheckoutPage() {
 
   // Generate order ID and name
   const { orderId, orderName } = useMemo(() => {
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 9);
-    const id = `COBUY-${timestamp}-${randomStr}`;
+    const today = new Date;
+    const day = today.getDate();
+    const month = today.getMonth() + 1;
+    const year = today.getFullYear()
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const id = `COBUY-${year}${month}${day}-${randomStr}`;
     const name = `공동구매: ${session?.title || '주문'}`;
 
     return { orderId: id, orderName: name };

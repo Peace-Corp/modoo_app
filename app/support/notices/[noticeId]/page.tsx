@@ -1,25 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase-client';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-interface AnnouncementListItem {
+interface AnnouncementDetail {
   id: string;
   title: string;
+  content: string;
   created_at: string;
 }
 
-export default function NoticesPage() {
+export default function NoticeDetailPage() {
   const router = useRouter();
-  const [announcements, setAnnouncements] = useState<AnnouncementListItem[]>([]);
+  const params = useParams<{ noticeId: string }>();
+  const noticeId = useMemo(() => params?.noticeId, [params]);
+
+  const [notice, setNotice] = useState<AnnouncementDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAnnouncements = async () => {
+    const fetchNotice = async () => {
+      if (!noticeId) return;
+
       setIsLoading(true);
       setError(null);
 
@@ -27,25 +32,32 @@ export default function NoticesPage() {
         const supabase = createClient();
         const { data, error: fetchError } = await supabase
           .from('announcements')
-          .select('id, title, created_at')
+          .select('id, title, content, created_at')
+          .eq('id', noticeId)
           .eq('is_published', true)
-          .order('created_at', { ascending: false });
+          .maybeSingle();
 
         if (fetchError) {
           throw fetchError;
         }
 
-        setAnnouncements((data || []) as AnnouncementListItem[]);
+        if (!data) {
+          setError('공지사항을 찾을 수 없습니다.');
+          setNotice(null);
+          return;
+        }
+
+        setNotice(data as AnnouncementDetail);
       } catch (err) {
-        console.error('Failed to fetch announcements:', err);
+        console.error('Failed to fetch notice:', err);
         setError('공지사항을 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAnnouncements();
-  }, []);
+    fetchNotice();
+  }, [noticeId]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -68,34 +80,23 @@ export default function NoticesPage() {
           <div className="text-center py-20">
             <p className="text-red-500 mb-4">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => router.push('/support/notices')}
               className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
             >
-              다시 시도
+              목록으로
             </button>
           </div>
-        ) : announcements.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 mb-2">공지사항이 없습니다.</p>
-            <p className="text-sm text-gray-400">새로운 공지가 등록되면 안내해드릴게요.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {announcements.map((notice) => (
-              <Link
-                key={notice.id}
-                href={`/support/notices/${notice.id}`}
-                className="block bg-white rounded-xl shadow-sm px-5 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-base font-semibold text-gray-900 line-clamp-2">{notice.title}</h2>
-                  <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
-                </div>
-              </Link>
-            ))}
-          </div>
+        ) : !notice ? null : (
+          <article className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{notice.title}</h2>
+            <div className="text-xs text-gray-400 mb-4">
+              {new Date(notice.created_at).toLocaleDateString('ko-KR')}
+            </div>
+            <div className="text-sm text-gray-700 whitespace-pre-line">{notice.content}</div>
+          </article>
         )}
       </div>
     </div>
   );
 }
+
