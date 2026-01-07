@@ -467,7 +467,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
       <>
         <div className="w-full space-y-3">
           {/* Main Toolbar */}
-          <div className="w-full flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-3 shadow-sm">
+          <div className="w-full flex items-center justify-start gap-4 rounded-md border border-gray-200 bg-white p-2 shadow-sm">
             <div className="flex items-center gap-2">
               <button
                 onClick={addText}
@@ -494,31 +494,11 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 초기화
               </button>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => zoomOut()}
-                className="p-2 hover:bg-gray-100 rounded-full transition"
-                title="축소"
-              >
-                <ZoomOut className='text-black/80 size-5' />
-              </button>
-              <span className='text-sm text-gray-600 min-w-14 text-center font-medium'>
-                {Math.round(currentZoom * 100)}%
-              </span>
-              <button
-                onClick={() => zoomIn()}
-                className="p-2 hover:bg-gray-100 rounded-full transition"
-                title="확대"
-              >
-                <ZoomIn className='text-black/80 size-5' />
-              </button>
-            </div>
           </div>
 
           {/* Layer Manipulation Controls - Only shown when object is selected */}
           {selectedObject && (
-            <div className="w-full flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50/50 px-5 py-3 shadow-sm">
+            <div className="w-full flex items-center justify-between gap-4 rounded-md border border-blue-200 bg-blue-50/50 px-5 py-3 shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-700 mr-2">레이어 조정:</span>
                 <button
@@ -527,7 +507,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                   title="맨 앞으로"
                 >
                   <ChevronsUp className="size-4" />
-                  맨 앞
+                  {/* 맨 앞 */}
                 </button>
                 <button
                   onClick={bringForward}
@@ -535,7 +515,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                   title="앞으로"
                 >
                   <ArrowUp className="size-4" />
-                  앞으로
+                  {/* 앞으로 */}
                 </button>
                 <button
                   onClick={sendBackward}
@@ -543,7 +523,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                   title="뒤로"
                 >
                   <ArrowDown className="size-4" />
-                  뒤로
+                  {/* 뒤로 */}
                 </button>
                 <button
                   onClick={sendToBack}
@@ -551,7 +531,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                   title="맨 뒤로"
                 >
                   <ChevronsDown className="size-4" />
-                  맨 뒤
+                  {/* 맨 뒤 */}
                 </button>
               </div>
 

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { ProductConfig } from "@/types/types";
 import Toolbar from "./Toolbar";
 import { useCanvasStore } from '@/store/useCanvasStore';
-import Header from "../Header";
+import { ZoomIn, ZoomOut } from "lucide-react";
 
 
 const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSideCanvas'), {
@@ -19,7 +19,7 @@ interface ProductDesignerProps {
 }
 
 const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mobile' }) => {
-  const { isEditMode, setEditMode, setActiveSide, activeSideId, canvasMap } = useCanvasStore();
+  const { isEditMode, setEditMode, setActiveSide, activeSideId, canvasMap, zoomIn, zoomOut, getZoomLevel } = useCanvasStore();
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
@@ -28,6 +28,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
   const isDesktop = layout === 'desktop';
   const allowSwipe = !isDesktop && !isEditMode;
   const shouldFullscreen = isEditMode && !isDesktop;
+  const currentZoom = getZoomLevel();
 
   // Derive current index from activeSideId
   const currentIndex = config.sides.findIndex(side => side.id === activeSideId);
@@ -114,19 +115,13 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
   return (
     <div className={shouldFullscreen ? "min-h-screen" : ""}>
       <div className="">
-        {isDesktop && (
-          <div className="mb-4">
-            <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} variant="desktop" />
-          </div>
-        )}
-
         {isDesktop && config.sides.length > 1 && (
           <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
             {config.sides.map((side, index) => (
               <button
                 key={side.id}
                 onClick={() => setActiveSide(side.id)}
-                className={`rounded-full border px-4 py-2.5 text-xs font-semibold transition ${
+                className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
                   index === validCurrentIndex
                     ? 'border-black bg-black text-white'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
@@ -139,6 +134,27 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
         )}
 
         <div className={`${containerWidthClass} overflow-hidden transition-all relative duration-300 ${containerHeightClass} bg-[#f3f3f3] flex flex-col justify-center items-center`}>
+          {isDesktop && isEditMode && (
+            <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full border border-gray-200 bg-white/90 px-2 py-1.5 shadow-sm backdrop-blur">
+              <button
+                onClick={() => zoomOut()}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+                title="축소"
+              >
+                <ZoomOut className="text-black/80 size-5" />
+              </button>
+              <span className="text-sm text-gray-600 min-w-14 text-center font-medium">
+                {Math.round(currentZoom * 100)}%
+              </span>
+              <button
+                onClick={() => zoomIn()}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+                title="확대"
+              >
+                <ZoomIn className="text-black/80 size-5" />
+              </button>
+            </div>
+          )}
           <div
             ref={containerRef}
             className={`relative ${allowSwipe ? 'touch-pan-y' : ''}`}

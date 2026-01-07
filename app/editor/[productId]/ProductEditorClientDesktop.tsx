@@ -4,6 +4,7 @@ import PricingInfo from "@/app/components/canvas/PricingInfo";
 import ColorInfo from "@/app/components/canvas/ColorInfo";
 import LayerColorSelector from "@/app/components/canvas/LayerColorSelector";
 import ObjectPreviewPanel from "@/app/components/canvas/ObjectPreviewPanel";
+import DesktopToolbar from "@/app/components/canvas/DesktopToolbar";
 import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
@@ -267,20 +268,23 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const pricePerItem = product.base_price + pricingData.totalAdditionalPrice;
 
   return (
-    <div className="min-h-screen bg-[#f6f6f6] text-black">
+    <div className="min-h-screen bg-white text-black">
       <div className="w-full sticky top-0 bg-white/95 backdrop-blur z-40 border-b border-gray-200">
         <Header back={true} />
       </div>
 
-      <div className="mx-auto max-w-6xl px-8 py-8">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="flex flex-col gap-6">
-            <div className="rounded-[28px] bg-white p-6 shadow-sm border border-gray-200">
+      <div className="p-4">
+        {/* Editor Container */}
+        <div className="grid gap-8 grid-cols-2">
+          {/* Left Side */}
+          <div className="flex flex-col gap-2">
+            <div className="rounded-md bg-white p-6 shadow-sm border border-gray-200">
               <ProductDesigner config={productConfig} layout="desktop" />
             </div>
           </div>
 
-          <aside className="rounded-2xl bg-white p-5 shadow-sm border border-gray-200 h-full flex flex-col">
+          {/* Right Side */}
+          <aside className="rounded-md bg-white p-4 shadow-sm border border-gray-200 h-full flex flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.category || '카테고리'}</p>
@@ -291,12 +295,13 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
               </button>
             </div>
 
-            <div className="mt-4 rounded-xl border border-gray-200 p-4">
+            <div className="mt-4 rounded-md border border-gray-200 p-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
                 <span className="text-xs text-gray-500">캔버스 편집</span>
               </div>
-              <div className="mt-4 space-y-4">
+              <DesktopToolbar sides={productConfig.sides} />
+              <div className="space-y-4">
                 {(() => {
                   const currentSide = product.configuration.find(side => side.id === activeSideId);
                   const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
@@ -329,9 +334,9 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                   );
                 })()}
 
-                <PricingInfo basePrice={product.base_price} sides={product.configuration} />
-                <ColorInfo />
                 <ObjectPreviewPanel sides={product.configuration} />
+                <ColorInfo />
+                <PricingInfo basePrice={product.base_price} sides={product.configuration} />
               </div>
             </div>
 
