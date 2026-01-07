@@ -28,7 +28,21 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
   const loadSessionRef = useRef(0);
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor, layerColors, resetZoom } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor, layerColors, resetZoom, zoomLevels } = useCanvasStore();
+  const zoomLevel = zoomLevels[side.id] || 1.0;
+
+  // Pan/drag state (for viewport movement while zoomed)
+  const isSpacePressedRef = useRef(false);
+  const isPointerOverCanvasRef = useRef(false);
+  const isMousePanningRef = useRef(false);
+  const isTouchPanningRef = useRef(false);
+  const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTouchMidpointRef = useRef<{ x: number; y: number } | null>(null);
+  const panRestoreStateRef = useRef<{
+    selection: boolean;
+    skipTargetFind: boolean;
+    defaultCursor: string;
+  } | null>(null);
 
   // Loading state to track when all images are loaded
   const [isLoading, setIsLoading] = useState(true);
@@ -56,6 +70,32 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     setLayersReady(false);
   }, [side.id]);
 
+  // Keep viewport transform within original canvas bounds whenever zoom changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const vpt = canvas.viewportTransform;
+    if (!vpt) return;
+
+    const zoom = canvas.getZoom();
+    const w = canvas.getWidth();
+    const h = canvas.getHeight();
+
+    if (zoom <= 1) {
+      vpt[4] = (w - w * zoom) / 2;
+      vpt[5] = (h - h * zoom) / 2;
+    } else {
+      const minX = w - w * zoom;
+      const minY = h - h * zoom;
+      vpt[4] = Math.min(0, Math.max(minX, vpt[4]));
+      vpt[5] = Math.min(0, Math.max(minY, vpt[5]));
+    }
+
+    canvas.setViewportTransform(vpt);
+    canvas.requestRenderAll();
+  }, [zoomLevel]);
+
   // Initialize canvas once
   useEffect(() => {
     const sessionId = ++loadSessionRef.current;
@@ -82,6 +122,244 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     })
 
     canvasRef.current = canvas;
+
+    // --- Viewport panning (space + drag on desktop, 2-finger drag on mobile) ---
+    const clampViewportToCanvasBounds = () => {
+      const vpt = canvas.viewportTransform;
+      if (!vpt) return;
+
+      const zoom = canvas.getZoom();
+      const w = canvas.getWidth();
+      const h = canvas.getHeight();
+
+      if (zoom <= 1) {
+        vpt[4] = (w - w * zoom) / 2;
+        vpt[5] = (h - h * zoom) / 2;
+      } else {
+        const minX = w - w * zoom;
+        const minY = h - h * zoom;
+        vpt[4] = Math.min(0, Math.max(minX, vpt[4]));
+        vpt[5] = Math.min(0, Math.max(minY, vpt[5]));
+      }
+
+      canvas.setViewportTransform(vpt);
+    };
+
+    const startPan = (clientX: number, clientY: number) => {
+      if (isMousePanningRef.current || isTouchPanningRef.current) return;
+      if (canvas.getZoom() <= 1) return;
+
+      panRestoreStateRef.current = {
+        selection: canvas.selection,
+        // @ts-expect-error - Fabric.js property exists at runtime
+        skipTargetFind: canvas.skipTargetFind || false,
+        defaultCursor: canvas.defaultCursor || 'default',
+      };
+
+      canvas.discardActiveObject();
+      canvas.selection = false;
+      // @ts-expect-error - Fabric.js property exists at runtime
+      canvas.skipTargetFind = true;
+      canvas.setCursor('grabbing');
+
+      isMousePanningRef.current = true;
+      lastPanPointRef.current = { x: clientX, y: clientY };
+    };
+
+    const continuePan = (clientX: number, clientY: number) => {
+      const last = lastPanPointRef.current;
+      if (!last) return;
+
+      const dx = clientX - last.x;
+      const dy = clientY - last.y;
+      lastPanPointRef.current = { x: clientX, y: clientY };
+
+      const vpt = canvas.viewportTransform;
+      if (!vpt) return;
+
+      vpt[4] += dx;
+      vpt[5] += dy;
+      clampViewportToCanvasBounds();
+      canvas.requestRenderAll();
+    };
+
+    const endPan = () => {
+      if (!isMousePanningRef.current && !isTouchPanningRef.current) return;
+
+      isMousePanningRef.current = false;
+      isTouchPanningRef.current = false;
+      lastPanPointRef.current = null;
+      lastTouchMidpointRef.current = null;
+
+      const restore = panRestoreStateRef.current;
+      if (restore) {
+        canvas.selection = restore.selection;
+        // @ts-expect-error - Fabric.js property exists at runtime
+        canvas.skipTargetFind = restore.skipTargetFind;
+      }
+
+      if (isPointerOverCanvasRef.current && isSpacePressedRef.current && canvas.getZoom() > 1) {
+        canvas.setCursor('grab');
+      } else {
+        canvas.setCursor(restore?.defaultCursor || canvas.defaultCursor || 'default');
+      }
+
+      clampViewportToCanvasBounds();
+      canvas.requestRenderAll();
+    };
+
+    const handleMouseDown = (opt: fabric.IEvent<MouseEvent>) => {
+      const evt = opt.e;
+      if (evt.button !== 0) return;
+      if (!isSpacePressedRef.current) return;
+      if (canvas.getZoom() <= 1) return;
+
+      evt.preventDefault();
+      startPan(evt.clientX, evt.clientY);
+    };
+
+    const handleMouseMove = (opt: fabric.IEvent<MouseEvent>) => {
+      if (!isMousePanningRef.current) return;
+      const evt = opt.e;
+      evt.preventDefault();
+      continuePan(evt.clientX, evt.clientY);
+    };
+
+    const handleMouseUp = () => {
+      if (!isMousePanningRef.current) return;
+      endPan();
+    };
+
+    canvas.on('mouse:down', handleMouseDown);
+    canvas.on('mouse:move', handleMouseMove);
+    canvas.on('mouse:up', handleMouseUp);
+
+    const upperEl = canvas.upperCanvasEl;
+    const handleUpperMouseEnter = () => {
+      isPointerOverCanvasRef.current = true;
+      if (isSpacePressedRef.current && canvas.getZoom() > 1) {
+        canvas.setCursor('grab');
+      }
+    };
+    const handleUpperMouseLeave = () => {
+      isPointerOverCanvasRef.current = false;
+      if (isMousePanningRef.current) endPan();
+      if (!isMousePanningRef.current && !isTouchPanningRef.current) {
+        const restore = panRestoreStateRef.current;
+        canvas.setCursor(restore?.defaultCursor || canvas.defaultCursor || 'default');
+      }
+    };
+    upperEl.addEventListener('mouseenter', handleUpperMouseEnter);
+    upperEl.addEventListener('mouseleave', handleUpperMouseLeave);
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      if (canvas.getZoom() <= 1) return;
+
+      e.preventDefault();
+      const midX = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
+      const midY = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
+
+      if (isMousePanningRef.current) endPan();
+      if (!isTouchPanningRef.current) {
+        panRestoreStateRef.current = {
+          selection: canvas.selection,
+          // @ts-expect-error - Fabric.js property exists at runtime
+          skipTargetFind: canvas.skipTargetFind || false,
+          defaultCursor: canvas.defaultCursor || 'default',
+        };
+        canvas.discardActiveObject();
+        canvas.selection = false;
+        // @ts-expect-error - Fabric.js property exists at runtime
+        canvas.skipTargetFind = true;
+        canvas.setCursor('grabbing');
+      }
+
+      isTouchPanningRef.current = true;
+      lastTouchMidpointRef.current = { x: midX, y: midY };
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isTouchPanningRef.current) return;
+      if (e.touches.length !== 2) {
+        endPan();
+        return;
+      }
+
+      e.preventDefault();
+      const midX = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
+      const midY = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
+      const last = lastTouchMidpointRef.current;
+      if (!last) {
+        lastTouchMidpointRef.current = { x: midX, y: midY };
+        return;
+      }
+
+      const dx = midX - last.x;
+      const dy = midY - last.y;
+      lastTouchMidpointRef.current = { x: midX, y: midY };
+
+      const vpt = canvas.viewportTransform;
+      if (!vpt) return;
+
+      vpt[4] += dx;
+      vpt[5] += dy;
+      clampViewportToCanvasBounds();
+      canvas.requestRenderAll();
+    };
+
+    const handleTouchEnd = () => {
+      if (!isTouchPanningRef.current) return;
+      endPan();
+    };
+
+    upperEl.addEventListener('touchstart', handleTouchStart, { passive: false });
+    upperEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    upperEl.addEventListener('touchend', handleTouchEnd, { passive: false });
+    upperEl.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+
+      const target = e.target as HTMLElement | null;
+      const isTypingTarget = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+      isSpacePressedRef.current = true;
+
+      if (!isTypingTarget && (isPointerOverCanvasRef.current || isMousePanningRef.current || isTouchPanningRef.current)) {
+        e.preventDefault();
+      }
+
+      if (isPointerOverCanvasRef.current && canvas.getZoom() > 1 && !isMousePanningRef.current && !isTouchPanningRef.current) {
+        canvas.setCursor('grab');
+      }
+    };
+
+    const handleWindowKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      isSpacePressedRef.current = false;
+
+      if (isMousePanningRef.current || isTouchPanningRef.current) return;
+      const restore = panRestoreStateRef.current;
+      canvas.setCursor(restore?.defaultCursor || canvas.defaultCursor || 'default');
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isMousePanningRef.current) endPan();
+    };
+
+    const handleWindowBlur = () => {
+      isSpacePressedRef.current = false;
+      if (isMousePanningRef.current || isTouchPanningRef.current) endPan();
+    };
+
+    window.addEventListener('keydown', handleWindowKeyDown, { passive: false });
+    window.addEventListener('keyup', handleWindowKeyUp);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('blur', handleWindowBlur);
 
     fabric.InteractiveFabricObject.ownDefaults = {
     ...fabric.InteractiveFabricObject.ownDefaults,
@@ -955,6 +1233,19 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       isDisposed = true;
       loadSessionRef.current++;
       unregisterCanvas(side.id);
+      canvas.off('mouse:down', handleMouseDown);
+      canvas.off('mouse:move', handleMouseMove);
+      canvas.off('mouse:up', handleMouseUp);
+      upperEl.removeEventListener('mouseenter', handleUpperMouseEnter);
+      upperEl.removeEventListener('mouseleave', handleUpperMouseLeave);
+      upperEl.removeEventListener('touchstart', handleTouchStart);
+      upperEl.removeEventListener('touchmove', handleTouchMove);
+      upperEl.removeEventListener('touchend', handleTouchEnd);
+      upperEl.removeEventListener('touchcancel', handleTouchEnd);
+      window.removeEventListener('keydown', handleWindowKeyDown);
+      window.removeEventListener('keyup', handleWindowKeyUp);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('blur', handleWindowBlur);
       canvas.dispose();
       canvasRef.current = null;
     };
@@ -1111,7 +1402,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       )}
       <canvas
         ref={canvasEl}
-        style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.3s' }}
+        style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.3s', touchAction: 'none' }}
       />
       <ScaleBox
         x={scaleBoxDimensions.x}
