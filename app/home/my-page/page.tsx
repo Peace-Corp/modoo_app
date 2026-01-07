@@ -202,7 +202,7 @@ export default function MyPage() {
                 <div className="text-xl font-bold text-gray-900">{stats.favorites}</div>
                 <div className="text-xs text-gray-500">찜</div>
               </Link>
-              <Link href="/home/my-page/reviews" className="flex flex-col items-center gap-1">
+              <Link href="/reviews/my" className="flex flex-col items-center gap-1">
                 <div className="text-xl font-bold text-gray-900">{stats.reviews}</div>
                 <div className="text-xs text-gray-500">리뷰</div>
               </Link>
