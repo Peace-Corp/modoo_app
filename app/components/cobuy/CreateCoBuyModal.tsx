@@ -175,7 +175,6 @@ export default function CreateCoBuyModal({
       }
 
       await navigator.clipboard.writeText(shareUrl);
-      alert('링크가 복사되었습니다.');
     } catch (error) {
       console.error('Share failed:', error);
       try {
@@ -228,7 +227,6 @@ export default function CreateCoBuyModal({
                   className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <span>관리 페이지</span>
-                  <ArrowRight className="w-5 h-5" />
                 </Link>
               </div>
             </div>
