@@ -79,6 +79,7 @@ export interface Product {
   created_at: string;
   updated_at: string;
   thumbnail_image_link?: string;
+  description_image?: string | null;
 }
 
 export interface ProductionExample {

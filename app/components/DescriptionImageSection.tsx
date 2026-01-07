@@ -1,0 +1,28 @@
+import Image from 'next/image';
+
+interface DescriptionImageSectionProps {
+  title?: string;
+  imageUrl?: string | null;
+}
+
+export default function DescriptionImageSection({
+  title = '주문상세',
+  imageUrl,
+}: DescriptionImageSectionProps) {
+  if (!imageUrl) return null;
+
+  return (
+    <section className="mt-6">
+      <h3 className="text-lg font-bold mb-2">{title}</h3>
+      <Image
+        src={imageUrl}
+        alt={title}
+        width={1200}
+        height={1200}
+        sizes="100vw"
+        className="w-full h-auto rounded-lg border border-gray-100"
+        style={{ height: 'auto' }}
+      />
+    </section>
+  );
+}
