@@ -99,24 +99,10 @@ export default function MyReviewsPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-      const userId = supabaseUser?.id || user?.id;
-
-      if (!userId) {
-        router.push('/login');
-        return;
-      }
-
-      const { error: deleteError } = await supabase
-        .from('reviews')
-        .delete()
-        .eq('id', reviewId)
-        .eq('user_id', userId);
-
-      if (deleteError) {
-        console.error('Failed to delete review:', deleteError);
-        setError('리뷰 삭제에 실패했습니다.');
+      const res = await fetch(`/api/reviews/my/${reviewId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || '리뷰 삭제에 실패했습니다.');
         return;
       }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/app/components/Header';
 import { createClient } from '@/lib/supabase-client';
@@ -11,6 +11,11 @@ type ProductSummary = {
   id: string;
   title: string;
   thumbnail_image_link: string | null;
+};
+
+type UploadedReviewImage = {
+  url: string;
+  path: string;
 };
 
 export default function CreateMyReviewPage() {
@@ -37,6 +42,15 @@ export default function CreateMyReviewPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<UploadedReviewImage[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  const uploadedImagesRef = useRef<UploadedReviewImage[]>([]);
+  const didCreateReviewRef = useRef(false);
+
+  useEffect(() => {
+    uploadedImagesRef.current = uploadedImages;
+  }, [uploadedImages]);
 
   useEffect(() => {
     setAuthorName(defaultAuthorName);
@@ -93,6 +107,98 @@ export default function CreateMyReviewPage() {
     fetchProductAndCheckExisting();
   }, [productId, user?.id]);
 
+  useEffect(() => {
+    return () => {
+      if (didCreateReviewRef.current) return;
+      const toDelete = uploadedImagesRef.current.map((img) => img.path);
+      if (toDelete.length === 0) return;
+
+      void fetch('/api/reviews/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: toDelete }),
+      });
+    };
+  }, []);
+
+  const uploadSelectedFiles = async (files: FileList | null) => {
+    setError(null);
+    if (!files || files.length === 0) return;
+
+    const remaining = 3 - uploadedImagesRef.current.length;
+    if (remaining <= 0) {
+      setError('사진은 최대 3장까지 업로드할 수 있습니다.');
+      return;
+    }
+
+    const selection = Array.from(files).slice(0, remaining);
+    setUploadingImages(true);
+
+    try {
+      const formData = new FormData();
+      selection.forEach((file) => formData.append('files', file));
+
+      const res = await fetch('/api/reviews/images/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || '사진 업로드에 실패했습니다.');
+        return;
+      }
+
+      const body = (await res.json()) as { images?: UploadedReviewImage[] };
+      if (!Array.isArray(body.images)) {
+        setError('사진 업로드에 실패했습니다.');
+        return;
+      }
+
+      setUploadedImages((prev) => [...prev, ...body.images!].slice(0, 3));
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeUploadedImage = async (index: number) => {
+    setError(null);
+    const target = uploadedImagesRef.current[index];
+    if (!target) return;
+
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+
+    const res = await fetch('/api/reviews/images/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths: [target.path] }),
+    });
+
+    if (!res.ok) {
+      setUploadedImages((prev) => {
+        const next = prev.slice();
+        next.splice(index, 0, target);
+        return next.slice(0, 3);
+      });
+      const body = await res.json().catch(() => null);
+      setError(body?.error || '사진 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleCancel = async () => {
+    const toDelete = uploadedImagesRef.current.map((img) => img.path);
+    if (toDelete.length > 0) {
+      await fetch('/api/reviews/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: toDelete }),
+      });
+      setUploadedImages([]);
+    }
+
+    router.back();
+  };
+
   const handleSubmit = async () => {
     setError(null);
 
@@ -117,6 +223,11 @@ export default function CreateMyReviewPage() {
       return;
     }
 
+    if (uploadingImages) {
+      setError('사진 업로드가 완료된 후 등록해주세요.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const supabase = createClient();
@@ -138,6 +249,7 @@ export default function CreateMyReviewPage() {
           content: content.trim(),
           author_name: authorName.trim(),
           is_verified_purchase: Boolean(orderId),
+          review_image_urls: uploadedImagesRef.current.map((img) => img.url),
         });
 
       if (insertError) {
@@ -146,6 +258,7 @@ export default function CreateMyReviewPage() {
         return;
       }
 
+      didCreateReviewRef.current = true;
       router.replace('/reviews/my');
     } finally {
       setSubmitting(false);
@@ -280,20 +393,70 @@ export default function CreateMyReviewPage() {
             />
           </div>
 
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="block text-sm font-medium text-gray-700">사진 (최대 3장)</label>
+              <span className="text-xs text-gray-500">{uploadedImages.length}/3</span>
+            </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={uploadingImages || uploadedImages.length >= 3}
+              onChange={(e) => {
+                void uploadSelectedFiles(e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 disabled:opacity-50"
+            />
+
+            {uploadedImages.length > 0 ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {uploadedImages.map((img, idx) => (
+                  <div key={img.path} className="relative rounded-md overflow-hidden border border-gray-200 bg-gray-50">
+                    <img src={img.url} alt={`리뷰 사진 ${idx + 1}`} className="w-full h-24 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => void removeUploadedImage(idx)}
+                      className="absolute top-1 right-1 bg-black/70 text-white text-xs px-2 py-1 rounded"
+                      aria-label="사진 삭제"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {uploadingImages ? (
+              <div className="text-xs text-gray-500 mt-2">사진 업로드 중...</div>
+            ) : null}
+          </div>
+
           {error && (
             <div className="text-sm text-red-600">{error}</div>
           )}
 
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || Boolean(existingReviewId)}
-            className="w-full px-4 py-3 rounded-lg bg-black text-white font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
-          >
-            {existingReviewId ? '이미 작성한 리뷰가 있습니다' : submitting ? '등록 중...' : '리뷰 등록'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCancel()}
+              disabled={submitting || uploadingImages}
+              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-800 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || uploadingImages || Boolean(existingReviewId)}
+              className="flex-1 px-4 py-3 rounded-lg bg-black text-white font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+            >
+              {existingReviewId ? '이미 작성한 리뷰가 있습니다' : submitting ? '등록 중...' : '리뷰 등록'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
