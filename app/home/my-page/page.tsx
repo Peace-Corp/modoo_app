@@ -25,7 +25,7 @@ const shoppingMenuItems: MenuItem[] = [
   { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
   { icon: Users, label: '공동구매', href: '/home/my-page/cobuy', badge: null },
   { icon: Heart, label: '찜한 상품', href: '/home/designs?tab=favorites', badge: null },
-  { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
+  // { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },
 ];
 
 const supportMenuItems: MenuItem[] = [

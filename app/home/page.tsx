@@ -42,7 +42,7 @@ export default async function HomePage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <Header showHomeNav />
-      <div className="lg:pt-6 pt-4 flex flex-col lg:flex-row lg:gap-6 lg:items-start">
+      <div className="lg:pt-6 pt-4 flex flex-col lg:flex-row lg:items-start border-b border-black/30 pb-4">
         {/* Hero Banner */}
         <div className="w-full lg:w-[78%] lg:shrink-0">
           <HeroBanner />
