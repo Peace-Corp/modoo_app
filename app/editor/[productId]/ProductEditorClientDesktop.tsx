@@ -273,9 +273,9 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         <Header back={true} />
       </div>
 
-      <div className="p-4">
+      <div className="">
         {/* Editor Container */}
-        <div className="grid gap-8 grid-cols-2">
+        <div className="grid gap-2 grid-cols-2 min-h-[calc(100vh-4rem)]">
           {/* Left Side */}
           <div className="flex flex-col gap-2">
             <div className="rounded-md bg-white p-6 shadow-sm border border-gray-200">
@@ -284,7 +284,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
           </div>
 
           {/* Right Side */}
-          <aside className="rounded-md bg-white p-4 border border-gray-200 h-full flex flex-col">
+          <aside className="rounded-md bg-white p-4 border border-gray-200 h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.category || '카테고리'}</p>
@@ -295,13 +295,13 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
               </button>
             </div>
 
-            <div className="mt-4 rounded-md border border-gray-200 p-2">
+            <div className="mt-4 rounded-md border border-gray-200 p-2 flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
                 <span className="text-xs text-gray-500">캔버스 편집</span>
               </div>
               <DesktopToolbar sides={productConfig.sides} />
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
                 {(() => {
                   const currentSide = product.configuration.find(side => side.id === activeSideId);
                   const hasLayers = currentSide?.layers && currentSide.layers.length > 0;

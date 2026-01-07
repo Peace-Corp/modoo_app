@@ -184,8 +184,8 @@ export default function CoBuySharePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16">
-      <div className="max-w-4xl mx-auto px-4 pt-6 space-y-6">
+    <div className="min-h-screen bg-white pb-16">
+      <div className="mx-auto pt-6 space-y-3">
         <header className="space-y-3">
           <p className="text-sm text-gray-500">공동구매 참여</p>
           <h1 className="text-2xl font-bold text-gray-900">{session.title}</h1>
@@ -200,87 +200,72 @@ export default function CoBuySharePage() {
           </div>
         </header>
 
-        <section className="bg-white rounded-2xl shadow-sm p-4">
-          <div className="flex items-center gap-3 mb-4">
-            {design.preview_url && (
-              <Image
-                src={design.preview_url}
-                alt={design.title || '공동구매 디자인'}
-                width={56}
-                height={56}
-                className="rounded-lg object-cover"
-              />
-            )}
-            <div>
-              <p className="text-sm text-gray-500">디자인 미리보기</p>
-              <p className="font-semibold text-gray-900">
-                {design.title || product?.title || ''}
-              </p>
-            </div>
-          </div>
+        <div className='flex flex-col md:flex-row'>
+          {/* Design Previewer */}
+          <section className="rounded-md shadow-sm bg-gray-100">
+            <CoBuyDesignViewer
+              config={productConfig}
+              canvasState={design.canvas_state as Record<string, string>}
+              productColor={productColor}
+            />
+          </section>
 
-          <CoBuyDesignViewer
-            config={productConfig}
-            canvasState={design.canvas_state as Record<string, string>}
-            productColor={productColor}
-          />
-        </section>
-
-        <section className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">참여자 정보</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            아래 정보를 입력하면 공동구매 참여가 접수됩니다. 결제는 다음 단계에서 진행됩니다.
-          </p>
-
-          {isSubmitted ? (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-700">
-                참여 정보가 접수되었습니다. 결제를 진행해주세요.
+          {/* Participant Information Input */}
+          <section className="bg-white rounded-md shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">참여자 정보</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              아래 정보를 입력하면 공동구매 참여가 접수됩니다. 결제는 다음 단계에서 진행됩니다.
+            </p>
+            {isSubmitted ? (
+              <div className="space-y-4">
+                <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-700">
+                  참여 정보가 접수되었습니다. 결제를 진행해주세요.
+                </div>
+                {participantInfo && orderId && (
+                  <TossPaymentWidget
+                    amount={Math.round(design.price_per_item)}
+                    orderId={orderId}
+                    orderName={`${session.title} 공동구매`}
+                    customerEmail={participantInfo.email}
+                    customerName={participantInfo.name}
+                    customerMobilePhone={participantInfo.phone}
+                    successUrl={typeof window !== 'undefined'
+                      ? `${window.location.origin}/cobuy/${shareToken}/success`
+                      : `/cobuy/${shareToken}/success`}
+                    failUrl={typeof window !== 'undefined'
+                      ? `${window.location.origin}/cobuy/${shareToken}/fail`
+                      : `/cobuy/${shareToken}/fail`}
+                    onBeforePaymentRequest={() => {
+                      if (!participantId || !session) return;
+                      sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
+                        participantId,
+                        sessionId: session.id,
+                        shareToken,
+                        orderId,
+                        amount: Math.round(design.price_per_item),
+                      }));
+                    }}
+                    onError={(error) => {
+                      console.error('Toss payment error:', error);
+                    }}
+                  />
+                )}
               </div>
-              {participantInfo && orderId && (
-                <TossPaymentWidget
-                  amount={Math.round(design.price_per_item)}
-                  orderId={orderId}
-                  orderName={`${session.title} 공동구매`}
-                  customerEmail={participantInfo.email}
-                  customerName={participantInfo.name}
-                  customerMobilePhone={participantInfo.phone}
-                  successUrl={typeof window !== 'undefined'
-                    ? `${window.location.origin}/cobuy/${shareToken}/success`
-                    : `/cobuy/${shareToken}/success`}
-                  failUrl={typeof window !== 'undefined'
-                    ? `${window.location.origin}/cobuy/${shareToken}/fail`
-                    : `/cobuy/${shareToken}/fail`}
-                  onBeforePaymentRequest={() => {
-                    if (!participantId || !session) return;
-                    sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
-                      participantId,
-                      sessionId: session.id,
-                      shareToken,
-                      orderId,
-                      amount: Math.round(design.price_per_item),
-                    }));
-                  }}
-                  onError={(error) => {
-                    console.error('Toss payment error:', error);
-                  }}
+            ) : (
+              <>
+                <ParticipantForm
+                  customFields={session.custom_fields || []}
+                  sizeOptions={sizeOptions}
+                  onSubmit={handleSubmit}
+                  isSubmitting={isSubmitting}
                 />
-              )}
-            </div>
-          ) : (
-            <>
-              <ParticipantForm
-                customFields={session.custom_fields || []}
-                sizeOptions={sizeOptions}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-              />
-              {submitError && (
-                <p className="text-red-500 text-sm mt-3">{submitError}</p>
-              )}
-            </>
-          )}
-        </section>
+                {submitError && (
+                  <p className="text-red-500 text-sm mt-3">{submitError}</p>
+                )}
+              </>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
