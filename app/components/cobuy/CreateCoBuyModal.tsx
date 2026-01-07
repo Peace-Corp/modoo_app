@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ArrowLeft, ArrowRight, Users, Calendar, ListPlus } from 'lucide-react';
+import Link from 'next/link';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2 } from 'lucide-react';
 import { CoBuyCustomField, SizeOption } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
+import type { CoBuySession } from '@/types/types';
 
 interface SavedDesign {
   id: string;
@@ -24,7 +26,7 @@ interface CreateCoBuyModalProps {
   design: SavedDesign | null;
 }
 
-type Step = 'confirm' | 'basic-info' | 'custom-fields' | 'review';
+type Step = 'confirm' | 'basic-info' | 'custom-fields' | 'review' | 'success';
 
 export default function CreateCoBuyModal({
   isOpen,
@@ -33,6 +35,7 @@ export default function CreateCoBuyModal({
 }: CreateCoBuyModalProps) {
   const [currentStep, setCurrentStep] = useState<Step>('confirm');
   const [isCreating, setIsCreating] = useState(false);
+  const [createdSession, setCreatedSession] = useState<CoBuySession | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -53,6 +56,7 @@ export default function CreateCoBuyModal({
         setEndDate('');
         setMaxParticipants('');
         setCustomFields([]);
+        setCreatedSession(null);
       }, 300); // Wait for modal close animation
     }
   }, [isOpen]);
@@ -145,17 +149,42 @@ export default function CreateCoBuyModal({
         throw new Error('Failed to create CoBuy session');
       }
 
-      // Show success message
-      alert('공동구매가 생성되었습니다!');
-
-      // Close modal and redirect to CoBuy management page
-      onClose();
-      window.location.href = '/home/my-page/cobuy';
+      setCreatedSession(result);
+      setCurrentStep('success');
     } catch (error) {
       console.error('Error creating CoBuy session:', error);
       alert('공동구매 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!createdSession) return;
+
+    const shareUrl = `${window.location.origin}/cobuy/${createdSession.share_token}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: createdSession.title,
+          text: '공동구매 링크를 공유해보세요.',
+          url: shareUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      alert('링크가 복사되었습니다.');
+    } catch (error) {
+      console.error('Share failed:', error);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('링크가 복사되었습니다.');
+      } catch (clipboardError) {
+        console.error('Clipboard write failed:', clipboardError);
+        alert('공유에 실패했습니다. 다시 시도해주세요.');
+      }
     }
   };
 
@@ -176,6 +205,35 @@ export default function CreateCoBuyModal({
 
         {/* Content */}
         <div className="p-4">
+          {/* Success */}
+          {currentStep === 'success' && createdSession && (
+            <div className="text-center py-10">
+              <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-green-600" />
+              <h3 className="text-2xl font-bold mb-2">공동구매가 생성되었어요!</h3>
+              <p className="text-gray-600 mb-8">링크를 공유하고 참여 현황을 확인해보세요.</p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span>공유하기</span>
+                </button>
+
+                <Link
+                  href={`/home/my-page/cobuy/${createdSession.id}`}
+                  onClick={() => onClose()}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>관리 페이지</span>
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Step 1: Confirmation */}
           {currentStep === 'confirm' && (
             <div className="text-center py-8">
