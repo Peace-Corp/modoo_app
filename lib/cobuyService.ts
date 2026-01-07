@@ -386,7 +386,7 @@ export async function addParticipant(
     const { data: participant, error: insertError } = await supabase
       .from('cobuy_participants')
       .insert(participantData)
-      .select()
+      .select('id')
       .single();
 
     if (insertError) {
@@ -394,7 +394,24 @@ export async function addParticipant(
       throw insertError;
     }
 
-    return participant;
+    if (!participant?.id) {
+      return null;
+    }
+
+    return {
+      id: participant.id,
+      cobuy_session_id: participantData.cobuy_session_id,
+      name: participantData.name,
+      email: participantData.email,
+      phone: participantData.phone,
+      field_responses: participantData.field_responses,
+      selected_size: participantData.selected_size,
+      payment_status: participantData.payment_status,
+      payment_key: null,
+      payment_amount: null,
+      paid_at: null,
+      joined_at: new Date().toISOString(),
+    };
   } catch (error) {
     console.error('Failed to add participant:', error);
     return null;

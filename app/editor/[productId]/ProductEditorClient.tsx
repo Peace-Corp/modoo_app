@@ -149,35 +149,35 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     }
   };
 
-  const handleSaveDesignOnly = async (designTitle: string) => {
-    setIsSaving(true);
-    try {
-      const canvasState = saveAllCanvasState();
-      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
+  // const handleSaveDesignOnly = async (designTitle: string) => {
+  //   setIsSaving(true);
+  //   try {
+  //     const canvasState = saveAllCanvasState();
+  //     const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
 
-      const savedDesign = await saveDesign({
-        productId: product.id,
-        title: designTitle.trim(),
-        productColor: productColor,
-        canvasState: canvasState,
-        previewImage: previewImage,
-        pricePerItem: pricePerItem,
-      });
+  //     const savedDesign = await saveDesign({
+  //       productId: product.id,
+  //       title: designTitle.trim(),
+  //       productColor: productColor,
+  //       canvasState: canvasState,
+  //       previewImage: previewImage,
+  //       pricePerItem: pricePerItem,
+  //     });
 
-      if (!savedDesign) {
-        alert('디자인 저장에 실패했습니다.');
-        return;
-      }
+  //     if (!savedDesign) {
+  //       alert('디자인 저장에 실패했습니다.');
+  //       return;
+  //     }
 
-      alert('디자인이 저장되었습니다.');
-      setIsSaveDesignOpen(false);
-    } catch (error) {
-      console.error('Save design failed:', error);
-      alert('디자인 저장 중 오류가 발생했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  //     alert('디자인이 저장되었습니다.');
+  //     setIsSaveDesignOpen(false);
+  //   } catch (error) {
+  //     console.error('Save design failed:', error);
+  //     alert('디자인 저장 중 오류가 발생했습니다.');
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
 
   // Fetch product colors from database
   useEffect(() => {
@@ -362,19 +362,19 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* Action Buttons */}
           {isAuthenticated ? (
             <div className="flex items-center justify-center gap-2">
-              <button
+              {/* <button
                 onClick={() => setIsSaveDesignOpen(true)}
                 disabled={isSaving}
                 className="w-full border border-black py-3 text-sm rounded-lg text-black disabled:border-gray-300 disabled:text-gray-400 disabled:cursor-not-allowed transition"
               >
                 디자인 저장
-              </button>
+              </button> */}
               <button
                 onClick={handleAddToCartClick}
                 disabled={isSaving}
                 className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
               >
-                {isSaving ? '처리 중...' : '장바구니에 담기'}
+                {isSaving ? '처리 중...' : '저장하고 구매하기'}
               </button>
               <EditButton className="w-full"/>
             </div>
@@ -399,12 +399,12 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         isSaving={isSaving}
       />
 
-      <SaveDesignModal
+      {/* <SaveDesignModal
         isOpen={isSaveDesignOpen}
         onClose={() => setIsSaveDesignOpen(false)}
         onConfirm={handleSaveDesignOnly}
         isSaving={isSaving}
-      />
+      /> */}
 
     </div>
 
