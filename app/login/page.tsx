@@ -55,24 +55,9 @@ export default function LoginPage() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setError(null)
-
-    try {
-      const result = await signInWithOAuth('google')
-
-      if (!result.success) {
-        setError(result.error || '구글 로그인에 실패했습니다')
-      }
-      // OAuth will redirect automatically
-    } catch (err) {
-      const error = err as Error
-      setError(error.message || '구글 로그인 중 오류가 발생했습니다')
-    }
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="max-w-md w-full">
         {/* Logo/Brand Section */}
         <div className="text-center mb-8">
