@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
 import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
@@ -64,6 +63,9 @@ export default function CoBuySharePage() {
 
   const design = session?.saved_design_screenshot as DesignWithProduct | undefined;
   const product = design?.product;
+
+  const paidParticipantCount = session?.current_participant_count ?? 0;
+  const paidProgressPercent = Math.min(100, Math.round((paidParticipantCount / 100) * 100))
 
   const productConfig: ProductConfig | null = useMemo(() => {
     if (!product?.configuration) return null;
@@ -197,6 +199,23 @@ export default function CoBuySharePage() {
             <span>기간: {formatDate(session.start_date)} ~ {formatDate(session.end_date)}</span>
             <span>참여 인원: {session.current_participant_count}{session.max_participants ? ` / ${session.max_participants}` : ''}</span>
             <span>가격: {formatPrice(design.price_per_item)}</span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>할인 적용 진행률</span>
+              {/* Add a information button here */}
+              <span>
+                {paidParticipantCount} / {100} ({paidProgressPercent}%)
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-[width] duration-300"
+                style={{ width: `${paidProgressPercent}%` }}
+              />
+            </div>
           </div>
         </header>
 
