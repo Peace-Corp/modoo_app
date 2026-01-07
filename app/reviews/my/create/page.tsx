@@ -146,7 +146,7 @@ export default function CreateMyReviewPage() {
         return;
       }
 
-      router.push('/reviews/my');
+      router.replace('/reviews/my');
     } finally {
       setSubmitting(false);
     }
