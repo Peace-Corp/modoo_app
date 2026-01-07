@@ -284,7 +284,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
           </div>
 
           {/* Right Side */}
-          <aside className="rounded-md bg-white p-4 shadow-sm border border-gray-200 h-full flex flex-col">
+          <aside className="rounded-md bg-white p-4 border border-gray-200 h-full flex flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.category || '카테고리'}</p>
@@ -296,7 +296,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
             </div>
 
             <div className="mt-4 rounded-md border border-gray-200 p-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
                 <span className="text-xs text-gray-500">캔버스 편집</span>
               </div>
