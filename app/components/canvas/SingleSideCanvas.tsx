@@ -1101,11 +1101,20 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           obj.data.objectId = `${side.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         }
 
-        // Set default print method for non-image objects
+        // Migrate old print method values or set default
         // @ts-expect-error - Checking custom data property
-        if (obj.type !== 'image' && !obj.data.printMethod) {
+        const currentPrintMethod = obj.data.printMethod;
+
+        // Migration: Convert old 'printing' value to 'dtf'
+        if (currentPrintMethod === 'printing') {
           // @ts-expect-error - Setting custom data property
-          obj.data.printMethod = 'printing'; // Default to printing
+          obj.data.printMethod = 'dtf';
+          console.log('[SingleSideCanvas] Migrated old print method "printing" to "dtf" for object');
+        }
+        // Set default for new objects without print method
+        else if (!currentPrintMethod && obj.type !== 'image') {
+          // @ts-expect-error - Setting custom data property
+          obj.data.printMethod = 'dtf'; // Default to DTF for new objects
         }
 
         // Update object dimensions in mm

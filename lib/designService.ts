@@ -230,6 +230,57 @@ export async function updateDesign(
       updateData.preview_url = data.previewImage;
     }
 
+    // Export text objects to SVG if canvas instances are provided
+    if (data.canvasMap) {
+      console.log('Exporting text objects to SVG for update using Fabric.js toSVG()...');
+
+      const textSvgExports: TextSvgExports = {};
+
+      for (const [sideId, canvas] of Object.entries(data.canvasMap)) {
+        try {
+          const { objectSvgs } = extractTextObjectsToSVG(canvas);
+
+          if (objectSvgs.length > 0) {
+            const sideObjectUrls: Record<string, string> = {};
+
+            for (const objectSvg of objectSvgs) {
+              const fileName = `design-${designId}-${sideId}-${objectSvg.objectId}.svg`;
+
+              const uploadResult = await uploadSVGToStorage(
+                supabase,
+                objectSvg.svg,
+                STORAGE_BUCKETS.TEXT_EXPORTS,
+                STORAGE_FOLDERS.SVG,
+                fileName
+              );
+
+              if (uploadResult.success && uploadResult.url) {
+                sideObjectUrls[objectSvg.objectId] = uploadResult.url;
+              } else {
+                console.error(`Failed to upload SVG for ${sideId}/${objectSvg.objectId}:`, uploadResult.error);
+              }
+            }
+
+            if (Object.keys(sideObjectUrls).length > 0) {
+              if (!textSvgExports.__objects) {
+                textSvgExports.__objects = {};
+              }
+              // Type assertion needed due to index signature in TextSvgExports
+              const objectsMap = textSvgExports.__objects as Record<string, Record<string, string>>;
+              objectsMap[sideId] = sideObjectUrls;
+            }
+          }
+        } catch (error) {
+          console.error(`Error exporting SVG for side ${sideId}:`, error);
+        }
+      }
+
+      // Add text SVG exports if available
+      if (Object.keys(textSvgExports).length > 0) {
+        updateData.text_svg_exports = textSvgExports;
+      }
+    }
+
     const { data: updatedDesign, error } = await supabase
       .from('saved_designs')
       .update(updateData)

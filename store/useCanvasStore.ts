@@ -65,8 +65,8 @@ interface CanvasState {
   getCanvasColors: (sensitivity?: number) => Promise<{ colors: string[]; count: number }>;
 
   // Print option methods
-  setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => void;
-  getObjectPrintMethod: (object: fabric.FabricObject) => 'embroidery' | 'printing' | null;
+  setObjectPrintMethod: (objectId: string, method: 'dtf' | 'dtg' | 'screen_printing' | 'embroidery' | 'applique') => void;
+  getObjectPrintMethod: (object: fabric.FabricObject) => 'dtf' | 'dtg' | 'screen_printing' | 'embroidery' | 'applique' | null;
 
   // SVG export methods
   exportTextToSVG: (sideId?: string) => SVGExportResult | null;
@@ -496,7 +496,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   // Set print method for a specific object
-  setObjectPrintMethod: (objectId: string, method: 'embroidery' | 'printing') => {
+  setObjectPrintMethod: (objectId: string, method: 'dtf' | 'dtg' | 'screen_printing' | 'embroidery' | 'applique') => {
     const { getActiveCanvas, incrementCanvasVersion } = get();
     const canvas = getActiveCanvas();
     if (!canvas) return;
@@ -521,7 +521,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   // Get print method for a specific object
-  getObjectPrintMethod: (object: fabric.FabricObject): 'embroidery' | 'printing' | null => {
+  getObjectPrintMethod: (object: fabric.FabricObject): 'dtf' | 'dtg' | 'screen_printing' | 'embroidery' | 'applique' | null => {
     // @ts-expect-error - Checking custom data property
     return object.data?.printMethod || null;
   },

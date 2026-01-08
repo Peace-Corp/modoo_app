@@ -1,32 +1,249 @@
 import * as fabric from 'fabric';
+import { PrintMethod, PrintSize } from '@/types/types';
+import { countObjectColors } from '@/lib/colorExtractor';
+import { getPrintPricingConfig, recommendPrintMethod } from '@/lib/printPricingConfig';
 
-// A6 size in mm: 105 x 148
-// A5 size in mm: 148 x 210
-// A4 size in mm: 210 x 297
-
-const SIZE_CATEGORIES = {
-  A6: { maxWidth: 105, maxHeight: 148, price: 5000 },
-  A5: { maxWidth: 148, maxHeight: 210, price: 6000 },
-  A4: { maxWidth: 210, maxHeight: 297, price: 7000 },
-  LARGER: { price: 8000 }
+// Size thresholds in mm
+const SIZE_THRESHOLDS = {
+  '10x10': { maxWidth: 100, maxHeight: 100 },  // 10cm x 10cm
+  A4: { maxWidth: 210, maxHeight: 297 },        // A4 size
+  A3: { maxWidth: 297, maxHeight: 420 }         // A3 size
 } as const;
 
-export interface SidePricing {
-  sideId: string;
-  sideName: string;
-  additionalPrice: number;
-  hasObjects: boolean;
-  boundingBox?: {
+/**
+ * Object-level pricing information
+ */
+export interface ObjectPricing {
+  objectId: string;
+  objectType: string;
+  printMethod: PrintMethod;
+  printSize: PrintSize;
+  colorCount: number;
+  dimensionsMm: {
     width: number;
     height: number;
+  };
+  price: number;
+  quantity?: number; // For bulk pricing methods
+  recommendation?: {
+    suggested: boolean;
+    reason: string;
   };
 }
 
 /**
- * Calculate the bounding box of all user objects on a canvas
- * Excludes background images, guides, and snap lines
+ * Side-level pricing with object breakdown
  */
-function calculateObjectsBoundingBox(canvas: fabric.Canvas): { width: number; height: number } | null {
+export interface SidePricing {
+  sideId: string;
+  sideName: string;
+  objects: ObjectPricing[];
+  totalPrice: number;
+  hasObjects: boolean;
+}
+
+/**
+ * Overall pricing summary
+ */
+export interface PricingSummary {
+  sidePricing: SidePricing[];
+  totalAdditionalPrice: number;
+  totalObjectCount: number;
+}
+
+/**
+ * Determine print size category based on dimensions in mm
+ */
+function determinePrintSize(widthMm: number, heightMm: number): PrintSize {
+  // Check if it fits within 10x10cm
+  if (
+    widthMm <= SIZE_THRESHOLDS['10x10'].maxWidth &&
+    heightMm <= SIZE_THRESHOLDS['10x10'].maxHeight
+  ) {
+    return '10x10';
+  }
+
+  // Check if it fits within A4
+  if (
+    widthMm <= SIZE_THRESHOLDS.A4.maxWidth &&
+    heightMm <= SIZE_THRESHOLDS.A4.maxHeight
+  ) {
+    return 'A4';
+  }
+
+  // A3 or larger
+  return 'A3';
+}
+
+/**
+ * Calculate price for transfer methods (DTF, DTG)
+ * Price is based only on size, not color count
+ */
+function calculateTransferPrice(
+  printMethod: 'dtf' | 'dtg',
+  printSize: PrintSize
+): number {
+  try {
+    const config = getPrintPricingConfig();
+
+    if (!config) {
+      console.error('Print pricing config is undefined');
+      return 0;
+    }
+
+    const methodConfig = config[printMethod];
+
+    if (!methodConfig) {
+      console.error(`Method config not found for: ${printMethod}`);
+      return 0;
+    }
+
+    if (!methodConfig.sizes || !methodConfig.sizes[printSize]) {
+      console.error(`Size config not found for: ${printSize}`);
+      return 0;
+    }
+
+    return methodConfig.sizes[printSize];
+  } catch (error) {
+    console.error('Error calculating transfer price:', error);
+    return 0;
+  }
+}
+
+/**
+ * Calculate price for bulk methods (screen printing, embroidery, applique)
+ * Price is based on size, color count, and quantity
+ */
+function calculateBulkPrice(
+  printMethod: 'screen_printing' | 'embroidery' | 'applique',
+  printSize: PrintSize,
+  colorCount: number,
+  quantity: number = 1
+): number {
+  try {
+    const config = getPrintPricingConfig();
+
+    if (!config) {
+      console.error('Print pricing config is undefined');
+      return 0;
+    }
+
+    const methodConfig = config[printMethod];
+
+    if (!methodConfig) {
+      console.error(`Method config not found for: ${printMethod}`);
+      return 0;
+    }
+
+    const sizeConfig = methodConfig.sizes[printSize];
+
+    if (!sizeConfig) {
+      console.error(`Size config not found for: ${printSize}`);
+      return 0;
+    }
+
+    // Calculate base price per color
+    let pricePerColor: number;
+
+    if (quantity <= sizeConfig.baseQuantity) {
+      // For quantities up to baseQuantity (usually 100), use base price
+      pricePerColor = sizeConfig.basePrice;
+    } else {
+      // For quantities over baseQuantity, add additional cost
+      const additionalQuantity = quantity - sizeConfig.baseQuantity;
+      pricePerColor = sizeConfig.basePrice + (additionalQuantity * sizeConfig.additionalPricePerPiece);
+    }
+
+    // Multiply by color count
+    return pricePerColor * colorCount;
+  } catch (error) {
+    console.error('Error calculating bulk price:', error);
+    return 0;
+  }
+}
+
+/**
+ * Calculate price for a single object
+ */
+async function calculateObjectPrice(
+  obj: fabric.FabricObject,
+  objectId: string,
+  widthMm: number,
+  heightMm: number,
+  printMethod?: PrintMethod,
+  quantity: number = 1
+): Promise<ObjectPricing> {
+  // Determine print size
+  const printSize = determinePrintSize(widthMm, heightMm);
+
+  // Count colors in the object
+  const colorCount = await countObjectColors(obj);
+
+  // Determine print method if not explicitly set
+  let finalPrintMethod = printMethod;
+  let recommendation;
+
+  if (!finalPrintMethod) {
+    // Auto-select print method
+    const recommended = recommendPrintMethod(colorCount, printSize);
+    finalPrintMethod = recommended.recommended;
+    recommendation = {
+      suggested: true,
+      reason: recommended.reason
+    };
+  }
+
+  // Calculate price based on print method
+  let price: number;
+
+  if (finalPrintMethod === 'dtf' || finalPrintMethod === 'dtg') {
+    price = calculateTransferPrice(finalPrintMethod, printSize);
+  } else {
+    // screen_printing, embroidery, or applique
+    price = calculateBulkPrice(finalPrintMethod, printSize, colorCount, quantity);
+  }
+
+  return {
+    objectId,
+    objectType: obj.type || 'unknown',
+    printMethod: finalPrintMethod,
+    printSize,
+    colorCount,
+    dimensionsMm: {
+      width: widthMm,
+      height: heightMm
+    },
+    price,
+    quantity: finalPrintMethod !== 'dtf' && finalPrintMethod !== 'dtg' ? quantity : undefined,
+    recommendation
+  };
+}
+
+/**
+ * Calculate dimensions of an object in mm
+ */
+function calculateObjectDimensionsMm(
+  obj: fabric.FabricObject,
+  pixelToMmRatio: number
+): { width: number; height: number } {
+  const bound = obj.getBoundingRect();
+  return {
+    width: bound.width * pixelToMmRatio,
+    height: bound.height * pixelToMmRatio
+  };
+}
+
+/**
+ * Calculate pricing for a single side with per-object breakdown
+ */
+export async function calculateSidePricing(
+  canvas: fabric.Canvas,
+  sideId: string,
+  sideName: string,
+  imageWidthPixels?: number,
+  productWidthMm?: number,
+  quantity: number = 1
+): Promise<SidePricing> {
   // Filter user-added objects only
   const userObjects = canvas.getObjects().filter(obj => {
     // Exclude guide boxes and snap lines
@@ -40,141 +257,106 @@ function calculateObjectsBoundingBox(canvas: fabric.Canvas): { width: number; he
   });
 
   if (userObjects.length === 0) {
-    return null;
-  }
-
-  // Calculate the bounding box that encompasses all objects
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  userObjects.forEach(obj => {
-    const bound = obj.getBoundingRect();
-    minX = Math.min(minX, bound.left);
-    minY = Math.min(minY, bound.top);
-    maxX = Math.max(maxX, bound.left + bound.width);
-    maxY = Math.max(maxY, bound.top + bound.height);
-  });
-
-  const width = maxX - minX;
-  const height = maxY - minY;
-
-  return { width, height };
-}
-
-/**
- * Determine the pricing category based on dimensions in mm
- */
-function getPricingCategory(widthMm: number, heightMm: number): number {
-  // Check if it fits within A6 (smallest)
-  if (widthMm <= SIZE_CATEGORIES.A6.maxWidth && heightMm <= SIZE_CATEGORIES.A6.maxHeight) {
-    return SIZE_CATEGORIES.A6.price;
-  }
-
-  // Check if it fits within A5
-  if (widthMm <= SIZE_CATEGORIES.A5.maxWidth && heightMm <= SIZE_CATEGORIES.A5.maxHeight) {
-    return SIZE_CATEGORIES.A5.price;
-  }
-
-  // Check if it fits within A4
-  if (widthMm <= SIZE_CATEGORIES.A4.maxWidth && heightMm <= SIZE_CATEGORIES.A4.maxHeight) {
-    return SIZE_CATEGORIES.A4.price;
-  }
-
-  // Larger than A4
-  return SIZE_CATEGORIES.LARGER.price;
-}
-
-/**
- * Calculate pricing for a single canvas side
- */
-export function calculateSidePricing(
-  canvas: fabric.Canvas,
-  sideId: string,
-  sideName: string,
-  imageWidthPixels?: number,
-  productWidthMm?: number
-): SidePricing {
-  const boundingBox = calculateObjectsBoundingBox(canvas);
-
-  if (!boundingBox) {
     return {
       sideId,
       sideName,
-      additionalPrice: 0,
+      objects: [],
+      totalPrice: 0,
       hasObjects: false
     };
   }
 
   // Get the scaled product image width on the canvas
-  // This is the width of the entire product image as displayed on the canvas
   // @ts-expect-error - Custom property
   const scaledImageWidth = canvas.scaledImageWidth || imageWidthPixels || 500;
 
   // Get the real-world product width in mm
-  const realWorldProductWidth = productWidthMm || 500; // Default to 500mm for t-shirts
+  const realWorldProductWidth = productWidthMm || 500; // Default to 500mm
 
-  // Calculate pixel-to-mm ratio based on the product dimensions, not print area
-  // This is more accurate as it's based on the actual product image scale
+  // Calculate pixel-to-mm ratio
   const pixelToMmRatio = realWorldProductWidth / scaledImageWidth;
 
-  // Convert object dimensions to mm using the product-based ratio
-  const widthMm = boundingBox.width * pixelToMmRatio;
-  const heightMm = boundingBox.height * pixelToMmRatio;
+  // Calculate pricing for each object
+  const objectPricings: ObjectPricing[] = [];
 
-  const additionalPrice = getPricingCategory(widthMm, heightMm);
+  for (const obj of userObjects) {
+    // Get object ID from data or generate one
+    // @ts-expect-error - Checking custom data property
+    const objectId = obj.data?.objectId || `obj-${Math.random().toString(36).substring(2, 11)}`;
+
+    // Get explicit print method if set
+    // @ts-expect-error - Checking custom data property
+    const printMethod = obj.data?.printMethod as PrintMethod | undefined;
+
+    // Calculate dimensions in mm
+    const { width, height } = calculateObjectDimensionsMm(obj, pixelToMmRatio);
+
+    // Calculate pricing
+    const pricing = await calculateObjectPrice(
+      obj,
+      objectId,
+      width,
+      height,
+      printMethod,
+      quantity
+    );
+
+    objectPricings.push(pricing);
+  }
+
+  // Sum up total price for this side
+  const totalPrice = objectPricings.reduce((sum, p) => sum + p.price, 0);
 
   return {
     sideId,
     sideName,
-    additionalPrice,
-    hasObjects: true,
-    boundingBox: {
-      width: widthMm,
-      height: heightMm
-    }
+    objects: objectPricings,
+    totalPrice,
+    hasObjects: true
   };
 }
 
 /**
  * Calculate total pricing for all canvas sides
  */
-export function calculateAllSidesPricing(
+export async function calculateAllSidesPricing(
   canvasMap: Record<string, fabric.Canvas>,
   sides: Array<{
     id: string;
     name: string;
     realLifeDimensions?: { productWidthMm: number };
-  }>
-): {
-  sidePricing: SidePricing[];
-  totalAdditionalPrice: number;
-} {
-  const sidePricing: SidePricing[] = [];
+  }>,
+  quantity: number = 1
+): Promise<PricingSummary> {
+  const sidePricings: SidePricing[] = [];
   let totalAdditionalPrice = 0;
+  let totalObjectCount = 0;
 
-  sides.forEach(side => {
+  for (const side of sides) {
     const canvas = canvasMap[side.id];
     if (canvas) {
       // Get the original image width from the canvas
       // @ts-expect-error - Custom property
       const imageWidth = canvas.originalImageWidth;
 
-      const pricing = calculateSidePricing(
+      const pricing = await calculateSidePricing(
         canvas,
         side.id,
         side.name,
         imageWidth,
-        side.realLifeDimensions?.productWidthMm
+        side.realLifeDimensions?.productWidthMm,
+        quantity
       );
-      sidePricing.push(pricing);
-      totalAdditionalPrice += pricing.additionalPrice;
+
+      sidePricings.push(pricing);
+      totalAdditionalPrice += pricing.totalPrice;
+      totalObjectCount += pricing.objects.length;
     }
-  });
+  }
 
   return {
-    sidePricing,
-    totalAdditionalPrice
+    sidePricing: sidePricings,
+    totalAdditionalPrice,
+    totalObjectCount
   };
 }

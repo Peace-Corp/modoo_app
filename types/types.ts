@@ -157,11 +157,53 @@ export interface Faq {
 }
 
 // Print option types
-export type PrintMethod = 'embroidery' | 'printing';
+export type PrintMethod = 'dtf' | 'dtg' | 'screen_printing' | 'embroidery' | 'applique';
 
 export interface PrintOption {
   method: PrintMethod;
   price: number; // Additional cost for this print method
+}
+
+// Size categories for printing
+export type PrintSize = '10x10' | 'A4' | 'A3';
+
+// Pricing configuration for different print methods
+export interface TransferPricing {
+  method: 'dtf' | 'dtg';
+  sizes: {
+    '10x10': number;
+    A4: number;
+    A3: number;
+  };
+}
+
+export interface BulkPricing {
+  method: 'screen_printing' | 'embroidery' | 'applique';
+  sizes: {
+    '10x10': {
+      basePrice: number; // Price for first 100 pieces
+      baseQuantity: number; // Usually 100
+      additionalPricePerPiece: number; // Price per piece after baseQuantity
+    };
+    A4: {
+      basePrice: number;
+      baseQuantity: number;
+      additionalPricePerPiece: number;
+    };
+    A3: {
+      basePrice: number;
+      baseQuantity: number;
+      additionalPricePerPiece: number;
+    };
+  };
+}
+
+export interface PrintPricingConfig {
+  dtf: TransferPricing;
+  dtg: TransferPricing;
+  screen_printing: BulkPricing;
+  embroidery: BulkPricing;
+  applique: BulkPricing;
 }
 
 export interface CanvasObjectPrintData {

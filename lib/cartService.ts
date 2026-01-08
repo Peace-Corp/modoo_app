@@ -1,5 +1,6 @@
 import { createClient } from './supabase-client';
 import { saveDesign, updateDesign, SaveDesignData } from './designService';
+import * as fabric from 'fabric';
 
 export interface CartItemData {
   id?: string;
@@ -32,6 +33,7 @@ export interface AddToCartParams {
   savedDesignId?: string; // Optional: reuse existing design instead of creating new one
   designName?: string; // Optional: custom name for the design
   previewImage?: string; // Optional: preview image for the design (base64 data URL)
+  canvasMap?: Record<string, fabric.Canvas>; // Optional: canvas instances for SVG export
 }
 
 /**
@@ -64,6 +66,7 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
         canvasState: params.canvasState,
         previewImage: params.previewImage,
         pricePerItem: params.pricePerItem,
+        canvasMap: params.canvasMap, // Pass canvas instances for SVG export
       };
 
       const savedDesign = await saveDesign(designData);
@@ -235,6 +238,7 @@ export async function updateCartItemDesign(
     canvasState: Record<string, string>;
     thumbnailUrl?: string;
     previewImage?: string;
+    canvasMap?: Record<string, fabric.Canvas>; // Optional: canvas instances for SVG export
   }
 ): Promise<boolean> {
   const supabase = createClient();
@@ -258,6 +262,7 @@ export async function updateCartItemDesign(
       productColor: designData.productColor,
       canvasState: designData.canvasState,
       previewImage: designData.previewImage,
+      canvasMap: designData.canvasMap, // Pass canvas instances for SVG export
     });
 
     if (!updatedDesign) {

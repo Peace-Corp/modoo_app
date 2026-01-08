@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Plus, Minus, X } from 'lucide-react';
-import { SizeOption, CartItem } from '@/types/types';
+import { SizeOption, CartItem, ProductSide } from '@/types/types';
+import * as fabric from 'fabric';
+import { calculateAllSidesPricing } from '@/app/utils/canvasPricing';
 
 interface QuantitySelectorModalProps {
   isOpen: boolean;
@@ -13,6 +15,9 @@ interface QuantitySelectorModalProps {
   pricePerItem: number;
   isSaving?: boolean;
   defaultDesignName?: string;
+  canvasMap?: Record<string, fabric.Canvas>;
+  sides?: ProductSide[];
+  basePrice?: number;
 }
 
 export default function QuantitySelectorModal({
@@ -22,12 +27,27 @@ export default function QuantitySelectorModal({
   sizeOptions,
   pricePerItem,
   isSaving = false,
-  defaultDesignName = ''
+  defaultDesignName = '',
+  canvasMap,
+  sides,
+  basePrice
 }: QuantitySelectorModalProps) {
   const router = useRouter();
   const [designName, setDesignName] = useState(defaultDesignName);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [dynamicPricePerItem, setDynamicPricePerItem] = useState(pricePerItem);
+  const [printingCostPerItem, setPrintingCostPerItem] = useState(0);
+  const [hasBulkMethods, setHasBulkMethods] = useState(false);
+
+  // Helper function to get total quantity
+  const getTotalQuantity = () => {
+    return Object.values(quantities).reduce((sum, qty) => sum + qty, 0);
+  };
+
+  const getTotalPrice = () => {
+    return getTotalQuantity() * dynamicPricePerItem;
+  };
 
   // Update design name when modal opens with a new default name
   useEffect(() => {
@@ -35,6 +55,51 @@ export default function QuantitySelectorModal({
       setDesignName(defaultDesignName);
     }
   }, [isOpen, defaultDesignName]);
+
+  // Calculate pricing based on total quantity for bulk methods
+  useEffect(() => {
+    const calculateDynamicPricing = async () => {
+      if (!canvasMap || !sides || !basePrice) {
+        setDynamicPricePerItem(pricePerItem);
+        setHasBulkMethods(false);
+        return;
+      }
+
+      const totalQuantity = getTotalQuantity();
+      if (totalQuantity === 0) {
+        setDynamicPricePerItem(pricePerItem);
+        setHasBulkMethods(false);
+        return;
+      }
+
+      try {
+        const result = await calculateAllSidesPricing(canvasMap, sides, totalQuantity);
+
+        // Check if any objects use bulk methods
+        const usesBulkMethods = result.sidePricing.some(sp =>
+          sp.objects.some(obj =>
+            obj.printMethod === 'screen_printing' ||
+            obj.printMethod === 'embroidery' ||
+            obj.printMethod === 'applique'
+          )
+        );
+
+        setHasBulkMethods(usesBulkMethods);
+
+        // For bulk methods, the printing cost is TOTAL for all items, not per-item
+        // So we need to divide by quantity to get per-item price
+        const perItemPrintCost = result.totalAdditionalPrice / totalQuantity;
+        setPrintingCostPerItem(perItemPrintCost);
+        setDynamicPricePerItem(basePrice + perItemPrintCost);
+      } catch (error) {
+        console.error('Error calculating dynamic pricing:', error);
+        setDynamicPricePerItem(pricePerItem);
+        setHasBulkMethods(false);
+      }
+    };
+
+    calculateDynamicPricing();
+  }, [canvasMap, sides, quantities, basePrice, pricePerItem]);
 
   if (!isOpen) return null;
 
@@ -76,14 +141,6 @@ export default function QuantitySelectorModal({
     } else {
       setQuantities(prev => ({ ...prev, [sizeId]: numValue }));
     }
-  };
-
-  const getTotalQuantity = () => {
-    return Object.values(quantities).reduce((sum, qty) => sum + qty, 0);
-  };
-
-  const getTotalPrice = () => {
-    return getTotalQuantity() * pricePerItem;
   };
 
   const handleConfirm = async () => {
@@ -228,18 +285,53 @@ export default function QuantitySelectorModal({
               {/* Price Summary */}
               {getTotalQuantity() > 0 && (
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-600">개당 가격 (디자인 포함)</span>
-                    <span className="font-medium">{pricePerItem.toLocaleString('ko-KR')}원</span>
-                  </div>
+                  {/* Price Breakdown */}
+                  {basePrice && printingCostPerItem > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-gray-600">기본 제품 가격</span>
+                        <span className="font-medium">{Math.round(basePrice).toLocaleString('ko-KR')}원</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-gray-600">인쇄 비용 (개당)</span>
+                        <span className="font-medium">{Math.round(printingCostPerItem).toLocaleString('ko-KR')}원</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm mb-2 pb-2 border-b border-gray-200">
+                        <span className="text-gray-700 font-medium">개당 가격 (디자인 포함)</span>
+                        <span className="font-semibold">{Math.round(dynamicPricePerItem).toLocaleString('ko-KR')}원</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between text-sm mb-2 pb-2 border-b border-gray-200">
+                      <span className="text-gray-600">개당 가격 (디자인 포함)</span>
+                      <span className="font-medium">{Math.round(dynamicPricePerItem).toLocaleString('ko-KR')}원</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-sm mb-2">
                     <span className="text-gray-600">총 수량</span>
                     <span className="font-medium">{getTotalQuantity()}개</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                     <span className="font-bold">총 금액</span>
-                    <span className="text-lg font-bold">{getTotalPrice().toLocaleString('ko-KR')}원</span>
+                    <span className="text-lg font-bold">{Math.round(getTotalPrice()).toLocaleString('ko-KR')}원</span>
                   </div>
+
+                  {/* Bulk Pricing Info */}
+                  {hasBulkMethods && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                        <span className="shrink-0">💡</span>
+                        <div className="flex-1">
+                          <p className="font-semibold mb-1">대량 주문 가격 적용</p>
+                          <p className="text-amber-600">
+                            나염/자수/아플리케 방식이 포함되어 있습니다.
+                            주문 수량이 많을수록 개당 가격이 저렴해집니다.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -21,7 +21,6 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
-  const [color, setColor] = useState("");
   const currentZoom = getZoomLevel();
   const isDesktop = variant === 'desktop';
 
@@ -47,7 +46,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
 
   // Resetting states
   const clearSettings = () => {
-    setColor("");
+    // No state to clear currently
   }
 
   useEffect(() => {
@@ -113,6 +112,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     const canvas = getActiveCanvas();
     if (!canvas) return; // for error handling
 
+    // Generate unique ID for the object
+    const objectId = `text-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
     const text = new fabric.IText('텍스트', {
       left: canvas.width / 2,
       top: canvas.height / 2,
@@ -122,6 +124,14 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
       fill: '#333',
       fontSize: 30,
     })
+
+    // Assign objectId to the text object
+    // @ts-expect-error - Adding custom data property
+    text.data = {
+      // @ts-expect-error - Reading data property
+      ...(text.data || {}),
+      objectId: objectId
+    };
 
     canvas.add(text);
     canvas.setActiveObject(text); // set the selected object to the text once created
@@ -264,11 +274,15 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
             originY: 'center',
           });
 
+          // Generate unique ID for the object
+          const objectId = `image-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
           // Store Supabase metadata in the image object
           // @ts-expect-error - Adding custom data property to FabricImage
           img.data = {
             // @ts-expect-error - Reading data property
             ...(img.data || {}),
+            objectId: objectId, // Unique object ID for tracking
             supabaseUrl: displayUrl, // URL of the display image (PNG for AI/PSD)
             supabasePath: originalFileUploadResult.path, // Path to original file
             originalFileUrl: originalFileUploadResult.url, // URL of original file (AI/PSD or image)

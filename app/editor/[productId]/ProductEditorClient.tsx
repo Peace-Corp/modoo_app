@@ -533,6 +533,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         sizeOptions={product.size_options || []}
         pricePerItem={pricePerItem}
         isSaving={isSaving}
+        canvasMap={canvasMap}
+        sides={product.configuration}
+        basePrice={product.base_price}
       />
 
       <SaveDesignModal

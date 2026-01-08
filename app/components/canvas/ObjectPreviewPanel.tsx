@@ -216,28 +216,77 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
             {objInfo.type !== 'image' && (
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <p className="text-xs font-semibold text-gray-700 mb-2">인쇄 방식</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePrintMethodChange(objInfo.objectId, 'printing')}
-                    className={`flex-1 px-3 py-2 rounded-md border text-xs font-medium transition-all ${
-                      objInfo.printMethod === 'printing'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    인쇄
-                  </button>
-                  <button
-                    onClick={() => handlePrintMethodChange(objInfo.objectId, 'embroidery')}
-                    className={`flex-1 px-3 py-2 rounded-md border text-xs font-medium transition-all ${
-                      objInfo.printMethod === 'embroidery'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    자수
-                  </button>
+
+                {/* Transfer Methods (DTF, DTG) */}
+                <div className="mb-2">
+                  <p className="text-[10px] text-gray-500 mb-1">전사 (소량/다색상)</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'dtf')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'dtf'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      DTF
+                    </button>
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'dtg')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'dtg'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      DTG
+                    </button>
+                  </div>
                 </div>
+
+                {/* Bulk Methods (Screen Printing, Embroidery, Applique) */}
+                <div>
+                  <p className="text-[10px] text-gray-500 mb-1">대량 (100개+)</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'screen_printing')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'screen_printing'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      나염
+                    </button>
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'embroidery')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'embroidery'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      자수
+                    </button>
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'applique')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'applique'
+                          ? 'border-amber-500 bg-amber-50 text-amber-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      아플리케
+                    </button>
+                  </div>
+                </div>
+
+                {/* Auto-selection note */}
+                {!objInfo.printMethod && (
+                  <p className="text-[10px] text-gray-500 mt-2 italic">
+                    💡 자동 선택: 색상 수와 크기에 따라 최적 방식 적용
+                  </p>
+                )}
               </div>
             )}
           </div>
