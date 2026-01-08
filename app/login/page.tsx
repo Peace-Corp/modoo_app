@@ -1,10 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/useAuthStore'
 import { Mail, Lock, User, Phone } from 'lucide-react'
+
+const LOGIN_RETURN_TO_KEY = 'login:returnTo'
+
+function getSafeRedirectPath(value: string | null) {
+  if (!value) return null
+  if (!value.startsWith('/')) return null
+  if (value.startsWith('//')) return null
+  if (value.startsWith('/login')) return null
+  return value
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -14,8 +24,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const { login, signUp, signInWithOAuth, isLoading } = useAuthStore()
+  const { login, signUp, isLoading } = useAuthStore()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,9 +44,24 @@ export default function LoginPage() {
         if (result.needsEmailConfirmation) {
           setError('이메일을 확인하여 인증을 완료해주세요!')
         } else {
-          // User is auto-confirmed, redirect to home
-          router.push('/home')
+          const redirectFromQuery = getSafeRedirectPath(searchParams.get('redirect'))
+          const redirectFromSession = (() => {
+            try {
+              return getSafeRedirectPath(sessionStorage.getItem(LOGIN_RETURN_TO_KEY))
+            } catch {
+              return null
+            }
+          })()
+          const redirectTo = redirectFromSession || redirectFromQuery || '/home'
+
+          router.replace(redirectTo)
           router.refresh()
+
+          try {
+            sessionStorage.removeItem(LOGIN_RETURN_TO_KEY)
+          } catch {
+            // ignore
+          }
         }
       } else {
         const result = await login(email, password)
@@ -45,9 +71,24 @@ export default function LoginPage() {
           return
         }
 
-        // Login successful, redirect to home
-        router.push('/home')
+        const redirectFromQuery = getSafeRedirectPath(searchParams.get('redirect'))
+        const redirectFromSession = (() => {
+          try {
+            return getSafeRedirectPath(sessionStorage.getItem(LOGIN_RETURN_TO_KEY))
+          } catch {
+            return null
+          }
+        })()
+        const redirectTo = redirectFromSession || redirectFromQuery || '/home'
+
+        router.replace(redirectTo)
         router.refresh()
+
+        try {
+          sessionStorage.removeItem(LOGIN_RETURN_TO_KEY)
+        } catch {
+          // ignore
+        }
       }
     } catch (err) {
       const error = err as Error
