@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   exportAndUploadTextFromCanvasState,
-  extractImageUrlsFromCanvasState
+  extractImageUrlsFromCanvasState,
+  type TextSvgExports,
 } from '@/lib/server-svg-export';
 
 interface OrderData {
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
       price_per_item: number;
       preview_url: string | null;
       image_urls: Record<string, unknown>;
+      text_svg_exports?: TextSvgExports;
     };
 
     if (!designSnapshot) {
@@ -254,18 +256,32 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const canvasStateMap = orderItem.canvas_state as Record<string, any>;
 
-        const svgUrls = await exportAndUploadTextFromCanvasState(
-          supabase,
-          canvasStateMap,
-          orderItem.id
-        );
+        // Check if the design already has pre-generated SVG exports (from client-side)
+        let svgUrls: TextSvgExports = {};
+        const hasPreGeneratedSvgs = designSnapshot.text_svg_exports &&
+          typeof designSnapshot.text_svg_exports === 'object' &&
+          Object.keys(designSnapshot.text_svg_exports).length > 0;
+
+        if (hasPreGeneratedSvgs) {
+          // Use pre-generated SVGs from client-side export (uses Fabric.js toSVG())
+          console.log('Using pre-generated client-side SVG exports');
+          svgUrls = designSnapshot.text_svg_exports as TextSvgExports;
+        } else {
+          // Fallback: Generate SVGs server-side from canvas state JSON
+          console.log('No pre-generated SVGs found, generating server-side');
+          svgUrls = await exportAndUploadTextFromCanvasState(
+            supabase,
+            canvasStateMap,
+            orderItem.id
+          );
+        }
 
         const imageUrls = extractImageUrlsFromCanvasState(canvasStateMap);
 
         const hasData = Object.keys(svgUrls).length > 0 || Object.keys(imageUrls).length > 0;
 
         if (hasData) {
-          const updates: { text_svg_exports?: Record<string, string>; image_urls?: Record<string, unknown> } = {};
+          const updates: { text_svg_exports?: TextSvgExports; image_urls?: Record<string, unknown> } = {};
 
           if (Object.keys(svgUrls).length > 0) {
             updates.text_svg_exports = svgUrls;

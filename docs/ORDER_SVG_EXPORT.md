@@ -48,9 +48,22 @@ Order complete with SVG references
 {
   "front": "https://supabase.co/storage/v1/object/public/text-exports/svg/order-abc123-front.svg",
   "back": "https://supabase.co/storage/v1/object/public/text-exports/svg/order-abc123-back.svg",
-  "sleeve_left": "https://supabase.co/storage/v1/object/public/text-exports/svg/order-abc123-sleeve_left.svg"
+  "sleeve_left": "https://supabase.co/storage/v1/object/public/text-exports/svg/order-abc123-sleeve_left.svg",
+  "__objects": {
+    "front": {
+      "front-...objectId...": "https://supabase.co/storage/v1/object/public/text-exports/svg/order-abc123-front-front-...objectId....svg"
+    }
+  }
 }
 ```
+
+Notes:
+- Side keys (`front`, `back`, ...) may store the **combined** SVG URL for that side (legacy-compatible).
+- `__objects` (optional) stores **per-object** SVG URLs: `__objects[sideId][objectId] -> url`.
+
+Current behavior:
+- If per-object SVGs exist for a side, only per-object SVGs are uploaded for that side (to avoid duplicate uploads).
+- If per-object SVGs cannot be produced, the exporter falls back to uploading a combined side SVG.
 
 ## File Structure
 

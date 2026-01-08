@@ -8,7 +8,7 @@ interface OrderFilesDownloadProps {
   orderItem: {
     id: string;
     product_title: string;
-    text_svg_exports?: Record<string, string>;
+    text_svg_exports?: Record<string, unknown>;
     image_urls?: Record<string, Array<{ url: string; path?: string; uploadedAt?: string }>>;
   };
 }
@@ -136,11 +136,14 @@ export default function OrderFilesDownload({ orderItem }: OrderFilesDownloadProp
             </h4>
             <div className="space-y-2">
               {files.svgs.map((svg) => {
-                const filename = `order-${orderItem.id}-${svg.side}-text.svg`;
+                const filename =
+                  svg.kind === 'object' && svg.objectId
+                    ? `order-${orderItem.id}-${svg.side}-text-${svg.objectId}.svg`
+                    : `order-${orderItem.id}-${svg.side}-text.svg`;
 
                 return (
                   <div
-                    key={svg.side}
+                    key={`${svg.side}-${svg.kind || 'combined'}-${svg.objectId || 'all'}`}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
@@ -148,7 +151,12 @@ export default function OrderFilesDownload({ orderItem }: OrderFilesDownloadProp
                         <FileText className="size-6 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{svg.side}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {svg.side}
+                          {svg.kind === 'object' && svg.objectId ? (
+                            <span className="text-xs text-gray-500 ml-2">{svg.objectId}</span>
+                          ) : null}
+                        </p>
                         <p className="text-xs text-gray-500">{filename}</p>
                       </div>
                     </div>

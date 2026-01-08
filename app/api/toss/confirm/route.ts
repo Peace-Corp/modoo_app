@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   exportAndUploadTextFromCanvasState,
-  extractImageUrlsFromCanvasState
+  extractImageUrlsFromCanvasState,
+  type TextSvgExports,
 } from '@/lib/server-svg-export';
 
 const widgetSecretKey = process.env.TOSS_SECRET_KEY;
@@ -148,13 +149,14 @@ export async function POST(request: NextRequest) {
       canvas_state: Record<string, unknown>;
       preview_url: string | null;
       image_urls: Record<string, unknown>;
+      text_svg_exports?: TextSvgExports;
     }>();
 
     // Fetch saved designs from database if there are any
     if (uniqueDesignIds.length > 0) {
       const { data: savedDesigns, error: designsError } = await supabase
         .from('saved_designs')
-        .select('id, title, color_selections, canvas_state, preview_url, image_urls')
+        .select('id, title, color_selections, canvas_state, preview_url, image_urls, text_svg_exports')
         .in('id', uniqueDesignIds);
 
       if (designsError) {
@@ -167,6 +169,7 @@ export async function POST(request: NextRequest) {
             canvas_state: design.canvas_state || {},
             preview_url: design.preview_url || null,
             image_urls: design.image_urls || {},
+            text_svg_exports: design.text_svg_exports as TextSvgExports | undefined,
           });
         });
       }
@@ -183,6 +186,7 @@ export async function POST(request: NextRequest) {
       thumbnail_url: string | null;
       price_per_item: number;
       image_urls: Record<string, unknown>;
+      text_svg_exports?: TextSvgExports;
       variants: Array<{
         size_id: string;
         size_name: string;
@@ -222,6 +226,7 @@ export async function POST(request: NextRequest) {
           color_selections: savedDesign?.color_selections || {},
           thumbnail_url: savedDesign?.preview_url || item.thumbnail_url || null,
           image_urls: savedDesign?.image_urls || {},
+          text_svg_exports: savedDesign?.text_svg_exports,
           price_per_item: item.price_per_item,
           variants: [{
             size_id: item.size_id,
@@ -294,14 +299,32 @@ export async function POST(request: NextRequest) {
 
           console.log(`Canvas state sides for item ${item.id}:`, Object.keys(canvasStateMap));
 
-          // Export text objects to SVG and upload to Supabase
-          const svgUrls = await exportAndUploadTextFromCanvasState(
-            supabase,
-            canvasStateMap,
-            item.id
+          // Check if the design already has pre-generated SVG exports (from client-side)
+          // Find the corresponding group to get text_svg_exports
+          const correspondingGroup = Array.from(groupedItems.values()).find(
+            group => group.design_id === item.design_id
           );
 
-          console.log(`SVG URLs returned for item ${item.id}:`, svgUrls);
+          let svgUrls: TextSvgExports = {};
+          const hasPreGeneratedSvgs = correspondingGroup?.text_svg_exports &&
+            typeof correspondingGroup.text_svg_exports === 'object' &&
+            Object.keys(correspondingGroup.text_svg_exports).length > 0;
+
+          if (hasPreGeneratedSvgs) {
+            // Use pre-generated SVGs from client-side export (uses Fabric.js toSVG())
+            console.log(`Using pre-generated client-side SVG exports for item ${item.id}`);
+            svgUrls = correspondingGroup!.text_svg_exports as TextSvgExports;
+          } else {
+            // Fallback: Generate SVGs server-side from canvas state JSON
+            console.log(`No pre-generated SVGs found for item ${item.id}, generating server-side`);
+            svgUrls = await exportAndUploadTextFromCanvasState(
+              supabase,
+              canvasStateMap,
+              item.id
+            );
+          }
+
+          console.log(`SVG URLs for item ${item.id}:`, svgUrls);
 
           // Extract image URLs from canvas state
           const imageUrls = extractImageUrlsFromCanvasState(canvasStateMap);
@@ -312,7 +335,7 @@ export async function POST(request: NextRequest) {
           const hasData = Object.keys(svgUrls).length > 0 || Object.keys(imageUrls).length > 0;
 
           if (hasData) {
-            const updates: { text_svg_exports?: Record<string, string>; image_urls?: Record<string, unknown> } = {};
+            const updates: { text_svg_exports?: TextSvgExports; image_urls?: Record<string, unknown> } = {};
 
             if (Object.keys(svgUrls).length > 0) {
               updates.text_svg_exports = svgUrls;

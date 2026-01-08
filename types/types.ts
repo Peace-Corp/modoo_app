@@ -177,6 +177,14 @@ export interface CanvasObjectStorageData {
   uploadedAt?: string;
 }
 
+// Order item SVG export types (server-generated during checkout)
+export type TextSvgObjectExports = Record<string, Record<string, string>>;
+
+export interface TextSvgExports {
+  __objects?: TextSvgObjectExports; // sideId -> objectId -> url
+  [sideId: string]: string | TextSvgObjectExports | undefined; // sideId -> combined SVG url
+}
+
 // Combined canvas object data type
 export interface CanvasObjectData extends CanvasObjectPrintData, CanvasObjectStorageData {
   id?: string;
@@ -236,7 +244,7 @@ export interface OrderItem {
     }>;
   };
   thumbnail_url: string | null;
-  text_svg_exports: Record<string, string> | null;
+  text_svg_exports: TextSvgExports | null;
   image_urls: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;

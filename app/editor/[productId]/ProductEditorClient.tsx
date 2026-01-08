@@ -156,6 +156,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         canvasState: canvasState,
         previewImage: previewImage,
         pricePerItem: pricePerItem,
+        canvasMap: canvasMap, // Pass canvas instances for client-side SVG export
       });
 
       if (!savedDesign) {
