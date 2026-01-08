@@ -331,7 +331,7 @@ export default function DesignEditModal({
 
       // Recalculate pricing based on updated design
       const pricing = productConfig
-        ? calculateAllSidesPricing(canvasMap, productConfig.sides)
+        ? await calculateAllSidesPricing(canvasMap, productConfig.sides)
         : { totalAdditionalPrice: 0, sidePricing: [] };
 
       const newPricePerItem = basePrice + pricing.totalAdditionalPrice;

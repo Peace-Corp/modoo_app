@@ -213,7 +213,6 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
             </div>
 
             {/* Print Method Selector (only for non-image objects) */}
-            {objInfo.type !== 'image' && (
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <p className="text-xs font-semibold text-gray-700 mb-2">인쇄 방식</p>
 
@@ -288,7 +287,6 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
                   </p>
                 )}
               </div>
-            )}
           </div>
           );
         })}
