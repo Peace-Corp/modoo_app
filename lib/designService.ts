@@ -1,5 +1,9 @@
 import { createClient } from './supabase-client';
-import { extractImageUrlsFromCanvasState } from './server-svg-export';
+import { extractImageUrlsFromCanvasState, type TextSvgExports } from './server-svg-export';
+import * as fabric from 'fabric';
+import { extractTextObjectsToSVG } from './canvas-svg-export';
+import { uploadSVGToStorage } from './supabase-storage';
+import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
 
 export interface SaveDesignData {
   productId: string;
@@ -9,6 +13,7 @@ export interface SaveDesignData {
   userId?: string;
   previewImage?: string; // Base64 data URL for preview image
   pricePerItem: number;
+  canvasMap?: Record<string, fabric.Canvas>; // Optional canvas instances for SVG export
 }
 
 export interface SavedDesign {
@@ -22,6 +27,7 @@ export interface SavedDesign {
   canvas_state: Record<string, string>;
   preview_url: string | null;
   image_urls?: Record<string, Array<{ url: string; path?: string; uploadedAt?: string }>>;
+  text_svg_exports?: TextSvgExports; // SVG URLs per side
   created_at: string;
   updated_at: string;
 }
@@ -46,8 +52,56 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
     // Extract image URLs from canvas state for easier access
     const imageUrls = extractImageUrlsFromCanvasState(data.canvasState);
 
+    // Export text objects to SVG using Fabric's toSVG() if canvas instances are provided
+    const textSvgExports: TextSvgExports = {};
+    if (data.canvasMap) {
+      console.log('Exporting text objects to SVG using Fabric.js toSVG()...');
+
+      for (const [sideId, canvas] of Object.entries(data.canvasMap)) {
+        try {
+          const { objectSvgs } = extractTextObjectsToSVG(canvas);
+
+          if (objectSvgs.length > 0) {
+            const sideObjectUrls: Record<string, string> = {};
+
+            // Generate a unique design ID for filenames (will use actual ID after insert)
+            const tempDesignId = `temp-${Date.now()}`;
+
+            for (const objectSvg of objectSvgs) {
+              const fileName = `design-${tempDesignId}-${sideId}-${objectSvg.objectId}.svg`;
+
+              const uploadResult = await uploadSVGToStorage(
+                supabase,
+                objectSvg.svg,
+                STORAGE_BUCKETS.TEXT_EXPORTS,
+                STORAGE_FOLDERS.SVG,
+                fileName
+              );
+
+              if (uploadResult.success && uploadResult.url) {
+                sideObjectUrls[objectSvg.objectId] = uploadResult.url;
+              } else {
+                console.error(`Failed to upload SVG for ${sideId}/${objectSvg.objectId}:`, uploadResult.error);
+              }
+            }
+
+            if (Object.keys(sideObjectUrls).length > 0) {
+              if (!textSvgExports.__objects) {
+                textSvgExports.__objects = {};
+              }
+              // Type assertion needed due to index signature in TextSvgExports
+              const objectsMap = textSvgExports.__objects as Record<string, Record<string, string>>;
+              objectsMap[sideId] = sideObjectUrls;
+            }
+          }
+        } catch (error) {
+          console.error(`Error exporting SVG for side ${sideId}:`, error);
+        }
+      }
+    }
+
     // Prepare the data for insertion
-    const designData = {
+    const designData: any = {
       user_id: user.id,
       product_id: data.productId,
       title: data.title || `Design ${new Date().toLocaleString('ko-KR')}`,
@@ -59,6 +113,11 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
       image_urls: imageUrls, // Save extracted image URLs for easy access
       price_per_item: data.pricePerItem
     };
+
+    // Add text SVG exports if available
+    if (Object.keys(textSvgExports).length > 0) {
+      designData.text_svg_exports = textSvgExports;
+    }
 
     // Insert into saved_designs table
     const { data: savedDesign, error: insertError } = await supabase

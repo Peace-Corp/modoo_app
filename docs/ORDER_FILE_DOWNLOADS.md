@@ -55,9 +55,18 @@ When an order is created, the system automatically tracks:
 ```json
 {
   "front": "https://supabase.co/storage/.../text-exports/svg/order-abc-front.svg",
-  "back": "https://supabase.co/storage/.../text-exports/svg/order-abc-back.svg"
+  "back": "https://supabase.co/storage/.../text-exports/svg/order-abc-back.svg",
+  "__objects": {
+    "front": {
+      "front-...objectId...": "https://supabase.co/storage/.../text-exports/svg/order-abc-front-front-...objectId....svg"
+    }
+  }
 }
 ```
+
+Notes:
+- Side keys (`front`, `back`, ...) may store the **combined** SVG URL per side.
+- `__objects` (optional) stores **per-object** SVG URLs: `__objects[sideId][objectId] -> url`.
 
 ---
 
@@ -403,7 +412,7 @@ interface OrderFilesDownloadProps {
   orderItem: {
     id: string;
     product_title: string;
-    text_svg_exports?: Record<string, string>;
+    text_svg_exports?: Record<string, unknown>;
     image_urls?: Record<string, Array<{
       url: string;
       path?: string;

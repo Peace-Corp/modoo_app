@@ -4,6 +4,9 @@ import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface TextObjectData {
+  objectId?: string;
+  canvasObjectIndex?: number;
+  printMethod?: string;
   text: string;
   fontFamily: string;
   fontSize: number;
@@ -18,10 +21,20 @@ export interface TextObjectData {
   scaleY?: number;
 }
 
+export interface TextObjectSVGExport {
+  objectId: string;
+  canvasObjectIndex: number;
+  svg: string;
+  svgDataUrl: string;
+  uploadResult?: UploadResult;
+  textObject: TextObjectData;
+}
+
 export interface SVGExportResult {
   svg: string;
   uploadResult?: UploadResult;
   textObjects: TextObjectData[];
+  objectSvgs: TextObjectSVGExport[];
 }
 
 /**
@@ -30,15 +43,24 @@ export interface SVGExportResult {
  * @returns SVG string containing all text objects
  */
 export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult {
-  // Get all text objects from the canvas
-  const textObjects = canvas.getObjects().filter(obj => {
-    return obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox';
-  }) as fabric.IText[];
+  const canvasObjects = canvas.getObjects();
+
+  const textObjects = canvasObjects
+    .map((obj, canvasObjectIndex) => ({ obj, canvasObjectIndex }))
+    .filter(({ obj }) => {
+      const type = obj.type?.toLowerCase();
+      return type === 'i-text' || type === 'itext' || type === 'text' || type === 'textbox';
+    })
+    .map(({ obj, canvasObjectIndex }) => ({
+      textObj: obj as fabric.IText,
+      canvasObjectIndex,
+    }));
 
   if (textObjects.length === 0) {
     return {
       svg: '',
       textObjects: [],
+      objectSvgs: [],
     };
   }
 
@@ -60,8 +82,12 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
 
   // Extract data for each text object
   const textObjectsData: TextObjectData[] = [];
+  const objectSvgs: TextObjectSVGExport[] = [];
 
-  textObjects.forEach((textObj, index) => {
+  textObjects.forEach(({ textObj, canvasObjectIndex }, textIndex) => {
+    const objectId = getFabricObjectId(textObj) ?? `text-${textIndex}`;
+    const printMethod = getFabricObjectPrintMethod(textObj);
+
     // Get text properties
     const text = textObj.text || '';
     const fontFamily = textObj.fontFamily || 'Arial';
@@ -79,7 +105,10 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
     const scaleY = textObj.scaleY || 1;
 
     // Store object data
-    textObjectsData.push({
+    const textObjectData: TextObjectData = {
+      objectId,
+      canvasObjectIndex,
+      printMethod: printMethod || undefined,
       text,
       fontFamily,
       fontSize,
@@ -92,7 +121,8 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
       angle,
       scaleX,
       scaleY,
-    });
+    };
+    textObjectsData.push(textObjectData);
 
     // Build transform string
     let transform = `translate(${left}, ${top})`;
@@ -103,30 +133,61 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
       transform += ` scale(${scaleX}, ${scaleY})`;
     }
 
-    // Create SVG text element
-    svgContent += `    <text
-      id="text-${index}"
-      x="0"
-      y="0"
-      font-family="${fontFamily}"
-      font-size="${fontSize}"
-      fill="${fill}"
-      font-weight="${fontWeight}"
-      font-style="${fontStyle}"
-      text-anchor="${textAlign === 'center' ? 'middle' : textAlign === 'right' ? 'end' : 'start'}"
-      transform="${transform}">`;
+    const combinedTextElement = createSvgTextElement({
+      indent: '    ',
+      elementId: `text-${objectId}`,
+      objectId,
+      canvasObjectIndex,
+      printMethod: printMethod || undefined,
+      text,
+      fontFamily,
+      fontSize,
+      fill,
+      fontWeight,
+      fontStyle,
+      textAlign,
+      transform,
+    });
+    svgContent += `${combinedTextElement}\n`;
 
-    // Handle multi-line text
-    const lines = text.split('\n');
-    if (lines.length > 1) {
-      lines.forEach((line, lineIndex) => {
-        const dy = lineIndex === 0 ? 0 : fontSize * 1.2;
-        svgContent += `\n      <tspan x="0" dy="${dy}">${escapeXml(line)}</tspan>`;
-      });
-      svgContent += '\n    </text>\n';
-    } else {
-      svgContent += `${escapeXml(text)}</text>\n`;
-    }
+    const bbox = getFabricBoundingRect(textObj);
+    const bboxWidth = bbox?.width && bbox.width > 0 ? bbox.width : fontSize;
+    const bboxHeight = bbox?.height && bbox.height > 0 ? bbox.height : fontSize;
+
+    const offsetX = bbox ? -bbox.left : 0;
+    const offsetY = bbox ? -bbox.top : 0;
+
+    const objectWrapperAttrs =
+      ` id="${escapeXml(`text-${objectId}`)}"` +
+      ` data-object-id="${escapeXml(objectId)}"` +
+      ` data-canvas-index="${canvasObjectIndex}"` +
+      (printMethod ? ` data-print-method="${escapeXml(printMethod)}"` : '');
+
+    const fabricObjectMarkup = textObj.toSVG();
+    const wrappedObjectMarkup = `    <g${objectWrapperAttrs}>\n${indentSvgMarkup(
+      fabricObjectMarkup,
+      '      '
+    )}\n    </g>`;
+
+    const perObjectSvg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="${formatSvgNumber(bboxWidth)}"
+     height="${formatSvgNumber(bboxHeight)}"
+     viewBox="0 0 ${formatSvgNumber(bboxWidth)} ${formatSvgNumber(bboxHeight)}"
+     overflow="hidden">
+  <g transform="translate(${formatSvgNumber(offsetX)}, ${formatSvgNumber(offsetY)})">
+${wrappedObjectMarkup}
+  </g>
+</svg>`;
+
+    objectSvgs.push({
+      objectId,
+      canvasObjectIndex,
+      svg: perObjectSvg,
+      svgDataUrl: svgToDataUrl(perObjectSvg),
+      textObject: textObjectData,
+    });
   });
 
   // Close SVG tags
@@ -135,6 +196,7 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
   return {
     svg: svgContent,
     textObjects: textObjectsData,
+    objectSvgs,
   };
 }
 
@@ -201,12 +263,121 @@ export async function extractAndUploadAllTextSVG(
  * Helper function to escape XML special characters
  */
 function escapeXml(text: string): string {
-  return text
+  return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function svgToDataUrl(svgContent: string): string {
+  const encoded = encodeURIComponent(svgContent)
+    .replace(/'/g, '%27')
+    .replace(/"/g, '%22');
+  return `data:image/svg+xml;charset=utf-8,${encoded}`;
+}
+
+function getFabricObjectId(obj: fabric.FabricObject): string | null {
+  // @ts-expect-error - Reading custom data property
+  return obj.data?.objectId || obj.data?.id || null;
+}
+
+function getFabricObjectPrintMethod(obj: fabric.FabricObject): string | null {
+  // @ts-expect-error - Reading custom data property
+  return obj.data?.printMethod || null;
+}
+
+function getFabricBoundingRect(
+  obj: fabric.FabricObject
+): { left: number; top: number; width: number; height: number } | null {
+  try {
+    obj.setCoords();
+    const rect = obj.getBoundingRect();
+    if (
+      typeof rect.left !== 'number' ||
+      typeof rect.top !== 'number' ||
+      typeof rect.width !== 'number' ||
+      typeof rect.height !== 'number'
+    ) {
+      return null;
+    }
+    return rect;
+  } catch {
+    return null;
+  }
+}
+
+function indentSvgMarkup(markup: string, indent: string): string {
+  return String(markup)
+    .split('\n')
+    .map(line => (line.length ? `${indent}${line}` : line))
+    .join('\n');
+}
+
+function formatSvgNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  const rounded = Math.round(value * 10000) / 10000;
+  return String(rounded);
+}
+
+function createSvgTextElement(options: {
+  indent: string;
+  elementId: string;
+  objectId?: string;
+  canvasObjectIndex?: number;
+  printMethod?: string;
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fill: string;
+  fontWeight: string;
+  fontStyle: string;
+  textAlign: string;
+  transform: string;
+}): string {
+  const textAnchor =
+    options.textAlign === 'center'
+      ? 'middle'
+      : options.textAlign === 'right'
+        ? 'end'
+        : 'start';
+
+  const objectIdAttr = options.objectId
+    ? ` data-object-id="${escapeXml(options.objectId)}"`
+    : '';
+  const canvasIndexAttr =
+    typeof options.canvasObjectIndex === 'number'
+      ? ` data-canvas-index="${options.canvasObjectIndex}"`
+      : '';
+  const printMethodAttr = options.printMethod
+    ? ` data-print-method="${escapeXml(options.printMethod)}"`
+    : '';
+
+  let svg = `${options.indent}<text
+${options.indent}  id="${escapeXml(options.elementId)}"
+${options.indent}  x="0"
+${options.indent}  y="0"
+${options.indent}  font-family="${escapeXml(options.fontFamily)}"
+${options.indent}  font-size="${options.fontSize}"
+${options.indent}  fill="${escapeXml(options.fill)}"
+${options.indent}  font-weight="${escapeXml(options.fontWeight)}"
+${options.indent}  font-style="${escapeXml(options.fontStyle)}"
+${options.indent}  text-anchor="${textAnchor}"
+${options.indent}  transform="${escapeXml(options.transform)}"${objectIdAttr}${canvasIndexAttr}${printMethodAttr}>`;
+
+  const lines = options.text.split('\n');
+  if (lines.length > 1) {
+    lines.forEach((line, lineIndex) => {
+      const dy = lineIndex === 0 ? 0 : options.fontSize * 1.2;
+      svg += `\n${options.indent}  <tspan x="0" dy="${dy}">${escapeXml(line)}</tspan>`;
+    });
+    svg += `\n${options.indent}</text>`;
+    return svg;
+  }
+
+  svg += `${escapeXml(options.text)}</text>`;
+  return svg;
 }
 
 /**

@@ -48,12 +48,12 @@ export async function GET(
       id: string;
       product_title: string;
       quantity: number;
-      text_svg_exports?: Record<string, string>;
+      text_svg_exports?: Record<string, unknown>;
       image_urls?: Record<string, Array<{ url: string; path?: string; uploadedAt?: string }>>;
       thumbnail_url?: string;
     }) => {
       const images: Array<{ type: 'image'; side: string; url: string; path?: string }> = [];
-      const svgs: Array<{ type: 'svg'; side: string; url: string }> = [];
+      const svgs: Array<{ type: 'svg'; side: string; url: string; kind?: 'combined' | 'object'; objectId?: string }> = [];
 
       // Extract images
       if (item.image_urls) {
@@ -73,13 +73,24 @@ export async function GET(
 
       // Extract SVGs
       if (item.text_svg_exports) {
-        Object.entries(item.text_svg_exports).forEach(([side, url]) => {
-          svgs.push({
-            type: 'svg',
-            side,
-            url,
-          });
+        // Combined side SVGs: { [sideId]: "https://..." }
+        Object.entries(item.text_svg_exports).forEach(([key, value]) => {
+          if (key === '__objects') return;
+          if (typeof value !== 'string') return;
+          svgs.push({ type: 'svg', side: key, url: value, kind: 'combined' });
         });
+
+        // Per-object SVGs: { __objects: { [sideId]: { [objectId]: "https://..." } } }
+        const perObject = item.text_svg_exports.__objects;
+        if (isRecord(perObject)) {
+          Object.entries(perObject).forEach(([sideId, sideMap]) => {
+            if (!isRecord(sideMap)) return;
+            Object.entries(sideMap).forEach(([objectId, url]) => {
+              if (typeof url !== 'string') return;
+              svgs.push({ type: 'svg', side: sideId, url, kind: 'object', objectId });
+            });
+          });
+        }
       }
 
       return {
@@ -121,4 +132,8 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
