@@ -39,10 +39,6 @@ export default function CustomFieldBuilder({
     switch (type) {
       case 'text':
         return '텍스트 입력';
-      case 'email':
-        return '이메일';
-      case 'phone':
-        return '전화번호';
       case 'dropdown':
         return '선택 항목';
       default:
@@ -91,10 +87,6 @@ export default function CustomFieldBuilder({
 
   const getFieldIcon = (type: CoBuyCustomField['type']) => {
     switch (type) {
-      case 'email':
-        return <Mail className="w-4 h-4" />;
-      case 'phone':
-        return <Phone className="w-4 h-4" />;
       case 'dropdown':
         return <ChevronDown className="w-4 h-4" />;
       default:
