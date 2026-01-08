@@ -411,6 +411,34 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
   const pricePerItem = product.base_price + pricingData.totalAdditionalPrice;
 
+  // Scroll to top and prevent scrolling when entering edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Prevent scrolling
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = '0';
+    } else {
+      // Re-enable scrolling
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
+  }, [isEditMode]);
+
   return (
     <div className="">
 
