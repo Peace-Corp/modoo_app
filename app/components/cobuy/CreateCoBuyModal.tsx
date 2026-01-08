@@ -362,6 +362,68 @@ export default function CreateCoBuyModal({
                 </div>
               </div>
 
+              {/* Quick Add Buttons */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">자주 사용하는 항목 빠르게 추가</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      if (customFields.length >= 10) {
+                        alert('최대 10개까지만 추가할 수 있습니다.');
+                        return;
+                      }
+                      const newField: CoBuyCustomField = {
+                        id: `field-${Date.now()}`,
+                        type: 'dropdown',
+                        label: '수령 방법',
+                        required: false,
+                        options: ['직접 수령', '배송'],
+                      };
+                      setCustomFields([...customFields, newField]);
+                    }}
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    + 수령 방법
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (customFields.length >= 10) {
+                        alert('최대 10개까지만 추가할 수 있습니다.');
+                        return;
+                      }
+                      const newField: CoBuyCustomField = {
+                        id: `field-${Date.now()}`,
+                        type: 'text',
+                        label: '이니셜',
+                        required: false,
+                      };
+                      setCustomFields([...customFields, newField]);
+                    }}
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    + 이니셜
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (customFields.length >= 10) {
+                        alert('최대 10개까지만 추가할 수 있습니다.');
+                        return;
+                      }
+                      const newField: CoBuyCustomField = {
+                        id: `field-${Date.now()}`,
+                        type: 'text',
+                        label: '학번',
+                        required: false,
+                      };
+                      setCustomFields([...customFields, newField]);
+                    }}
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    + 학번
+                  </button>
+                </div>
+              </div>
+
               <CustomFieldBuilder
                 fields={customFields}
                 onChange={setCustomFields}

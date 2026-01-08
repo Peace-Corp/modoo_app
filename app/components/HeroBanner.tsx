@@ -29,7 +29,6 @@ export default function HeroBanner() {
 
         if (error) throw error;
 
-        console.log('Fetched banners from Supabase:', data);
         setBanners(data || []);
       } catch (err) {
         console.error('Error fetching hero banners:', err);
@@ -86,7 +85,6 @@ export default function HeroBanner() {
         className="h-70 sm:h-72 lg:h-84 hero-swiper"
       >
         {banners.map((banner) => {
-          console.log('Rendering banner:', banner.id, 'with image:', banner.image_link);
 
           const BannerContent = (
             <>

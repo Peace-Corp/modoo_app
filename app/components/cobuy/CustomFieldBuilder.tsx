@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X, GripVertical, Mail, Phone, Type, ChevronDown } from 'lucide-react';
+import { Plus, X, GripVertical, Type, ChevronDown } from 'lucide-react';
 import { CoBuyCustomField } from '@/types/types';
 
 interface CustomFieldBuilderProps {
@@ -39,10 +39,6 @@ export default function CustomFieldBuilder({
     switch (type) {
       case 'text':
         return '텍스트 입력';
-      case 'email':
-        return '이메일';
-      case 'phone':
-        return '전화번호';
       case 'dropdown':
         return '선택 항목';
       default:
@@ -91,10 +87,6 @@ export default function CustomFieldBuilder({
 
   const getFieldIcon = (type: CoBuyCustomField['type']) => {
     switch (type) {
-      case 'email':
-        return <Mail className="w-4 h-4" />;
-      case 'phone':
-        return <Phone className="w-4 h-4" />;
       case 'dropdown':
         return <ChevronDown className="w-4 h-4" />;
       default:
@@ -226,28 +218,6 @@ export default function CustomFieldBuilder({
                   <div>
                     <p className="font-medium">텍스트</p>
                     <p className="text-xs text-gray-500">단답형 텍스트 입력</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => addField('email')}
-                  className="w-full px-4 py-3 hover:bg-gray-50 flex items-center gap-3 text-left border-t"
-                >
-                  <Mail className="w-5 h-5 text-gray-600" />
-                  <div>
-                    <p className="font-medium">이메일</p>
-                    <p className="text-xs text-gray-500">이메일 주소 입력</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => addField('phone')}
-                  className="w-full px-4 py-3 hover:bg-gray-50 flex items-center gap-3 text-left border-t"
-                >
-                  <Phone className="w-5 h-5 text-gray-600" />
-                  <div>
-                    <p className="font-medium">전화번호</p>
-                    <p className="text-xs text-gray-500">전화번호 입력</p>
                   </div>
                 </button>
 

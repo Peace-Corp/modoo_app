@@ -10,8 +10,8 @@ import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
 import { Share } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
-import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
+import { useState, useEffect } from "react";
+import { calculateAllSidesPricing, type PricingSummary } from "@/app/utils/canvasPricing";
 import { saveDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
@@ -405,11 +405,49 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
   // Calculate price per item including canvas design costs
-  const pricingData = useMemo(() => {
-    return calculateAllSidesPricing(canvasMap, product.configuration);
+  const [pricingData, setPricingData] = useState<PricingSummary>({
+    totalAdditionalPrice: 0,
+    sidePricing: [],
+    totalObjectCount: 0
+  });
+
+  useEffect(() => {
+    const calculatePricing = async () => {
+      const pricing = await calculateAllSidesPricing(canvasMap, product.configuration);
+      setPricingData(pricing);
+    };
+    calculatePricing();
   }, [canvasMap, product.configuration, canvasVersion]);
 
   const pricePerItem = product.base_price + pricingData.totalAdditionalPrice;
+
+  // Scroll to top and prevent scrolling when entering edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Prevent scrolling
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = '0';
+    } else {
+      // Re-enable scrolling
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
+  }, [isEditMode]);
 
   return (
     <div className="">
@@ -533,6 +571,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         sizeOptions={product.size_options || []}
         pricePerItem={pricePerItem}
         isSaving={isSaving}
+        canvasMap={canvasMap}
+        sides={product.configuration}
+        basePrice={product.base_price}
       />
 
       <SaveDesignModal

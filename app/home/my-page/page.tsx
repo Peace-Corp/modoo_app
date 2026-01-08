@@ -16,10 +16,6 @@ type MenuItem = {
   badge?: string | null;
 };
 
-const adminMenuItems: MenuItem[] = [
-  { icon: Shield, label: '관리자 페이지', href: '/admin', badge: null },
-];
-
 const shoppingMenuItems: MenuItem[] = [
   { icon: Package, label: '주문 내역', href: '/home/my-page/orders', badge: null },
   { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
@@ -213,15 +209,6 @@ export default function MyPage() {
 
       {/* Menu Sections */}
       <div className="space-y-2">
-        {/* Admin Section - Only show for admin users */}
-        {isAuthenticated && user?.role === 'admin' && (
-          <section className="bg-white">
-            <div className="max-w-7xl mx-auto px-4 py-2">
-              <h3 className="text-sm font-semibold text-gray-500 mb-2 px-2">관리자</h3>
-              <MenuList items={adminMenuItems} />
-            </div>
-          </section>
-        )}
 
         {/* Shopping Section */}
         <section className="bg-white">

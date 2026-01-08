@@ -29,12 +29,9 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
   const allObjects = useMemo(() => {
     const objects: CanvasObjectInfo[] = [];
 
-    console.log('[ObjectPreviewPanel] Extracting objects from canvases...');
-
     sides.forEach((side) => {
       const canvas = canvasMap[side.id];
       if (!canvas) {
-        console.log(`[ObjectPreviewPanel] Canvas not found for side: ${side.id}`);
         return;
       }
 
@@ -60,13 +57,10 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
         return true;
       });
 
-      console.log(`[ObjectPreviewPanel] Found ${userObjects.length} user objects on ${side.id}`);
-
       userObjects.forEach((obj) => {
         // @ts-expect-error - Accessing custom data property
         const objectId = obj.data?.objectId;
         if (!objectId) {
-          console.warn('[ObjectPreviewPanel] Object missing objectId, skipping:', obj.type);
           return;
         }
 
@@ -103,14 +97,8 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
             width: width,
             height: height,
           });
-
-          if (preview && preview.length > 100) {
-            console.log(`[ObjectPreviewPanel] Generated canvas preview for ${obj.type}`);
-          } else {
-            console.warn(`[ObjectPreviewPanel] Preview seems empty for ${obj.type}`);
-          }
-        } catch (error) {
-          console.error('[ObjectPreviewPanel] Failed to generate object preview:', error, obj.type);
+        } catch {
+          // Preview generation failed
         }
 
         objects.push({
@@ -127,7 +115,6 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
       });
     });
 
-    console.log(`[ObjectPreviewPanel] Total objects extracted: ${objects.length}`);
     return objects;
   }, [canvasMap, sides, canvasVersion, getObjectPrintMethod]);
 
@@ -158,9 +145,7 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
       <h3 className="text-sm font-bold mb-3 text-gray-800">디자인 요소</h3>
 
       <div className="space-y-3">
-        {allObjects.map((objInfo) => {
-          console.log(`[ObjectPreviewPanel] Rendering object ${objInfo.type}, has preview: ${!!objInfo.preview}`);
-          return (
+        {allObjects.map((objInfo) => (
             <div
               key={objInfo.objectId}
               className="border border-gray-200 rounded-lg p-3 bg-gray-50"
@@ -175,7 +160,6 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
                       alt={getObjectTypeName(objInfo.type)}
                       className="max-w-full max-h-full object-contain"
                       onError={(e) => {
-                        console.error('[ObjectPreviewPanel] Image failed to load for:', objInfo.type);
                         e.currentTarget.style.display = 'none';
                       }}
                     />
@@ -213,36 +197,82 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
             </div>
 
             {/* Print Method Selector (only for non-image objects) */}
-            {objInfo.type !== 'image' && (
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <p className="text-xs font-semibold text-gray-700 mb-2">인쇄 방식</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePrintMethodChange(objInfo.objectId, 'printing')}
-                    className={`flex-1 px-3 py-2 rounded-md border text-xs font-medium transition-all ${
-                      objInfo.printMethod === 'printing'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    인쇄
-                  </button>
-                  <button
-                    onClick={() => handlePrintMethodChange(objInfo.objectId, 'embroidery')}
-                    className={`flex-1 px-3 py-2 rounded-md border text-xs font-medium transition-all ${
-                      objInfo.printMethod === 'embroidery'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    자수
-                  </button>
+
+                {/* Transfer Methods (DTF, DTG) */}
+                <div className="mb-2">
+                  <p className="text-[10px] text-gray-500 mb-1">전사 (소량/다색상)</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'dtf')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'dtf'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      DTF
+                    </button>
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'dtg')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'dtg'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      DTG
+                    </button>
+                  </div>
                 </div>
+
+                {/* Bulk Methods (Screen Printing, Embroidery, Applique) */}
+                <div>
+                  <p className="text-[10px] text-gray-500 mb-1">대량 (100개+)</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'screen_printing')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'screen_printing'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      나염
+                    </button>
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'embroidery')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'embroidery'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      자수
+                    </button>
+                    <button
+                      onClick={() => handlePrintMethodChange(objInfo.objectId, 'applique')}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                        objInfo.printMethod === 'applique'
+                          ? 'border-amber-500 bg-amber-50 text-amber-700'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      아플리케
+                    </button>
+                  </div>
+                </div>
+
+                {/* Auto-selection note */}
+                {!objInfo.printMethod && (
+                  <p className="text-[10px] text-gray-500 mt-2 italic">
+                    💡 자동 선택: 색상 수와 크기에 따라 최적 방식 적용
+                  </p>
+                )}
               </div>
-            )}
           </div>
-          );
-        })}
+        ))}
       </div>
 
       {/* Summary */}
