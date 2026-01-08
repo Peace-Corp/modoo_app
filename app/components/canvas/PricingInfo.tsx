@@ -140,9 +140,20 @@ export default function PricingInfo({ basePrice, sides, quantity = 1 }: PricingI
         {sidesWithObjects.some(sp =>
           sp.objects.some(obj => obj.printMethod === 'screen_printing' || obj.printMethod === 'embroidery' || obj.printMethod === 'applique')
         ) && (
-          <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-            ⚠️ 나염, 자수, 아플리케 방식은 대량 주문 시 더 유리합니다.
-            100개 이상 주문 시 가격이 달라질 수 있습니다.
+          <div className="bg-amber-50 p-2 rounded">
+            <p className="text-xs font-semibold text-amber-700 mb-1">💡 대량 주문 할인 안내</p>
+            <p className="text-xs text-amber-600 mb-1">
+              나염/자수/아플리케 방식이 포함되어 있습니다.
+            </p>
+            <p className="text-xs text-amber-600">
+              • 100개까지: 기본 인쇄 가격
+            </p>
+            <p className="text-xs text-amber-600">
+              • 101개부터: 1개당 +600원씩 인쇄 가격 증가
+            </p>
+            <p className="text-xs text-amber-600 italic mt-1">
+              (총 인쇄비가 더 많은 수량에 분산되어 개당 가격은 저렴해집니다)
+            </p>
           </div>
         )}
       </div>

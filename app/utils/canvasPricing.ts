@@ -163,63 +163,6 @@ function calculateBulkPrice(
 }
 
 /**
- * Calculate price for a single object
- */
-async function calculateObjectPrice(
-  obj: fabric.FabricObject,
-  objectId: string,
-  widthMm: number,
-  heightMm: number,
-  printMethod?: PrintMethod,
-  quantity: number = 1
-): Promise<ObjectPricing> {
-  // Determine print size
-  const printSize = determinePrintSize(widthMm, heightMm);
-
-  // Count colors in the object
-  const colorCount = await countObjectColors(obj);
-
-  // Determine print method if not explicitly set
-  let finalPrintMethod = printMethod;
-  let recommendation;
-
-  if (!finalPrintMethod) {
-    // Auto-select print method
-    const recommended = recommendPrintMethod(colorCount, printSize);
-    finalPrintMethod = recommended.recommended;
-    recommendation = {
-      suggested: true,
-      reason: recommended.reason
-    };
-  }
-
-  // Calculate price based on print method
-  let price: number;
-
-  if (finalPrintMethod === 'dtf' || finalPrintMethod === 'dtg') {
-    price = calculateTransferPrice(finalPrintMethod, printSize);
-  } else {
-    // screen_printing, embroidery, or applique
-    price = calculateBulkPrice(finalPrintMethod, printSize, colorCount, quantity);
-  }
-
-  return {
-    objectId,
-    objectType: obj.type || 'unknown',
-    printMethod: finalPrintMethod,
-    printSize,
-    colorCount,
-    dimensionsMm: {
-      width: widthMm,
-      height: heightMm
-    },
-    price,
-    quantity: finalPrintMethod !== 'dtf' && finalPrintMethod !== 'dtg' ? quantity : undefined,
-    recommendation
-  };
-}
-
-/**
  * Calculate dimensions of an object in mm
  */
 function calculateObjectDimensionsMm(
@@ -230,6 +173,37 @@ function calculateObjectDimensionsMm(
   return {
     width: bound.width * pixelToMmRatio,
     height: bound.height * pixelToMmRatio
+  };
+}
+
+/**
+ * Calculate combined bounding box for a group of objects
+ */
+function calculateCombinedBoundingBox(
+  objects: fabric.FabricObject[],
+  pixelToMmRatio: number
+): { width: number; height: number } {
+  if (objects.length === 0) {
+    return { width: 0, height: 0 };
+  }
+
+  // Get bounding rectangles for all objects
+  const bounds = objects.map(obj => obj.getBoundingRect());
+
+  // Find the overall bounding box
+  const minLeft = Math.min(...bounds.map(b => b.left));
+  const minTop = Math.min(...bounds.map(b => b.top));
+  const maxRight = Math.max(...bounds.map(b => b.left + b.width));
+  const maxBottom = Math.max(...bounds.map(b => b.top + b.height));
+
+  // Calculate combined dimensions in pixels
+  const widthPx = maxRight - minLeft;
+  const heightPx = maxBottom - minTop;
+
+  // Convert to mm
+  return {
+    width: widthPx * pixelToMmRatio,
+    height: heightPx * pixelToMmRatio
   };
 }
 
@@ -276,8 +250,9 @@ export async function calculateSidePricing(
   // Calculate pixel-to-mm ratio
   const pixelToMmRatio = realWorldProductWidth / scaledImageWidth;
 
-  // Calculate pricing for each object
-  const objectPricings: ObjectPricing[] = [];
+  // Group objects by print method
+  const objectsByMethod: Record<string, fabric.FabricObject[]> = {};
+  const objectMetadata: Map<fabric.FabricObject, { objectId: string; printMethod: PrintMethod | undefined }> = new Map();
 
   for (const obj of userObjects) {
     // Get object ID from data or generate one
@@ -286,22 +261,87 @@ export async function calculateSidePricing(
 
     // Get explicit print method if set
     // @ts-expect-error - Checking custom data property
-    const printMethod = obj.data?.printMethod as PrintMethod | undefined;
+    let printMethod = obj.data?.printMethod as PrintMethod | undefined;
 
-    // Calculate dimensions in mm
-    const { width, height } = calculateObjectDimensionsMm(obj, pixelToMmRatio);
+    // Auto-determine print method if not set
+    if (!printMethod) {
+      const { width, height } = calculateObjectDimensionsMm(obj, pixelToMmRatio);
+      const printSize = determinePrintSize(width, height);
+      const colorCount = await countObjectColors(obj);
+      const recommended = recommendPrintMethod(colorCount, printSize);
+      printMethod = recommended.recommended;
+    }
 
-    // Calculate pricing
-    const pricing = await calculateObjectPrice(
-      obj,
-      objectId,
-      width,
-      height,
-      printMethod,
-      quantity
-    );
+    objectMetadata.set(obj, { objectId, printMethod });
 
-    objectPricings.push(pricing);
+    if (!objectsByMethod[printMethod]) {
+      objectsByMethod[printMethod] = [];
+    }
+    objectsByMethod[printMethod].push(obj);
+  }
+
+  const objectPricings: ObjectPricing[] = [];
+
+  // Process each print method group
+  for (const [method, objects] of Object.entries(objectsByMethod)) {
+    const printMethod = method as PrintMethod;
+
+    if (printMethod === 'dtf' || printMethod === 'dtg') {
+      // For transfer methods, calculate combined bounding box
+      const combinedDimensions = calculateCombinedBoundingBox(objects, pixelToMmRatio);
+      const combinedPrintSize = determinePrintSize(combinedDimensions.width, combinedDimensions.height);
+      const groupPrice = calculateTransferPrice(printMethod, combinedPrintSize);
+
+      // Create pricing entries for each object in the group
+      // Each object shows its individual dimensions but shares the group price
+      for (const obj of objects) {
+        const metadata = objectMetadata.get(obj)!;
+        const { width, height } = calculateObjectDimensionsMm(obj, pixelToMmRatio);
+        const colorCount = await countObjectColors(obj);
+        const individualPrintSize = determinePrintSize(width, height);
+
+        objectPricings.push({
+          objectId: metadata.objectId,
+          objectType: obj.type || 'unknown',
+          printMethod: printMethod,
+          printSize: individualPrintSize,
+          colorCount,
+          dimensionsMm: {
+            width,
+            height
+          },
+          // Divide group price evenly among objects in the group
+          price: groupPrice / objects.length,
+          recommendation: {
+            suggested: false,
+            reason: `Grouped with ${objects.length} ${printMethod.toUpperCase()} object(s), combined size: ${combinedPrintSize}`
+          }
+        });
+      }
+    } else {
+      // For bulk methods (screen_printing, embroidery, applique), price individually
+      for (const obj of objects) {
+        const metadata = objectMetadata.get(obj)!;
+        const { width, height } = calculateObjectDimensionsMm(obj, pixelToMmRatio);
+        const colorCount = await countObjectColors(obj);
+        const printSize = determinePrintSize(width, height);
+        const price = calculateBulkPrice(printMethod, printSize, colorCount, quantity);
+
+        objectPricings.push({
+          objectId: metadata.objectId,
+          objectType: obj.type || 'unknown',
+          printMethod: printMethod,
+          printSize,
+          colorCount,
+          dimensionsMm: {
+            width,
+            height
+          },
+          price,
+          quantity
+        });
+      }
+    }
   }
 
   // Sum up total price for this side

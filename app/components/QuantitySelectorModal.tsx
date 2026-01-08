@@ -323,10 +323,18 @@ export default function QuantitySelectorModal({
                       <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 p-2 rounded">
                         <span className="shrink-0">💡</span>
                         <div className="flex-1">
-                          <p className="font-semibold mb-1">대량 주문 가격 적용</p>
+                          <p className="font-semibold mb-1">대량 주문 할인 안내</p>
                           <p className="text-amber-600">
                             나염/자수/아플리케 방식이 포함되어 있습니다.
-                            주문 수량이 많을수록 개당 가격이 저렴해집니다.
+                          </p>
+                          <p className="text-amber-600 mt-1">
+                            • 100개까지: 기본 인쇄 가격
+                          </p>
+                          <p className="text-amber-600">
+                            • 101개부터: 1개당 +600원씩 인쇄 가격 증가
+                          </p>
+                          <p className="text-amber-600 text-[10px] mt-1 italic">
+                            (총 인쇄비가 더 많은 수량에 분산되어 개당 가격은 저렴해집니다)
                           </p>
                         </div>
                       </div>
