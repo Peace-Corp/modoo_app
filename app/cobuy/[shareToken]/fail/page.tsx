@@ -7,21 +7,33 @@ function CoBuyPaymentFailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const params = useParams();
-  const shareToken = params.shareToken as string;
+  const rawShareToken = params.shareToken;
+  const shareToken = Array.isArray(rawShareToken) ? rawShareToken[0] : (rawShareToken as string);
 
   const errorCode = searchParams.get('code') || 'UNKNOWN';
   const errorMessage = searchParams.get('message') || '결제에 실패했습니다.';
+  const participantIdFromUrl = searchParams.get('participantId') || undefined;
+  const sessionIdFromUrl = searchParams.get('sessionId') || undefined;
 
   useEffect(() => {
     const deleteParticipant = async () => {
       try {
-        const pendingPaymentJson = sessionStorage.getItem('pendingCoBuyPayment');
-        if (!pendingPaymentJson) return;
+        let participantId = participantIdFromUrl;
+        let sessionId = sessionIdFromUrl;
 
-        const pendingPayment = JSON.parse(pendingPaymentJson) as {
-          participantId: string;
-          sessionId: string;
-        };
+        if (!participantId || !sessionId) {
+          const pendingPaymentJson = sessionStorage.getItem('pendingCoBuyPayment');
+          if (pendingPaymentJson) {
+            const pendingPayment = JSON.parse(pendingPaymentJson) as {
+              participantId?: string;
+              sessionId?: string;
+            };
+            participantId ||= pendingPayment.participantId;
+            sessionId ||= pendingPayment.sessionId;
+          }
+        }
+
+        if (!participantId || !sessionId) return;
 
         await fetch('/api/cobuy/participant/delete', {
           method: 'POST',
@@ -29,8 +41,8 @@ function CoBuyPaymentFailContent() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            participantId: pendingPayment.participantId,
-            sessionId: pendingPayment.sessionId,
+            participantId,
+            sessionId,
           }),
         });
       } catch (error) {
@@ -41,7 +53,7 @@ function CoBuyPaymentFailContent() {
     };
 
     deleteParticipant();
-  }, []);
+  }, [participantIdFromUrl, sessionIdFromUrl]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">

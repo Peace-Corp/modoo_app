@@ -5,36 +5,96 @@ import { useRouter, useSearchParams, useParams } from 'next/navigation';
 
 type ConfirmStatus = 'loading' | 'success' | 'error';
 
+function getErrorDetails(error: unknown): { message: string; code?: string } {
+  if (error instanceof Error) {
+    const code = (error as { code?: unknown })?.code;
+    return {
+      message: error.message,
+      code: typeof code === 'string' ? code : undefined,
+    };
+  }
+
+  if (typeof error === 'string') {
+    return { message: error };
+  }
+
+  if (error && typeof error === 'object') {
+    const maybeMessage = (error as { message?: unknown })?.message;
+    const maybeError = (error as { error?: unknown })?.error;
+    const maybeCode = (error as { code?: unknown })?.code;
+
+    const message =
+      typeof maybeMessage === 'string'
+        ? maybeMessage
+        : typeof maybeError === 'string'
+          ? maybeError
+          : '결제 확인 중 오류가 발생했습니다';
+
+    return {
+      message,
+      code: typeof maybeCode === 'string' ? maybeCode : undefined,
+    };
+  }
+
+  return { message: '결제 확인 중 오류가 발생했습니다' };
+}
+
 function CoBuyPaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
-  const shareToken = params.shareToken as string;
+  const rawShareToken = params.shareToken;
+  const shareToken = Array.isArray(rawShareToken) ? rawShareToken[0] : (rawShareToken as string);
   const [status, setStatus] = useState<ConfirmStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const confirmPayment = async () => {
+      let resolvedParticipantId: string | undefined;
+      let resolvedSessionId: string | undefined;
+
       try {
-        const pendingPaymentJson = sessionStorage.getItem('pendingCoBuyPayment');
-        if (!pendingPaymentJson) {
-          throw new Error('결제 정보를 찾을 수 없습니다.');
+        const orderId = searchParams.get('orderId');
+        const paymentKey = searchParams.get('paymentKey');
+        const amountRaw = searchParams.get('amount');
+        const amount = amountRaw ? Number(amountRaw) : Number.NaN;
+
+        if (!orderId || !paymentKey || !Number.isFinite(amount)) {
+          throw new Error('결제 정보가 올바르지 않습니다.');
         }
 
-        const pendingPayment = JSON.parse(pendingPaymentJson) as {
-          participantId: string;
-          sessionId: string;
-          orderId: string;
-          amount: number;
-          shareToken?: string;
-        };
+        const participantIdFromUrl = searchParams.get('participantId') || undefined;
+        const sessionIdFromUrl = searchParams.get('sessionId') || undefined;
+
+        let participantId = participantIdFromUrl;
+        let sessionId = sessionIdFromUrl;
+
+        if (!participantId || !sessionId) {
+          const pendingPaymentJson = sessionStorage.getItem('pendingCoBuyPayment');
+          if (pendingPaymentJson) {
+            const pendingPayment = JSON.parse(pendingPaymentJson) as {
+              participantId?: string;
+              sessionId?: string;
+              orderId?: string;
+            };
+            participantId ||= pendingPayment.participantId;
+            sessionId ||= pendingPayment.sessionId;
+          }
+        }
+
+        if (!participantId || !sessionId) {
+          throw new Error('참여자 정보를 찾을 수 없습니다.');
+        }
+
+        resolvedParticipantId = participantId;
+        resolvedSessionId = sessionId;
 
         const requestData = {
-          orderId: searchParams.get('orderId'),
-          amount: Number(searchParams.get('amount')),
-          paymentKey: searchParams.get('paymentKey'),
-          participantId: pendingPayment.participantId,
-          sessionId: pendingPayment.sessionId,
+          orderId,
+          amount,
+          paymentKey,
+          participantId,
+          sessionId,
         };
 
         const response = await fetch('/api/cobuy/payment/confirm', {
@@ -45,20 +105,60 @@ function CoBuyPaymentSuccessContent() {
           body: JSON.stringify(requestData),
         });
 
-        const json = await response.json();
-        if (!response.ok || !json.success) {
-          throw { message: json.message || json.error || '결제 확인 실패', code: json.code };
+        const responseClone = response.clone();
+        let json: unknown;
+        try {
+          json = await response.json();
+        } catch (parseError) {
+          const text = await responseClone.text().catch(() => '');
+          const error = new Error('결제 확인 응답을 처리하지 못했습니다.');
+          (error as { code?: string }).code = 'INVALID_RESPONSE';
+          (error as { cause?: unknown }).cause = parseError;
+          console.error('CoBuy payment confirmation parse error:', {
+            status: response.status,
+            text,
+          });
+          throw error;
+        }
+
+        if (!response.ok || !(json as { success?: boolean } | null)?.success) {
+          const errorMessage =
+            typeof (json as { message?: unknown })?.message === 'string'
+              ? (json as { message: string }).message
+              : typeof (json as { error?: unknown })?.error === 'string'
+                ? (json as { error: string }).error
+                : '결제 확인 실패';
+
+          const errorCode = (json as { code?: unknown })?.code;
+          const error = new Error(errorMessage);
+          if (typeof errorCode === 'string') {
+            (error as { code?: string }).code = errorCode;
+          }
+
+          console.error('CoBuy payment confirmation failed:', {
+            status: response.status,
+            errorMessage,
+            errorCode,
+          });
+          throw error;
         }
 
         sessionStorage.removeItem('pendingCoBuyPayment');
         setStatus('success');
       } catch (error) {
-        console.error('CoBuy payment confirmation error:', error);
-        const message = error instanceof Error ? error.message : '결제 확인 중 오류가 발생했습니다';
-        const code = (error as { code?: string })?.code || 'UNKNOWN';
+        const { message, code } = getErrorDetails(error);
+        console.error('CoBuy payment confirmation error:', message, code);
         setErrorMessage(message);
         setStatus('error');
-        router.replace(`/cobuy/${shareToken}/fail?code=${encodeURIComponent(code)}&message=${encodeURIComponent(message)}`);
+        const failParams = new URLSearchParams({
+          code: code || 'UNKNOWN',
+          message,
+        });
+        const participantId = resolvedParticipantId || searchParams.get('participantId') || undefined;
+        const sessionId = resolvedSessionId || searchParams.get('sessionId') || undefined;
+        if (participantId) failParams.set('participantId', participantId);
+        if (sessionId) failParams.set('sessionId', sessionId);
+        router.replace(`/cobuy/${shareToken}/fail?${failParams.toString()}`);
       }
     };
 

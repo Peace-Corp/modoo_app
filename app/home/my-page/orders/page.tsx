@@ -214,7 +214,7 @@ export default function OrdersPage() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setReviewOrder(null)}
           />
-          <div className="relative w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl p-4 md:p-5">
+          <div className="relative pb-25 w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl p-4 md:p-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold text-gray-900">상품 선택</h2>
               <button
