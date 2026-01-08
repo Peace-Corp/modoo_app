@@ -29,12 +29,9 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
   const allObjects = useMemo(() => {
     const objects: CanvasObjectInfo[] = [];
 
-    console.log('[ObjectPreviewPanel] Extracting objects from canvases...');
-
     sides.forEach((side) => {
       const canvas = canvasMap[side.id];
       if (!canvas) {
-        console.log(`[ObjectPreviewPanel] Canvas not found for side: ${side.id}`);
         return;
       }
 
@@ -60,13 +57,10 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
         return true;
       });
 
-      console.log(`[ObjectPreviewPanel] Found ${userObjects.length} user objects on ${side.id}`);
-
       userObjects.forEach((obj) => {
         // @ts-expect-error - Accessing custom data property
         const objectId = obj.data?.objectId;
         if (!objectId) {
-          console.warn('[ObjectPreviewPanel] Object missing objectId, skipping:', obj.type);
           return;
         }
 
@@ -103,14 +97,8 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
             width: width,
             height: height,
           });
-
-          if (preview && preview.length > 100) {
-            console.log(`[ObjectPreviewPanel] Generated canvas preview for ${obj.type}`);
-          } else {
-            console.warn(`[ObjectPreviewPanel] Preview seems empty for ${obj.type}`);
-          }
-        } catch (error) {
-          console.error('[ObjectPreviewPanel] Failed to generate object preview:', error, obj.type);
+        } catch {
+          // Preview generation failed
         }
 
         objects.push({
@@ -127,7 +115,6 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
       });
     });
 
-    console.log(`[ObjectPreviewPanel] Total objects extracted: ${objects.length}`);
     return objects;
   }, [canvasMap, sides, canvasVersion, getObjectPrintMethod]);
 
@@ -158,9 +145,7 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
       <h3 className="text-sm font-bold mb-3 text-gray-800">디자인 요소</h3>
 
       <div className="space-y-3">
-        {allObjects.map((objInfo) => {
-          console.log(`[ObjectPreviewPanel] Rendering object ${objInfo.type}, has preview: ${!!objInfo.preview}`);
-          return (
+        {allObjects.map((objInfo) => (
             <div
               key={objInfo.objectId}
               className="border border-gray-200 rounded-lg p-3 bg-gray-50"
@@ -175,7 +160,6 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
                       alt={getObjectTypeName(objInfo.type)}
                       className="max-w-full max-h-full object-contain"
                       onError={(e) => {
-                        console.error('[ObjectPreviewPanel] Image failed to load for:', objInfo.type);
                         e.currentTarget.style.display = 'none';
                       }}
                     />
@@ -288,8 +272,7 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
                 )}
               </div>
           </div>
-          );
-        })}
+        ))}
       </div>
 
       {/* Summary */}

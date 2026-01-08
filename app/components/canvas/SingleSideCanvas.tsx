@@ -107,9 +107,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     layerImagesRef.current.clear();
     productImageRef.current = null;
 
-    console.log(`[SingleSideCanvas] Initializing canvas for side: ${side.id}`);
     if (!canvasEl.current) {
-      console.error(`[SingleSideCanvas] Canvas element not found for side: ${side.id}`);
       return; // if the canvas element is not initialized properly pass this code
     }
 
@@ -378,9 +376,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 }
 
     // Register this canvas to the global store
-    console.log(`[SingleSideCanvas] Registering canvas for side: ${side.id}`);
     registerCanvas(side.id, canvas)
-    console.log(`[SingleSideCanvas] Canvas registered for side: ${side.id}`);
 
 
     // -- For calculations
@@ -462,13 +458,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
       // Helper function to ensure image is fully loaded and decoded
       // This pre-loads the image using native Image() before passing to Fabric.js
-      const ensureImageFullyLoaded = async (imageUrl: string, layerName: string, layerId: string, maxRetries = 3): Promise<fabric.FabricImage | null> => {
+      const ensureImageFullyLoaded = async (imageUrl: string, maxRetries = 3): Promise<fabric.FabricImage | null> => {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           if (!isSessionActive()) return null;
 
           try {
-            console.log(`[SingleSideCanvas] Attempt ${attempt}/${maxRetries}: Pre-loading image for ${layerName} (${layerId})`);
-
             // Step 1: Pre-load using native Image() to ensure it's fully available
             const nativeImg = new Image();
             nativeImg.crossOrigin = 'anonymous';
@@ -478,12 +472,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
               let timeoutId: ReturnType<typeof setTimeout> | null = null;
               nativeImg.onload = () => {
                 if (timeoutId) clearTimeout(timeoutId);
-                console.log(`[SingleSideCanvas] Native image loaded: ${layerName} (${layerId}) - ${nativeImg.naturalWidth}x${nativeImg.naturalHeight}`);
                 resolve(nativeImg);
               };
-              nativeImg.onerror = (error) => {
+              nativeImg.onerror = () => {
                 if (timeoutId) clearTimeout(timeoutId);
-                console.error(`[SingleSideCanvas] Native image failed to load: ${layerName} (${layerId})`, error);
                 reject(new Error(`Failed to load image: ${imageUrl}`));
               };
               // Set timeout for image loading
@@ -499,9 +491,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
             // Step 2: Decode the image to ensure it's fully decoded in memory
             if (loadedImg.decode) {
-              console.log(`[SingleSideCanvas] Decoding image: ${layerName} (${layerId})`);
               await loadedImg.decode();
-              console.log(`[SingleSideCanvas] Image decoded successfully: ${layerName} (${layerId})`);
             }
             if (!isSessionActive()) return null;
 
@@ -512,8 +502,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
             if (imgWidth === 0 || imgHeight === 0) {
               throw new Error(`Invalid dimensions: ${imgWidth}x${imgHeight}`);
             }
-
-            console.log(`[SingleSideCanvas] Image verified with dimensions: ${imgWidth}x${imgHeight} for ${layerName} (${layerId})`);
 
             // Step 4: Now create Fabric.js image from the pre-loaded native image
             // This is much more reliable than fromURL because the image is already loaded
@@ -527,20 +515,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
               throw new Error(`Fabric image creation failed or has invalid dimensions`);
             }
 
-            console.log(`[SingleSideCanvas] ✓ Successfully created Fabric image for ${layerName} (${layerId})`);
             return fabricImg;
 
-          } catch (error) {
-            console.error(`[SingleSideCanvas] Attempt ${attempt}/${maxRetries} failed for ${layerName} (${layerId}):`, error);
-
+          } catch {
             if (attempt === maxRetries) {
-              console.error(`[SingleSideCanvas] All ${maxRetries} attempts failed for ${layerName} (${layerId})`);
               return null;
             }
 
             // Wait before retrying (exponential backoff)
             const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-            console.log(`[SingleSideCanvas] Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
@@ -552,18 +535,14 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       const loadLayersSequentially = async () => {
         const validResults: Array<{ img: fabric.FabricImage; scale: number; imgWidth: number; imgHeight: number; layer: ProductLayer }> = [];
 
-        console.log(`[SingleSideCanvas] Starting sequential loading of ${sortedLayers.length} layers for side: ${side.id}`);
-
         for (const layer of sortedLayers) {
           if (!isSessionActive()) break;
 
           try {
-            console.log(`[SingleSideCanvas] Loading layer ${layer.name} (${layer.id})...`);
-            const img = await ensureImageFullyLoaded(layer.imageUrl, layer.name, layer.id);
+            const img = await ensureImageFullyLoaded(layer.imageUrl);
             if (!isSessionActive()) break;
 
             if (!img) {
-              console.error(`[SingleSideCanvas] Failed to load layer ${layer.name} (${layer.id}), skipping...`);
               continue;
             }
 
@@ -601,11 +580,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
             // Store reference to this layer image (before applying filters)
             layerImagesRef.current.set(layer.id, img);
 
-            console.log(`[SingleSideCanvas] Successfully loaded and configured layer: ${layer.name} (${layer.id}) with dimensions ${imgWidth}x${imgHeight} for side: ${side.id}`);
             validResults.push({ img, scale, imgWidth, imgHeight, layer });
-          } catch (error) {
+          } catch {
             // Catch individual layer loading errors to prevent one failure from breaking all layers
-            console.error(`[SingleSideCanvas] Error loading layer: ${layer.name} (${layer.id}) from ${layer.imageUrl}`, error);
             // Continue to next layer instead of stopping the entire process
           }
         }
@@ -618,39 +595,23 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         if (!isSessionActive()) return;
 
         if (validResults.length === 0) {
-          console.error('[SingleSideCanvas] No valid layer images loaded');
           setIsLoading(false);
           return;
         }
-
-        console.log(`[SingleSideCanvas] ${validResults.length}/${sortedLayers.length} layer images loaded successfully for side: ${side.id}`);
 
         // Use the first layer's dimensions for calculations
         const firstResult = validResults[0]!;
         const { scale, imgWidth, imgHeight } = firstResult;
 
         // Add all layer images to canvas in z-index order (bottom to top)
-        console.log(`[SingleSideCanvas] Adding ${sortedLayers.length} layers to canvas for side: ${side.id}`);
-
-        let addedLayerCount = 0;
-
         // Add layers to canvas FIRST without color filters
         // Color filters will be applied by the effect after all layers are confirmed loaded
         sortedLayers.forEach((layer) => {
           const layerImg = layerImagesRef.current.get(layer.id);
           if (layerImg) {
             canvas.add(layerImg);
-            addedLayerCount++;
-            console.log(`[SingleSideCanvas] Added layer ${layer.name} (${layer.id}) to canvas`);
-          } else {
-            console.error(`[SingleSideCanvas] Layer image not found in ref for ${layer.name} (${layer.id})`);
           }
         });
-
-        // Verify all layers were added
-        if (addedLayerCount !== validResults.length) {
-          console.error(`[SingleSideCanvas] Layer count mismatch: Added ${addedLayerCount} but expected ${validResults.length}`);
-        }
 
         // Send all layers to the back in reverse order to maintain zIndex
         // This ensures layers are at the very bottom, below guide elements
@@ -659,20 +620,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           const layerImg = layerImagesRef.current.get(layer.id);
           if (layerImg) {
             canvas.sendObjectToBack(layerImg);
-            console.log(`[SingleSideCanvas] Sent layer ${layer.name} (${layer.id}) to back`);
           }
         }
-
-        // Debug: Log all objects on canvas
-        console.log(`[SingleSideCanvas] Canvas now has ${canvas.getObjects().length} objects:`,
-          canvas.getObjects().map((obj, i) => ({
-            index: i,
-            type: obj.type,
-            // @ts-expect-error - Checking custom data property
-            id: obj.data?.id,
-            // @ts-expect-error - Checking custom data property
-            layerId: obj.data?.layerId
-          })));
 
         // Calculate print area position relative to the first layer
         const scaledPrintW = side.printArea.width * scale;
@@ -748,18 +697,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // This guarantees all layer images are properly initialized before showing the canvas
         requestAnimationFrame(() => {
           if (!isSessionActive()) return;
-          // Verify all layers are actually rendered on the canvas
-          const canvasObjects = canvas.getObjects();
-          const layerObjectsOnCanvas = canvasObjects.filter(obj => {
-            // @ts-expect-error - Checking custom data property
-            return obj.data?.id === 'background-product-image';
-          });
-
-          console.log(`[SingleSideCanvas] Verification: ${layerObjectsOnCanvas.length} layer objects rendered on canvas`);
-
-          if (layerObjectsOnCanvas.length !== addedLayerCount) {
-            console.warn(`[SingleSideCanvas] Canvas render verification failed: Expected ${addedLayerCount} layers but found ${layerObjectsOnCanvas.length}`);
-          }
 
           // Mark image as loaded in store
           markImageLoaded(side.id);
@@ -768,18 +705,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           // Set layersReady to trigger the color application effect
           setLayersReady(true);
           setIsLoading(false);
-          console.log(`[SingleSideCanvas] All layers loaded and rendered for side: ${side.id} ✓`);
         });
-      }).catch((error) => {
+      }).catch(() => {
         if (!isSessionActive()) return;
-        console.error('[SingleSideCanvas] Error loading layer images:', error);
         setIsLoading(false);
       });
     } else {
       // Legacy single-image mode: use imageUrl
       const imageUrl = side.imageUrl;
       if (!imageUrl) {
-        console.error('Side has no imageUrl or layers');
         setIsLoading(false);
         return;
       }
@@ -791,7 +725,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
 
           if (!img) {
-            console.error('[SingleSideCanvas] Failed to load image:', side.imageUrl);
             return null;
           }
 
@@ -800,7 +733,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
           // Ensure the image is fully loaded
           if (!imgElement.complete) {
-            console.log(`[SingleSideCanvas] Waiting for single image to complete loading for side: ${side.id}`);
             await new Promise<void>((resolve, reject) => {
               imgElement.onload = () => resolve();
               imgElement.onerror = () => reject(new Error('Image failed to load'));
@@ -811,9 +743,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
           // Use the decode() API to ensure the image is fully decoded
           if (imgElement.decode) {
-            console.log(`[SingleSideCanvas] Decoding single image for side: ${side.id}`);
             await imgElement.decode();
-            console.log(`[SingleSideCanvas] Single image decoded successfully for side: ${side.id}`);
           }
 
           // Verify dimensions after decode
@@ -821,14 +751,11 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           const imgHeight = img.height || 0;
 
           if (imgWidth === 0 || imgHeight === 0) {
-            console.error('[SingleSideCanvas] Image has invalid dimensions after decode:', imgWidth, 'x', imgHeight);
             return null;
           }
 
-          console.log(`[SingleSideCanvas] Single image fully loaded and decoded with dimensions ${imgWidth}x${imgHeight} for side: ${side.id}`);
           return img;
-        } catch (error) {
-          console.error('[SingleSideCanvas] Error loading single image for', side.name, ':', error);
+        } catch {
           return null;
         }
       };
@@ -974,30 +901,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // This guarantees the image is properly initialized before showing the canvas
         requestAnimationFrame(() => {
           if (!isSessionActive()) return;
-          // Verify the image is actually rendered on the canvas
-          const canvasObjects = canvas.getObjects();
-          const productImageOnCanvas = canvasObjects.find(obj => {
-            // @ts-expect-error - Checking custom data property
-            return obj.data?.id === 'background-product-image';
-          });
-
-          if (!productImageOnCanvas) {
-            console.warn('[SingleSideCanvas] Canvas render verification failed: Product image not found on canvas');
-          } else {
-            console.log('[SingleSideCanvas] Verification: Product image successfully rendered on canvas');
-          }
 
           // Mark image as loaded in store
           markImageLoaded(side.id);
 
           // Single image loaded and rendered - mark as ready
           setIsLoading(false);
-          console.log(`[SingleSideCanvas] Single image loaded and rendered for side: ${side.id} ✓`);
         });
       })
-      .catch((error) => {
+      .catch(() => {
         if (!isSessionActive()) return;
-        console.error('[SingleSideCanvas] Error loading image for', side.name, ':', error);
         setIsLoading(false);
       });
     }
@@ -1109,7 +1022,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         if (currentPrintMethod === 'printing') {
           // @ts-expect-error - Setting custom data property
           obj.data.printMethod = 'dtf';
-          console.log('[SingleSideCanvas] Migrated old print method "printing" to "dtf" for object');
         }
         // Set default for new objects without print method
         else if (!currentPrintMethod && obj.type !== 'image') {
@@ -1338,11 +1250,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     // Wait for layers to be loaded before applying colors
     if (!layersReady) {
-      console.log(`[SingleSideCanvas] Waiting for layers to be ready before applying colors for side: ${side.id}`);
       return;
     }
-
-    console.log(`[SingleSideCanvas] Applying color filters to ${side.layers.length} layers for side: ${side.id}`);
 
     // Build a lookup of layerId -> images on canvas to handle duplicates reliably
     const layerImagesById = new Map<string, fabric.FabricImage[]>();
@@ -1359,7 +1268,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     });
 
     // Update each layer's color based on layerColors state
-    let colorsApplied = 0;
     side.layers.forEach((layer) => {
       const canvasLayerImages = layerImagesById.get(layer.id) || [];
       const refLayerImage = layerImagesRef.current.get(layer.id);
@@ -1368,7 +1276,6 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         : (refLayerImage ? [refLayerImage] : []);
 
       if (layerImages.length === 0) {
-        console.warn(`[SingleSideCanvas] Layer image not found for ${layer.name} (${layer.id}) when applying colors`);
         return;
       }
 
@@ -1386,13 +1293,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
         layerImg.filters.push(colorFilter);
         layerImg.applyFilters();
-        colorsApplied++;
       });
-
-      console.log(`[SingleSideCanvas] Applied color ${selectedColor} to ${layerImages.length} image(s) for layer ${layer.name} (${layer.id})`);
     });
-
-    console.log(`[SingleSideCanvas] Successfully applied colors to ${colorsApplied}/${side.layers.length} layers for side: ${side.id}`);
 
     canvas.requestRenderAll();
   }, [layerColors, side.id, side.layers, layersReady]);

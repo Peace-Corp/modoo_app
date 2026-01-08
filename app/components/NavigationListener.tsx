@@ -30,7 +30,6 @@ export default function NavigationListener() {
     // 1. Navigating away from editor to any other page
     // 2. Navigating between different product editor pages
     if (wasOnEditor && (!isOnEditor || pathname !== previousPathname.current)) {
-      console.log('[NavigationListener] Clearing canvas state on navigation');
       resetCanvasState();
     }
 
