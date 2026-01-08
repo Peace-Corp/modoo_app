@@ -29,7 +29,8 @@ const formatPrice = (price?: number | null) => {
 
 export default function CoBuySharePage() {
   const params = useParams();
-  const shareToken = params.shareToken as string;
+  const rawShareToken = params.shareToken;
+  const shareToken = Array.isArray(rawShareToken) ? rawShareToken[0] : (rawShareToken as string);
 
   const [session, setSession] = useState<CoBuySessionWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -155,6 +156,7 @@ export default function CoBuySharePage() {
       return;
     }
 
+    const paymentAmount = Math.round(design?.price_per_item ?? 0);
     const generatedOrderId = `CB-${session.id.slice(0, 8)}-${participant.id.slice(0, 8)}-${Date.now()}`;
     fetch('/api/cobuy/notify/participant-joined', {
       method: 'POST',
@@ -166,6 +168,18 @@ export default function CoBuySharePage() {
         participantId: participant.id,
       }),
     }).catch((error) => console.error('Failed to notify participant joined:', error));
+
+    try {
+      sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
+        participantId: participant.id,
+        sessionId: session.id,
+        shareToken,
+        orderId: generatedOrderId,
+        amount: paymentAmount,
+      }));
+    } catch (error) {
+      console.error('Failed to persist CoBuy payment context:', error);
+    }
 
     setParticipantId(participant.id);
     setParticipantInfo(data);
@@ -286,7 +300,7 @@ export default function CoBuySharePage() {
                 <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-700">
                   참여 정보가 접수되었습니다. 결제를 진행해주세요.
                 </div>
-                {participantInfo && orderId && (
+                {participantInfo && participantId && orderId && (
                   <TossPaymentWidget
                     amount={Math.round(design.price_per_item)}
                     orderId={orderId}
@@ -295,13 +309,27 @@ export default function CoBuySharePage() {
                     customerName={participantInfo.name}
                     customerMobilePhone={participantInfo.phone}
                     successUrl={typeof window !== 'undefined'
-                      ? `${window.location.origin}/cobuy/${shareToken}/success`
-                      : `/cobuy/${shareToken}/success`}
+                      ? `${window.location.origin}/cobuy/${shareToken}/success?${new URLSearchParams({
+                        participantId,
+                        sessionId: session.id,
+                      }).toString()}`
+                      : `/cobuy/${shareToken}/success?${new URLSearchParams({
+                        participantId,
+                        sessionId: session.id,
+                      }).toString()}`}
                     failUrl={typeof window !== 'undefined'
-                      ? `${window.location.origin}/cobuy/${shareToken}/fail`
-                      : `/cobuy/${shareToken}/fail`}
+                      ? `${window.location.origin}/cobuy/${shareToken}/fail?${new URLSearchParams({
+                        participantId,
+                        sessionId: session.id,
+                      }).toString()}`
+                      : `/cobuy/${shareToken}/fail?${new URLSearchParams({
+                        participantId,
+                        sessionId: session.id,
+                      }).toString()}`}
                     onBeforePaymentRequest={() => {
-                      if (!participantId || !session) return;
+                      if (!participantId || !session) {
+                        throw new Error('참여자 정보를 찾을 수 없습니다.');
+                      }
                       sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
                         participantId,
                         sessionId: session.id,
