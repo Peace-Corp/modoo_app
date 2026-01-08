@@ -12,11 +12,11 @@ import Header from "@/app/components/Header";
 import { Share } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { calculateAllSidesPricing } from "@/app/utils/canvasPricing";
-import { saveDesign, SavedDesign } from "@/lib/designService";
+import { saveDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
 import DescriptionImageSection from "@/app/components/DescriptionImageSection";
@@ -24,6 +24,9 @@ import { useAuthStore } from "@/store/useAuthStore";
 import SaveDesignModal from "@/app/components/SaveDesignModal";
 import CreateCoBuyModal from "@/app/components/cobuy/CreateCoBuyModal";
 import PurchaseOptionModal from "@/app/components/PurchaseOptionModal";
+import LoginPromptModal from "@/app/components/LoginPromptModal";
+import GuestDesignRecallModal from "@/app/components/GuestDesignRecallModal";
+import { getGuestDesign, removeGuestDesign, saveGuestDesign, type GuestDesign } from "@/lib/guestDesignStorage";
 
 type CoBuyDesign = {
   id: string;
@@ -44,7 +47,6 @@ interface ProductEditorClientDesktopProps {
 export default function ProductEditorClientDesktop({ product }: ProductEditorClientDesktopProps) {
   const searchParams = useSearchParams();
   const cartItemId = searchParams.get('cartItemId');
-  const router = useRouter();
   const descriptionImageUrl = product.description_image ?? null;
 
   const {
@@ -69,6 +71,9 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const [coBuyDesign, setCoBuyDesign] = useState<CoBuyDesign | null>(null);
   const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
+  const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
+  const [isRecallGuestDesignOpen, setIsRecallGuestDesignOpen] = useState(false);
+  const [guestDesign, setGuestDesign] = useState<GuestDesign | null>(null);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -80,26 +85,63 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
     setProductColor(color);
   };
 
-  // Open quantity selector modal
-  const handleAddToCartClick = () => {
-    setIsQuantitySelectorOpen(true);
-  };
-
   const handlePurchaseClick = () => {
+    if (!isAuthenticated) {
+      const canvasState = saveAllCanvasState();
+      saveGuestDesign({
+        productId: product.id,
+        productColor,
+        canvasState,
+      });
+      setIsLoginPromptOpen(true);
+      return;
+    }
     setIsPurchaseOptionOpen(true);
   };
 
   const handleSelectCartPurchase = () => {
+    if (!isAuthenticated) {
+      setIsPurchaseOptionOpen(false);
+      const canvasState = saveAllCanvasState();
+      saveGuestDesign({
+        productId: product.id,
+        productColor,
+        canvasState,
+      });
+      setIsLoginPromptOpen(true);
+      return;
+    }
     setIsPurchaseOptionOpen(false);
     setIsQuantitySelectorOpen(true);
   };
 
   const handleSelectCoBuyPurchase = () => {
+    if (!isAuthenticated) {
+      setIsPurchaseOptionOpen(false);
+      const canvasState = saveAllCanvasState();
+      saveGuestDesign({
+        productId: product.id,
+        productColor,
+        canvasState,
+      });
+      setIsLoginPromptOpen(true);
+      return;
+    }
     setIsPurchaseOptionOpen(false);
     setIsSaveDesignOpen(true);
   };
 
   const handleSaveDesignForCoBuy = async (designTitle: string) => {
+    if (!isAuthenticated) {
+      const canvasState = saveAllCanvasState();
+      saveGuestDesign({
+        productId: product.id,
+        productColor,
+        canvasState,
+      });
+      setIsLoginPromptOpen(true);
+      return;
+    }
     setIsSaving(true);
     try {
       const canvasState = saveAllCanvasState();
@@ -133,6 +175,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
       setIsSaveDesignOpen(false);
       setIsCreateCoBuyOpen(true);
+
+      removeGuestDesign(product.id);
     } catch (error) {
       console.error('Save design failed:', error);
       alert('디자인 저장 중 오류가 발생했습니다.');
@@ -143,6 +187,16 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
   // Save design to cart and clear state
   const handleSaveToCart = async (designName: string, selectedItems: CartItem[]) => {
+    if (!isAuthenticated) {
+      const canvasState = saveAllCanvasState();
+      saveGuestDesign({
+        productId: product.id,
+        productColor,
+        canvasState,
+      });
+      setIsLoginPromptOpen(true);
+      return;
+    }
     setIsSaving(true);
     try {
       const canvasState = saveAllCanvasState();
@@ -194,6 +248,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         });
       }
 
+      removeGuestDesign(product.id);
+
       // Clear canvas state
       Object.values(canvasMap).forEach((canvas) => {
         const objectsToRemove = canvas.getObjects().filter(obj => {
@@ -219,29 +275,6 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
       throw error; // Re-throw to prevent success modal from showing
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  // Load design from Supabase
-  const handleLoadDesign = async (design: SavedDesign) => {
-    try {
-      // Restore product color FIRST, before canvas state
-      // This ensures the color filter is applied when the canvas objects are restored
-      const colorSelections = design.color_selections as { productColor?: string } | null;
-      if (colorSelections?.productColor) {
-        setProductColor(colorSelections.productColor);
-      }
-
-      // Wait a brief moment for the color to be applied to all canvases
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Then restore canvas state
-      await restoreAllCanvasState(design.canvas_state as Record<string, string>);
-
-      alert('디자인이 성공적으로 불러와졌습니다!');
-    } catch (error) {
-      console.error('Failed to load design:', error);
-      alert('디자인 불러오기에 실패했습니다.');
     }
   };
 
@@ -325,15 +358,22 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
     };
 
     loadCartItemDesign();
-  }, [cartItemId, cartStoreItems, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
+	  }, [cartItemId, cartStoreItems, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
 
   useEffect(() => {
-    // Only enable edit mode for authenticated users
-    if (isAuthenticated) {
-      setEditMode(true);
-    }
+    if (cartItemId) return;
+
+    const saved = getGuestDesign(product.id);
+    if (!saved) return;
+
+    setGuestDesign(saved);
+    setIsRecallGuestDesignOpen(true);
+  }, [cartItemId, product.id]);
+
+  useEffect(() => {
+    setEditMode(true);
     return () => setEditMode(false);
-  }, [setEditMode, isAuthenticated]);
+  }, [setEditMode]);
 
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
@@ -428,27 +468,18 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
               </div>
             </div>
 
-            <div className="mt-5">
-              {/* Purchase Button */}
-              {isAuthenticated ? (
-                <button
-                  onClick={handlePurchaseClick}
-                  disabled={isSaving}
-                  className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-                >
-                  {isSaving ? '처리 중...' : '구매하기'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => router.push('/login')}
-                  className="w-full bg-blue-600 py-3 text-sm rounded-lg text-white hover:bg-blue-700 transition"
-                >
-                  로그인하기
-                </button>
-              )}
-            </div>
-          </aside>
-        </div>
+	            <div className="mt-5">
+	              {/* Purchase Button */}
+	              <button
+	                onClick={handlePurchaseClick}
+	                disabled={isSaving}
+	                className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+	              >
+	                {isSaving ? '처리 중...' : '구매하기'}
+	              </button>
+	            </div>
+	          </aside>
+	        </div>
 
         <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm border border-gray-200">
           <ReviewsSection productId={product.id} limit={10} />
@@ -481,18 +512,63 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         defaultDesignName={product.title}
       />
 
-      <CreateCoBuyModal
-        isOpen={isCreateCoBuyOpen}
-        onClose={() => {
-          setIsCreateCoBuyOpen(false);
-          setCoBuyDesign(null);
-        }}
-        design={coBuyDesign}
-      />
+	      <CreateCoBuyModal
+	        isOpen={isCreateCoBuyOpen}
+	        onClose={() => {
+	          setIsCreateCoBuyOpen(false);
+	          setCoBuyDesign(null);
+	        }}
+	        design={coBuyDesign}
+	      />
 
-      {/* Saved Designs Modal */}
-      {/* <SavedDesignsModal
-        isOpen={isModalOpen}
+	      <LoginPromptModal
+	        isOpen={isLoginPromptOpen}
+	        onClose={() => setIsLoginPromptOpen(false)}
+	        title="로그인이 필요합니다"
+	        message="구매를 진행하려면 로그인이 필요합니다. 디자인을 임시 저장해두었습니다."
+	      />
+
+	      <GuestDesignRecallModal
+	        isOpen={isRecallGuestDesignOpen}
+	        onRecall={async () => {
+	          if (!guestDesign) {
+	            setIsRecallGuestDesignOpen(false);
+	            return;
+	          }
+
+	          const checkCanvasesReady = () => {
+	            return product.configuration.every(side => canvasMap[side.id]);
+	          };
+
+	          let attempts = 0;
+	          const maxAttempts = 50; // 5 seconds max
+	          while (!checkCanvasesReady() && attempts < maxAttempts) {
+	            await new Promise(resolve => setTimeout(resolve, 100));
+	            attempts++;
+	          }
+
+	          if (!checkCanvasesReady()) {
+	            console.error('Canvases not ready after timeout');
+	            setIsRecallGuestDesignOpen(false);
+	            return;
+	          }
+
+	          setProductColor(guestDesign.productColor);
+	          await new Promise(resolve => setTimeout(resolve, 100));
+	          await restoreAllCanvasState(guestDesign.canvasState);
+	          incrementCanvasVersion();
+	          setIsRecallGuestDesignOpen(false);
+	        }}
+	        onDiscard={() => {
+	          removeGuestDesign(product.id);
+	          setGuestDesign(null);
+	          setIsRecallGuestDesignOpen(false);
+	        }}
+	      />
+
+	      {/* Saved Designs Modal */}
+	      {/* <SavedDesignsModal
+	        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSelectDesign={handleLoadDesign}
       /> */}

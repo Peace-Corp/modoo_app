@@ -1,10 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react'
+
+const LOGIN_RETURN_TO_KEY = 'login:returnTo'
+
+function getSafeRedirectPath(value: string | null) {
+  if (!value) return null
+  if (!value.startsWith('/')) return null
+  if (value.startsWith('//')) return null
+  if (value.startsWith('/login')) return null
+  return value
+}
 
 export default function SignUpPage() {
   const [fullName, setFullName] = useState('')
@@ -17,6 +27,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   // Form validation
@@ -61,6 +72,23 @@ export default function SignUpPage() {
     setLoading(true)
 
     try {
+      const redirectFromQuery = getSafeRedirectPath(searchParams.get('redirect'))
+      const redirectFromSession = (() => {
+        try {
+          return getSafeRedirectPath(sessionStorage.getItem(LOGIN_RETURN_TO_KEY))
+        } catch {
+          return null
+        }
+      })()
+
+      if (!redirectFromSession && redirectFromQuery) {
+        try {
+          sessionStorage.setItem(LOGIN_RETURN_TO_KEY, redirectFromQuery)
+        } catch {
+          // ignore
+        }
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -73,6 +101,20 @@ export default function SignUpPage() {
       })
 
       if (error) throw error
+
+      if (data.session) {
+        const redirectTo = redirectFromSession || redirectFromQuery || '/home'
+        router.push(redirectTo)
+        router.refresh()
+
+        try {
+          sessionStorage.removeItem(LOGIN_RETURN_TO_KEY)
+        } catch {
+          // ignore
+        }
+
+        return
+      }
 
       if (data.user) {
         setSuccess(true)

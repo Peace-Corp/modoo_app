@@ -1,6 +1,8 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+const LOGIN_RETURN_TO_KEY = 'login:returnTo';
 
 interface LoginPromptModalProps {
   isOpen: boolean;
@@ -16,11 +18,22 @@ export default function LoginPromptModal({
   message = "이 기능을 사용하려면 로그인이 필요합니다."
 }: LoginPromptModalProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   if (!isOpen) return null;
 
   const handleLoginClick = () => {
     onClose();
+
+    try {
+      const search = searchParams?.toString();
+      const currentRoute = `${pathname}${search ? `?${search}` : ''}`;
+      sessionStorage.setItem(LOGIN_RETURN_TO_KEY, currentRoute);
+    } catch {
+      // ignore
+    }
+
     router.push('/login');
   };
 
