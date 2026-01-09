@@ -225,7 +225,7 @@ function InquiryForm() {
                     {/* Product Image */}
                     <div className="aspect-square bg-gray-100 rounded-lg mb-2 overflow-hidden relative">
                       <Image
-                        src={getProductImageUrl(product)}
+                        src={product.thumbnail_image_link as string}
                         alt={product.title}
                         fill
                         className="object-contain"

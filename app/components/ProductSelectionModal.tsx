@@ -25,6 +25,22 @@ export default function ProductSelectionModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setProducts(data as Product[]);
+      setFilteredProducts(data as Product[]);
+    }
+    setIsLoading(false);
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchProducts();
@@ -44,21 +60,7 @@ export default function ProductSelectionModal({
     }
   }, [searchQuery, products]);
 
-  const fetchProducts = async () => {
-    setIsLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      setProducts(data as Product[]);
-      setFilteredProducts(data as Product[]);
-    }
-    setIsLoading(false);
-  };
 
   const toggleProductSelection = (product: Product) => {
     const isSelected = selectedProducts.some(p => p.id === product.id);
@@ -157,7 +159,7 @@ export default function ProductSelectionModal({
                     {/* Product Image */}
                     <div className="w-8 h-8 bg-gray-100 rounded-full overflow-hidden relative flex-shrink-0">
                       <Image
-                        src={getProductImageUrl(product)}
+                        src={product.thumbnail_image_link as string}
                         alt={product.title}
                         fill
                         className="object-contain"
