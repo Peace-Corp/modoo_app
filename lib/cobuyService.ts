@@ -127,7 +127,7 @@ export async function createCoBuySession(
       .single();
 
     if (insertError) {
-      console.error('Error creating CoBuy session:', insertError);
+      console.error('Error creating CoBuy session:', JSON.stringify(insertError, null, 2));
       throw insertError;
     }
 
