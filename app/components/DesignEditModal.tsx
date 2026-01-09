@@ -8,10 +8,12 @@ import PricingInfo from './canvas/PricingInfo';
 import ObjectPreviewPanel from './canvas/ObjectPreviewPanel';
 import LayerColorSelector from './canvas/LayerColorSelector';
 import { useCanvasStore } from '@/store/useCanvasStore';
+import { useFontStore } from '@/store/useFontStore';
 import { ProductConfig } from '@/types/types';
 import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
 import { createClient } from '@/lib/supabase-client';
 import { calculateAllSidesPricing } from '@/app/utils/canvasPricing';
+import { FontMetadata } from '@/lib/fontUtils';
 
 // Mock color list with hex codes
 const mockColors = [
@@ -172,6 +174,15 @@ export default function DesignEditModal({
 
         console.log('Setting product config with sides:', config.sides.map(s => s.id));
         setProductConfig(config);
+
+        // Load custom fonts if available
+        const customFonts = (design.custom_fonts as FontMetadata[]) || [];
+        if (customFonts.length > 0) {
+          console.log(`Loading ${customFonts.length} custom fonts...`);
+          const fontStore = useFontStore.getState();
+          fontStore.setCustomFonts(customFonts);
+          await fontStore.loadAllFonts();
+        }
 
         // Store the design data for later restoration
         // We'll restore after the component renders

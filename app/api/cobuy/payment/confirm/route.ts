@@ -75,7 +75,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (participant.payment_status === 'completed') {
-      return NextResponse.json({ success: true, participantId, sessionId });
+      // Fetch full participant data for already completed payments
+      const { data: existingParticipant } = await supabase
+        .from('cobuy_participants')
+        .select('*')
+        .eq('id', participantId)
+        .single();
+
+      return NextResponse.json({ success: true, participantId, sessionId, participant: existingParticipant });
     }
 
     const { error: updateError } = await supabase
@@ -98,25 +105,32 @@ export async function POST(request: NextRequest) {
 
     const { data: session, error: sessionFetchError } = await supabase
       .from('cobuy_sessions')
-      .select('id, title, end_date, share_token, current_participant_count')
+      .select('id, title, end_date, share_token, current_participant_count, current_total_quantity')
       .eq('id', sessionId)
       .single();
 
     if (!sessionFetchError && session) {
+      // Fetch participant's total_quantity for updating session stats
+      const { data: participantInfo } = await supabase
+        .from('cobuy_participants')
+        .select('id, name, email, selected_size, payment_amount, total_quantity')
+        .eq('id', participantId)
+        .single();
+
+      const participantQuantity = participantInfo?.total_quantity || 0;
+
+      // Update both participant count and total quantity
       const { error: sessionUpdateError } = await supabase
         .from('cobuy_sessions')
-        .update({ current_participant_count: session.current_participant_count + 1 })
+        .update({
+          current_participant_count: session.current_participant_count + 1,
+          current_total_quantity: (session.current_total_quantity || 0) + participantQuantity,
+        })
         .eq('id', sessionId);
 
       if (sessionUpdateError) {
-        console.error('Failed to increment CoBuy participant count:', sessionUpdateError);
+        console.error('Failed to update CoBuy session counts:', sessionUpdateError);
       }
-
-      const { data: participantInfo } = await supabase
-        .from('cobuy_participants')
-        .select('id, name, email, selected_size, payment_amount')
-        .eq('id', participantId)
-        .single();
 
       if (participantInfo?.email) {
         const shareLink = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/cobuy/${session.share_token}`;
@@ -163,7 +177,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, participantId, sessionId });
+    // Fetch updated participant data to return
+    const { data: updatedParticipant } = await supabase
+      .from('cobuy_participants')
+      .select('*')
+      .eq('id', participantId)
+      .single();
+
+    return NextResponse.json({ success: true, participantId, sessionId, participant: updatedParticipant });
   } catch (error) {
     console.error('CoBuy payment confirmation error:', error);
     return NextResponse.json(

@@ -45,7 +45,13 @@ export default function Header({
 
               {/* Logo / Placeholder */}
               {!showHomeNav && (
-                <div className="h-10 w-32 bg-gray-300 rounded animate-pulse" />
+                <Link
+                  href="/home"
+                  className="text-lg font-black tracking-[0.18em] text-gray-900"
+                  aria-label="MODOO 홈"
+                >
+                  MODOO
+                </Link>
               )}
 
               {showHomeNav && (

@@ -166,7 +166,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           <p className="text-xs lg:text-sm text-gray-900 line-clamp-2 mb-1 lg:mb-1.5">{product.title}</p>
           {/* Pricing */}
           <p className="text-sm lg:text-base font-bold text-gray-900 mb-0.5">{formattedPrice}원</p>
-          <p className="text-[10px] lg:text-xs text-gray-500 mb-1 lg:mb-1.5">200개 이상 구매시</p>
           {/* Reviews */}
           {reviewStats.totalReviews > 0 ? (
             <div className="flex items-center gap-1">

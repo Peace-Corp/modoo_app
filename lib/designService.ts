@@ -4,6 +4,7 @@ import * as fabric from 'fabric';
 import { extractTextObjectsToSVG } from './canvas-svg-export';
 import { uploadSVGToStorage } from './supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
+import { FontMetadata, deleteFonts } from './fontUtils';
 
 export interface SaveDesignData {
   productId: string;
@@ -14,6 +15,7 @@ export interface SaveDesignData {
   previewImage?: string; // Base64 data URL for preview image
   pricePerItem: number;
   canvasMap?: Record<string, fabric.Canvas>; // Optional canvas instances for SVG export
+  customFonts?: FontMetadata[]; // Custom fonts used in the design
 }
 
 export interface SavedDesign {
@@ -28,6 +30,7 @@ export interface SavedDesign {
   preview_url: string | null;
   image_urls?: Record<string, Array<{ url: string; path?: string; uploadedAt?: string }>>;
   text_svg_exports?: TextSvgExports; // SVG URLs per side
+  custom_fonts?: FontMetadata[]; // Custom fonts used in the design
   created_at: string;
   updated_at: string;
 }
@@ -111,7 +114,8 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
       canvas_state: data.canvasState,
       preview_url: data.previewImage || null, // Save preview image as base64 data URL
       image_urls: imageUrls, // Save extracted image URLs for easy access
-      price_per_item: data.pricePerItem
+      price_per_item: data.pricePerItem,
+      custom_fonts: data.customFonts || [] // Save custom fonts metadata
     };
 
     // Add text SVG exports if available
@@ -229,6 +233,9 @@ export async function updateDesign(
     if (data.previewImage !== undefined) {
       updateData.preview_url = data.previewImage;
     }
+    if (data.customFonts !== undefined) {
+      updateData.custom_fonts = data.customFonts;
+    }
 
     // Export text objects to SVG if canvas instances are provided
     if (data.canvasMap) {
@@ -301,7 +308,7 @@ export async function updateDesign(
 }
 
 /**
- * Delete a design
+ * Delete a design and its associated font files
  * @param designId The ID of the design to delete
  * @returns true if successful, false otherwise
  */
@@ -309,14 +316,68 @@ export async function deleteDesign(designId: string): Promise<boolean> {
   const supabase = createClient();
 
   try {
-    const { error } = await supabase
+    // First, fetch the design to get custom fonts
+    const { data: design, error: fetchError } = await supabase
+      .from('saved_designs')
+      .select('custom_fonts')
+      .eq('id', designId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching design:', fetchError);
+      throw fetchError;
+    }
+
+    // Check if the design has custom fonts
+    const customFonts = (design?.custom_fonts as FontMetadata[]) || [];
+
+    // Check if any of these fonts are used in orders (we should NOT delete them if they are)
+    if (customFonts.length > 0) {
+      const fontPaths = customFonts.map(f => f.path);
+
+      // Query order_items to see if any fonts are referenced
+      const { data: orderItems, error: orderCheckError } = await supabase
+        .from('order_items')
+        .select('custom_fonts')
+        .neq('design_id', designId); // Check orders NOT from this design
+
+      if (orderCheckError) {
+        console.warn('Error checking orders for font usage:', orderCheckError);
+      } else {
+        // Collect all font paths used in other orders
+        const fontsInOrders = new Set<string>();
+        orderItems?.forEach((item) => {
+          const itemFonts = (item.custom_fonts as FontMetadata[]) || [];
+          itemFonts.forEach((font) => {
+            fontsInOrders.add(font.path);
+          });
+        });
+
+        // Filter out fonts that are used in orders
+        const fontsToDelete = fontPaths.filter(path => !fontsInOrders.has(path));
+
+        // Delete fonts that are not referenced in any orders
+        if (fontsToDelete.length > 0) {
+          console.log(`Deleting ${fontsToDelete.length} unused font files...`);
+          const deleteResult = await deleteFonts(supabase, fontsToDelete);
+          if (!deleteResult.success) {
+            console.warn('Some fonts failed to delete:', deleteResult.errors);
+          }
+        } else {
+          console.log('All fonts are used in orders, skipping deletion');
+        }
+      }
+    }
+
+    // Delete the design record
+    const { error: deleteError } = await supabase
       .from('saved_designs')
       .delete()
       .eq('id', designId);
 
-    if (error) {
-      console.error('Error deleting design:', error);
-      throw error;
+    if (deleteError) {
+      console.error('Error deleting design:', deleteError);
+      throw deleteError;
     }
 
     return true;

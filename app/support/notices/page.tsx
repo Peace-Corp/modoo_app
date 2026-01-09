@@ -58,7 +58,7 @@ export default function NoticesPage() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto p-4">
+      <div className="max-w-3xl mx-auto">
         {isLoading ? (
           <div className="text-center py-20">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em]" />
@@ -80,16 +80,16 @@ export default function NoticesPage() {
             <p className="text-sm text-gray-400">새로운 공지가 등록되면 안내해드릴게요.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="">
             {announcements.map((notice) => (
               <Link
                 key={notice.id}
                 href={`/support/notices/${notice.id}`}
-                className="block bg-white rounded-xl shadow-sm px-5 py-4 hover:bg-gray-50 transition-colors"
+                className="block bg-white border-b border-gray-200 px-5 py-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-base font-semibold text-gray-900 line-clamp-2">{notice.title}</h2>
-                  <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                  <h2 className="text-base font-semibold text-gray-900 max-w-70 md:max-w-full truncate line-clamp-2">{notice.title}</h2>
+                  <p>{new Date(notice.created_at).toLocaleDateString('ko-KR')}</p>
                 </div>
               </Link>
             ))}

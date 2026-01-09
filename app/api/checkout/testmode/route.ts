@@ -5,6 +5,7 @@ import {
   extractImageUrlsFromCanvasState,
   type TextSvgExports,
 } from '@/lib/server-svg-export';
+import { FontMetadata } from '@/lib/fontUtils';
 
 // Type definitions for request body
 interface OrderData {
@@ -122,13 +123,14 @@ export async function POST(request: NextRequest) {
       preview_url: string | null;
       image_urls: Record<string, unknown>;
       text_svg_exports?: TextSvgExports;
+      custom_fonts?: FontMetadata[];
     }>();
 
     // Fetch saved designs from database if there are any
     if (uniqueDesignIds.length > 0) {
       const { data: savedDesigns, error: designsError } = await supabase
         .from('saved_designs')
-        .select('id, title, color_selections, canvas_state, preview_url, image_urls, text_svg_exports')
+        .select('id, title, color_selections, canvas_state, preview_url, image_urls, text_svg_exports, custom_fonts')
         .in('id', uniqueDesignIds);
 
       if (designsError) {
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
             preview_url: design.preview_url || null,
             image_urls: design.image_urls || {},
             text_svg_exports: design.text_svg_exports as TextSvgExports | undefined,
+            custom_fonts: (design.custom_fonts as FontMetadata[]) || [],
           });
         });
       }
@@ -159,6 +162,7 @@ export async function POST(request: NextRequest) {
       price_per_item: number;
       image_urls: Record<string, unknown>;
       text_svg_exports?: TextSvgExports;
+      custom_fonts?: FontMetadata[];
       variants: Array<{
         size_id: string;
         size_name: string;
@@ -199,6 +203,7 @@ export async function POST(request: NextRequest) {
           thumbnail_url: savedDesign?.preview_url || item.thumbnail_url || null,
           image_urls: savedDesign?.image_urls || {},
           text_svg_exports: savedDesign?.text_svg_exports,
+          custom_fonts: savedDesign?.custom_fonts || [],
           price_per_item: item.price_per_item,
           variants: [{
             size_id: item.size_id,
@@ -233,6 +238,7 @@ export async function POST(request: NextRequest) {
         },
         thumbnail_url: group.thumbnail_url,
         image_urls: group.image_urls,
+        custom_fonts: group.custom_fonts || [], // Include custom fonts in order
       };
     });
 

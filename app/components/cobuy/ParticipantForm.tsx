@@ -1,38 +1,95 @@
 'use client'
 
-import React, { useState } from 'react';
-import { CoBuyCustomField } from '@/types/types';
+import React, { useState, useEffect } from 'react';
+import Script from 'next/script';
+import { CoBuyCustomField, CoBuySelectedItem, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
+import { Plus, Minus, Trash2, Truck, MapPin, Search } from 'lucide-react';
 
 interface ParticipantFormProps {
   customFields: CoBuyCustomField[];
   sizeOptions: string[];
   onSubmit: (data: ParticipantFormData) => void;
   isSubmitting?: boolean;
+  pricePerItem?: number;
+  pricingTiers?: CoBuyPricingTier[];
+  currentTotalQuantity?: number; // Current total quantity in the session
+  deliverySettings?: CoBuyDeliverySettings | null; // Delivery configuration
 }
 
 export interface ParticipantFormData {
   name: string;
   email: string;
   phone?: string;
-  selectedSize: string;
+  selectedSize: string; // Legacy - primary size for backward compatibility
+  selectedItems: CoBuySelectedItem[]; // New - supports multiple sizes with quantities
   fieldResponses: Record<string, string>;
+  deliveryMethod: CoBuyDeliveryMethod | null;
+  deliveryInfo: CoBuyDeliveryInfo | null;
+  deliveryFee: number;
 }
 
 const ParticipantForm: React.FC<ParticipantFormProps> = ({
   customFields,
   sizeOptions,
   onSubmit,
-  isSubmitting = false
+  isSubmitting = false,
+  pricePerItem = 0,
+  pricingTiers = [],
+  currentTotalQuantity = 0,
+  deliverySettings = null,
 }) => {
   const [formData, setFormData] = useState<ParticipantFormData>({
     name: '',
     email: '',
     phone: '',
     selectedSize: '',
-    fieldResponses: {}
+    selectedItems: [{ size: '', quantity: 1 }], // Start with one item
+    fieldResponses: {},
+    deliveryMethod: deliverySettings?.enabled ? null : 'pickup', // Default to pickup if delivery not enabled
+    deliveryInfo: null,
+    deliveryFee: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
+
+  // Check if Daum Postcode script is already loaded
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
+      setIsPostcodeScriptLoaded(true);
+    }
+  }, []);
+
+  // Handle Daum Postcode API address search
+  const handleAddressSearch = () => {
+    if (!(window as any).daum?.Postcode) {
+      alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new (window as any).daum.Postcode({
+      oncomplete: function(data: any) {
+        setFormData(prev => ({
+          ...prev,
+          deliveryInfo: {
+            recipientName: prev.deliveryInfo?.recipientName || '',
+            phone: prev.deliveryInfo?.phone || '',
+            address: data.roadAddress || data.jibunAddress,
+            addressDetail: prev.deliveryInfo?.addressDetail || '',
+            postalCode: data.zonecode,
+            memo: prev.deliveryInfo?.memo || '',
+          },
+        }));
+        // Clear address-related errors
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.address;
+          delete newErrors.postalCode;
+          return newErrors;
+        });
+      }
+    }).open();
+  };
 
   const handleInputChange = (fieldId: string, value: string) => {
     if (fieldId === 'name' || fieldId === 'email' || fieldId === 'phone' || fieldId === 'selectedSize') {
@@ -52,6 +109,142 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
     });
   };
 
+  // Handle selected items (size + quantity)
+  const handleItemSizeChange = (index: number, size: string) => {
+    setFormData(prev => {
+      const newItems = [...prev.selectedItems];
+      newItems[index] = { ...newItems[index], size };
+      // Update legacy selectedSize with the first item's size
+      const selectedSize = newItems[0]?.size || '';
+      return { ...prev, selectedItems: newItems, selectedSize };
+    });
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[`item-${index}-size`];
+      return newErrors;
+    });
+  };
+
+  const handleItemQuantityChange = (index: number, quantity: number) => {
+    setFormData(prev => {
+      const newItems = [...prev.selectedItems];
+      newItems[index] = { ...newItems[index], quantity: Math.max(1, quantity) };
+      return { ...prev, selectedItems: newItems };
+    });
+  };
+
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      selectedItems: [...prev.selectedItems, { size: '', quantity: 1 }]
+    }));
+  };
+
+  const removeItem = (index: number) => {
+    if (formData.selectedItems.length <= 1) return; // Keep at least one item
+    setFormData(prev => {
+      const newItems = prev.selectedItems.filter((_, i) => i !== index);
+      // Update legacy selectedSize with the first item's size
+      const selectedSize = newItems[0]?.size || '';
+      return { ...prev, selectedItems: newItems, selectedSize };
+    });
+  };
+
+  // Handle delivery method change
+  const handleDeliveryMethodChange = (method: CoBuyDeliveryMethod) => {
+    const fee = method === 'delivery' ? (deliverySettings?.deliveryFee || 0) : 0;
+    setFormData(prev => ({
+      ...prev,
+      deliveryMethod: method,
+      deliveryFee: fee,
+      deliveryInfo: method === 'pickup' ? null : prev.deliveryInfo,
+    }));
+    // Clear delivery-related errors
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.deliveryMethod;
+      if (method === 'pickup') {
+        delete newErrors.recipientName;
+        delete newErrors.deliveryPhone;
+        delete newErrors.address;
+        delete newErrors.addressDetail;
+        delete newErrors.postalCode;
+      }
+      return newErrors;
+    });
+  };
+
+  // Handle delivery info change
+  const handleDeliveryInfoChange = (field: keyof CoBuyDeliveryInfo, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      deliveryInfo: {
+        recipientName: prev.deliveryInfo?.recipientName || '',
+        phone: prev.deliveryInfo?.phone || '',
+        address: prev.deliveryInfo?.address || '',
+        addressDetail: prev.deliveryInfo?.addressDetail || '',
+        postalCode: prev.deliveryInfo?.postalCode || '',
+        memo: prev.deliveryInfo?.memo || '',
+        [field]: value,
+      },
+    }));
+    // Clear error for this field
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[field === 'phone' ? 'deliveryPhone' : field];
+      return newErrors;
+    });
+  };
+
+  const getTotalQuantity = () => {
+    return formData.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+  };
+
+  // Calculate price per item based on total quantity and pricing tiers
+  const getApplicablePricePerItem = (quantity: number) => {
+    if (pricingTiers.length === 0) return pricePerItem;
+
+    // Calculate projected total quantity (current session total + this order)
+    const projectedTotal = currentTotalQuantity + quantity;
+
+    // Sort tiers by minQuantity descending to find the highest applicable tier
+    const sortedTiers = [...pricingTiers].sort((a, b) => b.minQuantity - a.minQuantity);
+
+    // Find the highest tier that applies to the projected total
+    const applicableTier = sortedTiers.find(tier => projectedTotal >= tier.minQuantity);
+
+    return applicableTier?.pricePerItem ?? pricePerItem;
+  };
+
+  const getCurrentPricePerItem = () => {
+    return getApplicablePricePerItem(getTotalQuantity());
+  };
+
+  const getTotalPrice = () => {
+    return getTotalQuantity() * getCurrentPricePerItem() + formData.deliveryFee;
+  };
+
+  // Get the next tier info for displaying potential savings
+  const getNextTierInfo = () => {
+    if (pricingTiers.length === 0) return null;
+
+    const currentQuantity = getTotalQuantity();
+    const projectedTotal = currentTotalQuantity + currentQuantity;
+    const sortedTiers = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity);
+
+    // Find the next tier that hasn't been reached yet
+    const nextTier = sortedTiers.find(tier => projectedTotal < tier.minQuantity);
+
+    if (!nextTier) return null;
+
+    const quantityNeeded = nextTier.minQuantity - projectedTotal;
+    return {
+      quantityNeeded,
+      nextPrice: nextTier.pricePerItem,
+      minQuantity: nextTier.minQuantity,
+    };
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -66,9 +259,15 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
       newErrors.email = '올바른 이메일 형식이 아닙니다';
     }
 
-    if (!formData.selectedSize) {
-      newErrors.selectedSize = '사이즈를 선택해주세요';
-    }
+    // Validate selected items (size + quantity)
+    formData.selectedItems.forEach((item, index) => {
+      if (!item.size) {
+        newErrors[`item-${index}-size`] = '사이즈를 선택해주세요';
+      }
+      if (item.quantity < 1) {
+        newErrors[`item-${index}-quantity`] = '수량은 1 이상이어야 합니다';
+      }
+    });
 
     // Validate custom fields
     customFields.forEach(field => {
@@ -89,6 +288,32 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
         newErrors[field.id] = '올바른 전화번호 형식이 아닙니다';
       }
     });
+
+    // Validate delivery method if delivery settings are enabled
+    if (deliverySettings?.enabled) {
+      if (!formData.deliveryMethod) {
+        newErrors.deliveryMethod = '수령 방법을 선택해주세요';
+      }
+
+      // Validate delivery address if delivery is selected
+      if (formData.deliveryMethod === 'delivery') {
+        if (!formData.deliveryInfo?.recipientName?.trim()) {
+          newErrors.recipientName = '수령인 이름을 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.phone?.trim()) {
+          newErrors.deliveryPhone = '연락처를 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.address?.trim()) {
+          newErrors.address = '주소를 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.addressDetail?.trim()) {
+          newErrors.addressDetail = '상세 주소를 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.postalCode?.trim()) {
+          newErrors.postalCode = '우편번호를 입력해주세요';
+        }
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -218,27 +443,340 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
         )}
       </div>
 
-      {/* Size selector (required) */}
+      {/* Size and Quantity selector (multi-item support) */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          사이즈 <span className="text-red-500">*</span>
+          사이즈 및 수량 <span className="text-red-500">*</span>
         </label>
-        <select
-          value={formData.selectedSize}
-          onChange={(e) => handleInputChange('selectedSize', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">사이즈를 선택해주세요</option>
-          {sizeOptions.map((size, idx) => (
-            <option key={idx} value={size}>
-              {size}
-            </option>
+        <p className="text-xs text-gray-500 mb-3">
+          여러 사이즈를 구매하려면 &apos;추가&apos; 버튼을 눌러주세요
+        </p>
+
+        <div className="space-y-3">
+          {formData.selectedItems.map((item, index) => (
+            <div key={index} className="flex items-start gap-2">
+              {/* Size dropdown */}
+              <div className="flex-1">
+                <select
+                  value={item.size}
+                  onChange={(e) => handleItemSizeChange(index, e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors[`item-${index}-size`] ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">사이즈 선택</option>
+                  {sizeOptions.map((size, idx) => (
+                    <option key={idx} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+                {errors[`item-${index}-size`] && (
+                  <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-size`]}</p>
+                )}
+              </div>
+
+              {/* Quantity controls */}
+              <div className="flex items-center border border-gray-300 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => handleItemQuantityChange(index, item.quantity - 1)}
+                  className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-l-lg transition-colors"
+                  disabled={item.quantity <= 1}
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="px-3 py-2 min-w-10 text-center font-medium">
+                  {item.quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleItemQuantityChange(index, item.quantity + 1)}
+                  className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-r-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Remove button (only show if more than 1 item) */}
+              {formData.selectedItems.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeItem(index)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           ))}
-        </select>
-        {errors.selectedSize && (
-          <p className="text-red-500 text-xs mt-1">{errors.selectedSize}</p>
+        </div>
+
+        {/* Add another size button */}
+        <button
+          type="button"
+          onClick={addItem}
+          className="mt-3 w-full py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          다른 사이즈 추가
+        </button>
+
+        {/* Total summary */}
+        {getTotalQuantity() > 0 && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">총 수량</span>
+              <span className="font-bold text-blue-600">{getTotalQuantity()}벌</span>
+            </div>
+            {(pricePerItem > 0 || pricingTiers.length > 0) && (
+              <>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">단가</span>
+                  <span className="font-medium text-blue-600">₩{getCurrentPricePerItem().toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">상품 금액</span>
+                  <span className="font-medium text-blue-600">₩{(getTotalQuantity() * getCurrentPricePerItem()).toLocaleString()}</span>
+                </div>
+                {formData.deliveryFee > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-700">배송비</span>
+                    <span className="font-medium text-blue-600">+₩{formData.deliveryFee.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-sm pt-1 border-t border-blue-200">
+                  <span className="text-gray-700 font-medium">예상 결제 금액</span>
+                  <span className="font-bold text-blue-600 text-lg">₩{getTotalPrice().toLocaleString()}</span>
+                </div>
+              </>
+            )}
+            {/* Next tier hint */}
+            {getNextTierInfo() && (
+              <div className="text-xs text-blue-700 bg-blue-100 rounded px-2 py-1.5 mt-2">
+                💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 ₩{getNextTierInfo()?.nextPrice?.toLocaleString()}으로 할인!
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pricing tiers display */}
+        {pricingTiers.length > 0 && (
+          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs font-medium text-gray-700 mb-2">수량별 단가 안내</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => {
+                const isActive = currentTotalQuantity + getTotalQuantity() >= tier.minQuantity;
+                return (
+                  <span
+                    key={idx}
+                    className={`px-2 py-1 rounded text-xs ${
+                      isActive
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white border border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
+                  </span>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              현재 총 주문량: {currentTotalQuantity}벌 → 내 주문 포함: {currentTotalQuantity + getTotalQuantity()}벌
+            </p>
+          </div>
         )}
       </div>
+
+      {/* Delivery Method Selection */}
+      {deliverySettings?.enabled && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Truck className="w-4 h-4 inline-block mr-1" />
+            수령 방법 <span className="text-red-500">*</span>
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Pickup Option */}
+            <button
+              type="button"
+              onClick={() => handleDeliveryMethodChange('pickup')}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                formData.deliveryMethod === 'pickup'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-5 h-5 text-gray-600" />
+                <span className="font-medium">직접 수령</span>
+              </div>
+              <p className="text-xs text-gray-500">무료</p>
+              {deliverySettings.pickupLocation && (
+                <p className="text-xs text-gray-600 mt-1">{deliverySettings.pickupLocation}</p>
+              )}
+            </button>
+
+            {/* Delivery Option */}
+            <button
+              type="button"
+              onClick={() => handleDeliveryMethodChange('delivery')}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                formData.deliveryMethod === 'delivery'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Truck className="w-5 h-5 text-gray-600" />
+                <span className="font-medium">배송</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {deliverySettings.deliveryFee > 0
+                  ? `+₩${deliverySettings.deliveryFee.toLocaleString()}`
+                  : '무료 배송'}
+              </p>
+            </button>
+          </div>
+
+          {errors.deliveryMethod && (
+            <p className="text-red-500 text-xs mt-1">{errors.deliveryMethod}</p>
+          )}
+
+          {/* Delivery Address Form */}
+          {formData.deliveryMethod === 'delivery' && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
+              {/* Load Daum Postcode Script */}
+              {!isPostcodeScriptLoaded && (
+                <Script
+                  src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+                  strategy="lazyOnload"
+                  onLoad={() => setIsPostcodeScriptLoaded(true)}
+                />
+              )}
+
+              <p className="text-sm font-medium text-gray-700 mb-2">배송 정보</p>
+
+              {/* Recipient Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  수령인 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.deliveryInfo?.recipientName || ''}
+                  onChange={(e) => handleDeliveryInfoChange('recipientName', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                    errors.recipientName ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="수령인 이름"
+                />
+                {errors.recipientName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.recipientName}</p>
+                )}
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  연락처 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={formData.deliveryInfo?.phone || ''}
+                  onChange={(e) => handleDeliveryInfoChange('phone', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                    errors.deliveryPhone ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="010-1234-5678"
+                />
+                {errors.deliveryPhone && (
+                  <p className="text-red-500 text-xs mt-1">{errors.deliveryPhone}</p>
+                )}
+              </div>
+
+              {/* Address Search */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  주소 <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.deliveryInfo?.postalCode || ''}
+                    readOnly
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                    placeholder="우편번호"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddressSearch}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center gap-1.5"
+                  >
+                    <Search className="w-4 h-4" />
+                    주소 검색
+                  </button>
+                </div>
+                {errors.postalCode && (
+                  <p className="text-red-500 text-xs mt-1">{errors.postalCode}</p>
+                )}
+              </div>
+
+              {/* Show address fields after search */}
+              {formData.deliveryInfo?.address && (
+                <>
+                  {/* Road Address (readonly) */}
+                  <input
+                    type="text"
+                    value={formData.deliveryInfo?.address || ''}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                    placeholder="도로명 주소"
+                  />
+
+                  {/* Address Detail */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      상세 주소 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.deliveryInfo?.addressDetail || ''}
+                      onChange={(e) => handleDeliveryInfoChange('addressDetail', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                        errors.addressDetail ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="아파트 동/호수, 건물명 등"
+                    />
+                    {errors.addressDetail && (
+                      <p className="text-red-500 text-xs mt-1">{errors.addressDetail}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {errors.address && !formData.deliveryInfo?.address && (
+                <p className="text-red-500 text-xs">{errors.address}</p>
+              )}
+
+              {/* Delivery Memo */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  배송 요청사항 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={formData.deliveryInfo?.memo || ''}
+                  onChange={(e) => handleDeliveryInfoChange('memo', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="예: 문 앞에 놓아주세요"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Custom fields */}
       {customFields.filter(f => !f.fixed).map(renderField)}

@@ -5,6 +5,7 @@ import {
   extractImageUrlsFromCanvasState,
   type TextSvgExports,
 } from '@/lib/server-svg-export';
+import { FontMetadata } from '@/lib/fontUtils';
 
 interface OrderData {
   id: string;
@@ -85,7 +86,9 @@ export async function POST(request: NextRequest) {
           color_selections,
           price_per_item,
           preview_url,
-          image_urls
+          image_urls,
+          text_svg_exports,
+          custom_fonts
         )
       `)
       .eq('id', sessionId)
@@ -124,6 +127,7 @@ export async function POST(request: NextRequest) {
       preview_url: string | null;
       image_urls: Record<string, unknown>;
       text_svg_exports?: TextSvgExports;
+      custom_fonts?: FontMetadata[];
     };
 
     if (!designSnapshot) {
@@ -222,6 +226,7 @@ export async function POST(request: NextRequest) {
         color_selections: designSnapshot.color_selections,
         thumbnail_url: designSnapshot.preview_url,
         image_urls: designSnapshot.image_urls,
+        custom_fonts: designSnapshot.custom_fonts || [], // Include custom fonts in order
         item_options: {
           variants: variants.map(v => ({
             size_id: v.size,
