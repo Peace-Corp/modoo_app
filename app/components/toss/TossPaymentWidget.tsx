@@ -1,7 +1,7 @@
 'use client'
 
 import { loadTossPayments, ANONYMOUS, TossPaymentsWidgets } from "@tosspayments/tosspayments-sdk"
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useId } from "react";
 
 const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 
@@ -52,6 +52,11 @@ export default function TossPaymentWidget({
   onError,
   onBeforePaymentRequest,
 }: TossPaymentWidgetProps) {
+  // Generate unique IDs for widget containers to prevent "only one widget" error on remount
+  const instanceId = useId();
+  const paymentMethodId = `payment-method-${instanceId.replace(/:/g, '')}`;
+  const agreementId = `agreement-${instanceId.replace(/:/g, '')}`;
+
   const [currentAmount, setCurrentAmount] = useState({
     currency: "KRW" as const,
     value: amount,
@@ -70,27 +75,37 @@ export default function TossPaymentWidget({
 
   // Initialize Toss Payments widgets
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchPaymentWidgets() {
       try {
         const tossPayments = await loadTossPayments(clientKey as string);
 
         // 회원 결제 또는 비회원 결제
-        const widgets = customerKey
+        const newWidgets = customerKey
           ? tossPayments.widgets({ customerKey })
           : tossPayments.widgets({ customerKey: ANONYMOUS });
 
-        setWidgets(widgets);
+        if (isMounted) {
+          setWidgets(newWidgets);
+        }
       } catch (error) {
         console.error("Error fetching payment widget:", error);
-        onError?.(error instanceof Error ? error : new Error("Failed to load payment widget"));
+        if (isMounted) {
+          onError?.(error instanceof Error ? error : new Error("Failed to load payment widget"));
+        }
       }
     }
 
     fetchPaymentWidgets();
+
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerKey]);
 
-  // Render payment widgets
+  // Render payment widgets (only once when widgets are ready)
   useEffect(() => {
     async function renderPaymentWidgets() {
       if (widgets == null) {
@@ -99,17 +114,20 @@ export default function TossPaymentWidget({
 
       try {
         // 주문서의 결제 금액 설정
-        await widgets.setAmount(currentAmount);
+        await widgets.setAmount({
+          currency: "KRW",
+          value: amount,
+        });
 
         await Promise.all([
           // 결제 UI 렌더링
           widgets.renderPaymentMethods({
-            selector: "#payment-method",
+            selector: `#${paymentMethodId}`,
             variantKey: "DEFAULT",
           }),
           // 이용약관 UI 렌더링
           widgets.renderAgreement({
-            selector: "#agreement",
+            selector: `#${agreementId}`,
             variantKey: "AGREEMENT",
           }),
         ]);
@@ -124,7 +142,18 @@ export default function TossPaymentWidget({
 
     renderPaymentWidgets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widgets, currentAmount]);
+  }, [widgets]);
+
+  // Update amount when it changes (without re-rendering widgets)
+  useEffect(() => {
+    if (widgets == null || !ready) {
+      return;
+    }
+
+    widgets.setAmount(currentAmount).catch((error) => {
+      console.error("Error updating amount:", error);
+    });
+  }, [widgets, ready, currentAmount]);
 
   // Handle coupon toggle
   const handleCouponChange = useCallback(async (checked: boolean) => {
@@ -170,10 +199,10 @@ export default function TossPaymentWidget({
   return (
     <div className="toss-payment-widget">
       {/* 결제 UI */}
-      <div id="payment-method" className="mb-4" />
+      <div id={paymentMethodId} className="mb-4" />
 
       {/* 이용약관 UI */}
-      <div id="agreement" className="mb-4" />
+      <div id={agreementId} className="mb-4" />
 
       {/* 쿠폰 체크박스 (선택사항) */}
       {enableCoupon && (
