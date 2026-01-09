@@ -219,7 +219,8 @@ export async function getCoBuySessionByToken(
             id,
             title,
             configuration,
-            size_options
+            size_options,
+            sizing_chart_image
           )
         )
       `)
