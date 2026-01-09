@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getCoBuySession, getParticipants } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySessionWithDetails } from '@/types/types';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
+import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 
@@ -173,12 +174,7 @@ export default function CoBuyCheckoutPage() {
 
   // Generate order ID and name
   const { orderId, orderName } = useMemo(() => {
-    const today = new Date;
-    const day = today.getDate();
-    const month = today.getMonth() + 1;
-    const year = today.getFullYear()
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const id = `COBUY-${year}${month}${day}-${randomStr}`;
+    const id = generateCoBuyOrderId();
     const name = `공동구매: ${session?.title || '주문'}`;
 
     return { orderId: id, orderName: name };

@@ -10,6 +10,7 @@ import {
 } from '@/lib/cartService';
 import TossPaymentWidget from '../components/toss/TossPaymentWidget';
 import { useAuthStore } from '@/store/useAuthStore';
+import { generateOrderId } from '@/lib/orderIdUtils';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -127,9 +128,7 @@ export default function CheckoutPage() {
 
   // Generate unique order ID and order name
   const { orderId, orderName } = useMemo(() => {
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 9);
-    const id = `ORDER-${timestamp}-${randomStr}`;
+    const id = generateOrderId();
 
     // Create order name from grouped items
     const firstItemName = groupedItems[0]?.designName || groupedItems[0]?.product_title || '주문 상품';

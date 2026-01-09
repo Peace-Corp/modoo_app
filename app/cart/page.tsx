@@ -15,6 +15,7 @@ import {
   type CartItemWithDesign
 } from '@/lib/cartService';
 import { SizeOption, DiscountTier } from '@/types/types';
+import { generateOrderId } from '@/lib/orderIdUtils';
 
 // Group items by saved design ID
 interface GroupedCartItem {
@@ -138,9 +139,7 @@ export default function CartPage() {
 
     try {
       // Generate order ID and name
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substring(2, 9);
-      const orderId = `ORDER-${timestamp}-${randomStr}`;
+      const orderId = generateOrderId();
 
       const firstItemName = groupedItems[0]?.designName || groupedItems[0]?.productTitle || '주문 상품';
       const orderName = groupedItems.length > 1

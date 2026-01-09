@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Info, Ruler, X } from 'lucide-react';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
 import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
+import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
 import ParticipantForm, { ParticipantFormData } from '@/app/components/cobuy/ParticipantForm';
 import CoBuyClosedScreen from '@/app/components/cobuy/CoBuyClosedScreen';
@@ -259,7 +260,7 @@ export default function CoBuySharePage() {
     const totalQuantity = data.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
     const applicablePrice = getApplicablePrice(totalQuantity);
     const paymentAmount = Math.round(applicablePrice * totalQuantity) + (data.deliveryFee || 0);
-    const generatedOrderId = `CB-${session.id.slice(0, 8)}-${participant.id.slice(0, 8)}-${Date.now()}`;
+    const generatedOrderId = generateCoBuyOrderId();
     fetch('/api/cobuy/notify/participant-joined', {
       method: 'POST',
       headers: {
