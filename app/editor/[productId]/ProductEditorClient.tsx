@@ -584,6 +584,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         canvasMap={canvasMap}
         sides={product.configuration}
         basePrice={product.base_price}
+        discountRates={product.discount_rates}
       />
 
       <SaveDesignModal

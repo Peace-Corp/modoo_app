@@ -68,12 +68,19 @@ export interface ProductColor {
   updated_at: string;
 }
 
+// Discount tier for quantity-based pricing
+export interface DiscountTier {
+  min_quantity: number;
+  discount_rate: number; // Percentage (e.g., 5 means 5%)
+}
+
 export interface Product {
   id: string;
   title: string;
   base_price: number;
   configuration: ProductSide[];
   size_options?: SizeOption[];
+  discount_rates?: DiscountTier[]; // Quantity-based discount tiers
   category: string | null;
   is_active: boolean;
   created_at: string;

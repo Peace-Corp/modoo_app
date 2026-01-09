@@ -11,7 +11,7 @@ import QuantitySelectorModal from '@/app/components/QuantitySelectorModal';
 import CreateCoBuyModal from '@/app/components/cobuy/CreateCoBuyModal';
 import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
-import { SizeOption, CartItem, ProductColor } from '@/types/types';
+import { SizeOption, CartItem, ProductColor, DiscountTier } from '@/types/types';
 import { ShoppingCart, Search, Users } from 'lucide-react';
 import Header from '@/app/components/Header';
 
@@ -64,6 +64,7 @@ export default function DesignsPage() {
   const [selectedDesign, setSelectedDesign] = useState<SavedDesign | null>(null);
   const [productSizeOptions, setProductSizeOptions] = useState<SizeOption[]>([]);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
+  const [productDiscountRates, setProductDiscountRates] = useState<DiscountTier[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // CoBuy modal state
@@ -189,6 +190,7 @@ export default function DesignsPage() {
       setSelectedDesign(design);
       setProductSizeOptions(product.size_options || []);
       setProductColors(Array.isArray(product.product_colors) ? product.product_colors : []);
+      setProductDiscountRates(product.discount_rates || []);
       setIsQuantitySelectorOpen(true);
     } catch (error) {
       console.error('Error fetching product details:', error);
@@ -462,6 +464,7 @@ export default function DesignsPage() {
         pricePerItem={selectedDesign?.price_per_item || 0}
         isSaving={isSaving}
         defaultDesignName={selectedDesign?.title || selectedDesign?.product.title || ''}
+        discountRates={productDiscountRates}
       />
 
       {/* CoBuy Creation Modal */}

@@ -14,7 +14,7 @@ import {
   clearCart as clearCartDB,
   type CartItemWithDesign
 } from '@/lib/cartService';
-import { SizeOption } from '@/types/types';
+import { SizeOption, DiscountTier } from '@/types/types';
 
 // Group items by saved design ID
 interface GroupedCartItem {
@@ -38,6 +38,7 @@ export default function CartPage() {
   const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
   const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
   const [productSizeOptions, setProductSizeOptions] = useState<Record<string, SizeOption[]>>({});
+  const [productDiscountRates, setProductDiscountRates] = useState<Record<string, DiscountTier[]>>({});
   const [isTestModeProcessing, setIsTestModeProcessing] = useState(false);
 
   // Check if test mode is enabled
@@ -53,6 +54,7 @@ export default function CartPage() {
       // Fetch product details for each unique product
       const uniqueProductIds = [...new Set(cartItems.map(item => item.product_id))];
       const productOptions: Record<string, SizeOption[]> = {};
+      const discountRates: Record<string, DiscountTier[]> = {};
 
       for (const productId of uniqueProductIds) {
         try {
@@ -60,12 +62,17 @@ export default function CartPage() {
           const supabase = createClient();
           const { data: product, error } = await supabase
             .from('products')
-            .select('size_options')
+            .select('size_options, discount_rates')
             .eq('id', productId)
             .single();
 
-          if (!error && product?.size_options) {
-            productOptions[productId] = product.size_options;
+          if (!error && product) {
+            if (product.size_options) {
+              productOptions[productId] = product.size_options;
+            }
+            if (product.discount_rates) {
+              discountRates[productId] = product.discount_rates;
+            }
           }
         } catch (err) {
           console.error(`Error fetching product ${productId}:`, err);
@@ -73,6 +80,7 @@ export default function CartPage() {
       }
 
       setProductSizeOptions(productOptions);
+      setProductDiscountRates(discountRates);
     } catch (error) {
       console.error('Error fetching cart items:', error);
     } finally {
@@ -570,6 +578,7 @@ export default function CartPage() {
           productColorName={quantityChangeGroup.items[0]?.product_color_name || ''}
           designName={quantityChangeGroup.designName || quantityChangeGroup.productTitle}
           isSaving={isUpdatingQuantity}
+          discountRates={productDiscountRates[quantityChangeGroup.items[0]?.product_id]}
         />
       )}
     </div>

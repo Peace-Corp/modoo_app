@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Plus, Minus, X } from 'lucide-react';
 import { CartItemWithDesign } from '@/lib/cartService';
-import { SizeOption } from '@/types/types';
+import { SizeOption, DiscountTier } from '@/types/types';
 
 interface QuantityChangeModalProps {
   isOpen: boolean;
@@ -14,6 +14,7 @@ interface QuantityChangeModalProps {
   productColorName: string;
   designName?: string;
   isSaving?: boolean;
+  discountRates?: DiscountTier[];
 }
 
 export default function QuantityChangeModal({
@@ -24,7 +25,8 @@ export default function QuantityChangeModal({
   sizeOptions,
   productColorName,
   designName,
-  isSaving = false
+  isSaving = false,
+  discountRates
 }: QuantityChangeModalProps) {
   // Initialize quantities from existing cart items (keyed by sizeId)
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
@@ -67,10 +69,27 @@ export default function QuantityChangeModal({
     return Object.values(quantities).reduce((sum, qty) => sum + qty, 0);
   };
 
-  const getTotalPrice = () => {
+  // Get the applicable discount rate based on quantity
+  const getApplicableDiscount = (quantity: number): DiscountTier | null => {
+    if (!discountRates || discountRates.length === 0) return null;
+
+    // Sort by min_quantity descending to find the highest applicable tier
+    const sortedRates = [...discountRates].sort((a, b) => b.min_quantity - a.min_quantity);
+    return sortedRates.find(tier => quantity >= tier.min_quantity) || null;
+  };
+
+  const currentDiscount = getApplicableDiscount(getTotalQuantity());
+  const discountRate = currentDiscount?.discount_rate || 0;
+  const discountMultiplier = 1 - (discountRate / 100);
+
+  const getOriginalTotalPrice = () => {
     // Use the first item's price_per_item as reference (all items in a design group have same price)
     const pricePerItem = items[0]?.price_per_item || 0;
     return getTotalQuantity() * pricePerItem;
+  };
+
+  const getTotalPrice = () => {
+    return getOriginalTotalPrice() * discountMultiplier;
   };
 
   const handleConfirm = async () => {
@@ -207,10 +226,51 @@ export default function QuantityChangeModal({
                 <span className="text-gray-600">총 수량</span>
                 <span className="font-medium">{getTotalQuantity()}개</span>
               </div>
+
+              {/* Discount Rate Display */}
+              {discountRate > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600">상품 금액</span>
+                    <span className="font-medium line-through text-gray-400">{Math.round(getOriginalTotalPrice()).toLocaleString('ko-KR')}원</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-red-600 font-medium">대량 주문 할인 ({discountRate}%)</span>
+                    <span className="font-medium text-red-600">-{Math.round(getOriginalTotalPrice() - getTotalPrice()).toLocaleString('ko-KR')}원</span>
+                  </div>
+                </>
+              )}
+
               <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                 <span className="font-bold">총 금액</span>
-                <span className="text-lg font-bold">{getTotalPrice().toLocaleString('ko-KR')}원</span>
+                <span className="text-lg font-bold">{Math.round(getTotalPrice()).toLocaleString('ko-KR')}원</span>
               </div>
+
+              {/* Discount Rate Tiers Info */}
+              {discountRates && discountRates.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex items-start gap-2 text-xs text-blue-700 bg-blue-50 p-2 rounded">
+                    <span className="shrink-0">🏷️</span>
+                    <div className="flex-1">
+                      <p className="font-semibold mb-1">대량 주문 할인 안내</p>
+                      {[...discountRates]
+                        .sort((a, b) => a.min_quantity - b.min_quantity)
+                        .map((tier, index) => {
+                          const isActive = currentDiscount?.min_quantity === tier.min_quantity;
+                          return (
+                            <p
+                              key={index}
+                              className={`${isActive ? 'text-blue-800 font-semibold' : 'text-blue-600'}`}
+                            >
+                              • {tier.min_quantity}개 이상: {tier.discount_rate}% 할인
+                              {isActive && ' ✓'}
+                            </p>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

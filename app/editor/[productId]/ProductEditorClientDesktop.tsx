@@ -508,6 +508,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         canvasMap={canvasMap}
         sides={product.configuration}
         basePrice={product.base_price}
+        discountRates={product.discount_rates}
       />
 
       <PurchaseOptionModal
