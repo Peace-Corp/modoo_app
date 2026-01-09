@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react';
-import { CoBuyCustomField, CoBuySelectedItem, CoBuyPricingTier } from '@/types/types';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import Script from 'next/script';
+import { CoBuyCustomField, CoBuySelectedItem, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
+import { Plus, Minus, Trash2, Truck, MapPin, Search } from 'lucide-react';
 
 interface ParticipantFormProps {
   customFields: CoBuyCustomField[];
@@ -12,6 +13,7 @@ interface ParticipantFormProps {
   pricePerItem?: number;
   pricingTiers?: CoBuyPricingTier[];
   currentTotalQuantity?: number; // Current total quantity in the session
+  deliverySettings?: CoBuyDeliverySettings | null; // Delivery configuration
 }
 
 export interface ParticipantFormData {
@@ -21,6 +23,9 @@ export interface ParticipantFormData {
   selectedSize: string; // Legacy - primary size for backward compatibility
   selectedItems: CoBuySelectedItem[]; // New - supports multiple sizes with quantities
   fieldResponses: Record<string, string>;
+  deliveryMethod: CoBuyDeliveryMethod | null;
+  deliveryInfo: CoBuyDeliveryInfo | null;
+  deliveryFee: number;
 }
 
 const ParticipantForm: React.FC<ParticipantFormProps> = ({
@@ -31,6 +36,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
   pricePerItem = 0,
   pricingTiers = [],
   currentTotalQuantity = 0,
+  deliverySettings = null,
 }) => {
   const [formData, setFormData] = useState<ParticipantFormData>({
     name: '',
@@ -38,10 +44,52 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
     phone: '',
     selectedSize: '',
     selectedItems: [{ size: '', quantity: 1 }], // Start with one item
-    fieldResponses: {}
+    fieldResponses: {},
+    deliveryMethod: deliverySettings?.enabled ? null : 'pickup', // Default to pickup if delivery not enabled
+    deliveryInfo: null,
+    deliveryFee: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
+
+  // Check if Daum Postcode script is already loaded
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
+      setIsPostcodeScriptLoaded(true);
+    }
+  }, []);
+
+  // Handle Daum Postcode API address search
+  const handleAddressSearch = () => {
+    if (!(window as any).daum?.Postcode) {
+      alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new (window as any).daum.Postcode({
+      oncomplete: function(data: any) {
+        setFormData(prev => ({
+          ...prev,
+          deliveryInfo: {
+            recipientName: prev.deliveryInfo?.recipientName || '',
+            phone: prev.deliveryInfo?.phone || '',
+            address: data.roadAddress || data.jibunAddress,
+            addressDetail: prev.deliveryInfo?.addressDetail || '',
+            postalCode: data.zonecode,
+            memo: prev.deliveryInfo?.memo || '',
+          },
+        }));
+        // Clear address-related errors
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.address;
+          delete newErrors.postalCode;
+          return newErrors;
+        });
+      }
+    }).open();
+  };
 
   const handleInputChange = (fieldId: string, value: string) => {
     if (fieldId === 'name' || fieldId === 'email' || fieldId === 'phone' || fieldId === 'selectedSize') {
@@ -102,6 +150,52 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
     });
   };
 
+  // Handle delivery method change
+  const handleDeliveryMethodChange = (method: CoBuyDeliveryMethod) => {
+    const fee = method === 'delivery' ? (deliverySettings?.deliveryFee || 0) : 0;
+    setFormData(prev => ({
+      ...prev,
+      deliveryMethod: method,
+      deliveryFee: fee,
+      deliveryInfo: method === 'pickup' ? null : prev.deliveryInfo,
+    }));
+    // Clear delivery-related errors
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.deliveryMethod;
+      if (method === 'pickup') {
+        delete newErrors.recipientName;
+        delete newErrors.deliveryPhone;
+        delete newErrors.address;
+        delete newErrors.addressDetail;
+        delete newErrors.postalCode;
+      }
+      return newErrors;
+    });
+  };
+
+  // Handle delivery info change
+  const handleDeliveryInfoChange = (field: keyof CoBuyDeliveryInfo, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      deliveryInfo: {
+        recipientName: prev.deliveryInfo?.recipientName || '',
+        phone: prev.deliveryInfo?.phone || '',
+        address: prev.deliveryInfo?.address || '',
+        addressDetail: prev.deliveryInfo?.addressDetail || '',
+        postalCode: prev.deliveryInfo?.postalCode || '',
+        memo: prev.deliveryInfo?.memo || '',
+        [field]: value,
+      },
+    }));
+    // Clear error for this field
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[field === 'phone' ? 'deliveryPhone' : field];
+      return newErrors;
+    });
+  };
+
   const getTotalQuantity = () => {
     return formData.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   };
@@ -127,7 +221,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
   };
 
   const getTotalPrice = () => {
-    return getTotalQuantity() * getCurrentPricePerItem();
+    return getTotalQuantity() * getCurrentPricePerItem() + formData.deliveryFee;
   };
 
   // Get the next tier info for displaying potential savings
@@ -194,6 +288,32 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
         newErrors[field.id] = '올바른 전화번호 형식이 아닙니다';
       }
     });
+
+    // Validate delivery method if delivery settings are enabled
+    if (deliverySettings?.enabled) {
+      if (!formData.deliveryMethod) {
+        newErrors.deliveryMethod = '수령 방법을 선택해주세요';
+      }
+
+      // Validate delivery address if delivery is selected
+      if (formData.deliveryMethod === 'delivery') {
+        if (!formData.deliveryInfo?.recipientName?.trim()) {
+          newErrors.recipientName = '수령인 이름을 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.phone?.trim()) {
+          newErrors.deliveryPhone = '연락처를 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.address?.trim()) {
+          newErrors.address = '주소를 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.addressDetail?.trim()) {
+          newErrors.addressDetail = '상세 주소를 입력해주세요';
+        }
+        if (!formData.deliveryInfo?.postalCode?.trim()) {
+          newErrors.postalCode = '우편번호를 입력해주세요';
+        }
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -415,6 +535,16 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                   <span className="text-gray-700">단가</span>
                   <span className="font-medium text-blue-600">₩{getCurrentPricePerItem().toLocaleString()}</span>
                 </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">상품 금액</span>
+                  <span className="font-medium text-blue-600">₩{(getTotalQuantity() * getCurrentPricePerItem()).toLocaleString()}</span>
+                </div>
+                {formData.deliveryFee > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-700">배송비</span>
+                    <span className="font-medium text-blue-600">+₩{formData.deliveryFee.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-sm pt-1 border-t border-blue-200">
                   <span className="text-gray-700 font-medium">예상 결제 금액</span>
                   <span className="font-bold text-blue-600 text-lg">₩{getTotalPrice().toLocaleString()}</span>
@@ -457,6 +587,196 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
           </div>
         )}
       </div>
+
+      {/* Delivery Method Selection */}
+      {deliverySettings?.enabled && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Truck className="w-4 h-4 inline-block mr-1" />
+            수령 방법 <span className="text-red-500">*</span>
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Pickup Option */}
+            <button
+              type="button"
+              onClick={() => handleDeliveryMethodChange('pickup')}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                formData.deliveryMethod === 'pickup'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-5 h-5 text-gray-600" />
+                <span className="font-medium">직접 수령</span>
+              </div>
+              <p className="text-xs text-gray-500">무료</p>
+              {deliverySettings.pickupLocation && (
+                <p className="text-xs text-gray-600 mt-1">{deliverySettings.pickupLocation}</p>
+              )}
+            </button>
+
+            {/* Delivery Option */}
+            <button
+              type="button"
+              onClick={() => handleDeliveryMethodChange('delivery')}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                formData.deliveryMethod === 'delivery'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Truck className="w-5 h-5 text-gray-600" />
+                <span className="font-medium">배송</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {deliverySettings.deliveryFee > 0
+                  ? `+₩${deliverySettings.deliveryFee.toLocaleString()}`
+                  : '무료 배송'}
+              </p>
+            </button>
+          </div>
+
+          {errors.deliveryMethod && (
+            <p className="text-red-500 text-xs mt-1">{errors.deliveryMethod}</p>
+          )}
+
+          {/* Delivery Address Form */}
+          {formData.deliveryMethod === 'delivery' && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
+              {/* Load Daum Postcode Script */}
+              {!isPostcodeScriptLoaded && (
+                <Script
+                  src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+                  strategy="lazyOnload"
+                  onLoad={() => setIsPostcodeScriptLoaded(true)}
+                />
+              )}
+
+              <p className="text-sm font-medium text-gray-700 mb-2">배송 정보</p>
+
+              {/* Recipient Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  수령인 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.deliveryInfo?.recipientName || ''}
+                  onChange={(e) => handleDeliveryInfoChange('recipientName', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                    errors.recipientName ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="수령인 이름"
+                />
+                {errors.recipientName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.recipientName}</p>
+                )}
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  연락처 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={formData.deliveryInfo?.phone || ''}
+                  onChange={(e) => handleDeliveryInfoChange('phone', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                    errors.deliveryPhone ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="010-1234-5678"
+                />
+                {errors.deliveryPhone && (
+                  <p className="text-red-500 text-xs mt-1">{errors.deliveryPhone}</p>
+                )}
+              </div>
+
+              {/* Address Search */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  주소 <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.deliveryInfo?.postalCode || ''}
+                    readOnly
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                    placeholder="우편번호"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddressSearch}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center gap-1.5"
+                  >
+                    <Search className="w-4 h-4" />
+                    주소 검색
+                  </button>
+                </div>
+                {errors.postalCode && (
+                  <p className="text-red-500 text-xs mt-1">{errors.postalCode}</p>
+                )}
+              </div>
+
+              {/* Show address fields after search */}
+              {formData.deliveryInfo?.address && (
+                <>
+                  {/* Road Address (readonly) */}
+                  <input
+                    type="text"
+                    value={formData.deliveryInfo?.address || ''}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                    placeholder="도로명 주소"
+                  />
+
+                  {/* Address Detail */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      상세 주소 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.deliveryInfo?.addressDetail || ''}
+                      onChange={(e) => handleDeliveryInfoChange('addressDetail', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                        errors.addressDetail ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="아파트 동/호수, 건물명 등"
+                    />
+                    {errors.addressDetail && (
+                      <p className="text-red-500 text-xs mt-1">{errors.addressDetail}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {errors.address && !formData.deliveryInfo?.address && (
+                <p className="text-red-500 text-xs">{errors.address}</p>
+              )}
+
+              {/* Delivery Memo */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  배송 요청사항 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={formData.deliveryInfo?.memo || ''}
+                  onChange={(e) => handleDeliveryInfoChange('memo', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="예: 문 앞에 놓아주세요"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Custom fields */}
       {customFields.filter(f => !f.fixed).map(renderField)}

@@ -2,8 +2,30 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
+import { CheckCircle, Truck, MapPin, Package, User, Mail, Phone, Store } from 'lucide-react';
+import { CoBuySelectedItem } from '@/types/types';
 
 type ConfirmStatus = 'loading' | 'success' | 'error';
+
+interface ParticipantInfo {
+  name: string;
+  email: string;
+  phone: string | null;
+  selected_items: CoBuySelectedItem[];
+  total_quantity: number;
+  delivery_method: 'pickup' | 'delivery' | null;
+  delivery_info: {
+    recipientName: string;
+    phone: string;
+    address: string;
+    addressDetail: string;
+    postalCode: string;
+    memo?: string;
+  } | null;
+  delivery_fee: number;
+  payment_amount: number | null;
+  paid_at: string | null;
+}
 
 function getErrorDetails(error: unknown): { message: string; code?: string } {
   if (error instanceof Error) {
@@ -47,6 +69,7 @@ function CoBuyPaymentSuccessContent() {
   const shareToken = Array.isArray(rawShareToken) ? rawShareToken[0] : (rawShareToken as string);
   const [status, setStatus] = useState<ConfirmStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [participant, setParticipant] = useState<ParticipantInfo | null>(null);
 
   useEffect(() => {
     const confirmPayment = async () => {
@@ -144,6 +167,13 @@ function CoBuyPaymentSuccessContent() {
         }
 
         sessionStorage.removeItem('pendingCoBuyPayment');
+
+        // Extract participant data from response
+        const participantData = (json as { participant?: ParticipantInfo })?.participant;
+        if (participantData) {
+          setParticipant(participantData);
+        }
+
         setStatus('success');
       } catch (error) {
         const { message, code } = getErrorDetails(error);
@@ -184,17 +214,181 @@ function CoBuyPaymentSuccessContent() {
     );
   }
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm p-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-3">결제가 완료되었습니다</h1>
-        <p className="text-gray-600 mb-6">
-          공동구매 참여가 정상적으로 접수되었습니다. 함께해주셔서 감사합니다.
-        </p>
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-lg mx-auto">
+        {/* Success Header */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 text-center mb-4">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">결제가 완료되었습니다</h1>
+          <p className="text-gray-600">
+            공동구매 참여가 정상적으로 접수되었습니다.
+          </p>
+        </div>
+
+        {participant && (
+          <>
+            {/* Order Info */}
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                주문 정보
+              </h2>
+
+              {/* Selected Items */}
+              <div className="space-y-2 mb-4">
+                {participant.selected_items && participant.selected_items.length > 0 ? (
+                  participant.selected_items.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                      <span className="text-gray-700">{item.size}</span>
+                      <span className="text-gray-900 font-medium">{item.quantity}개</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-gray-500">주문 항목 정보 없음</div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                <span className="text-gray-700">총 수량</span>
+                <span className="text-gray-900 font-semibold">{participant.total_quantity}개</span>
+              </div>
+            </div>
+
+            {/* Delivery Info */}
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                {participant.delivery_method === 'delivery' ? (
+                  <Truck className="w-5 h-5" />
+                ) : (
+                  <Store className="w-5 h-5" />
+                )}
+                {participant.delivery_method === 'delivery' ? '배송 정보' : '수령 방법'}
+              </h2>
+
+              {participant.delivery_method === 'pickup' && (
+                <div className="text-gray-700">
+                  <p className="font-medium">직접 수령</p>
+                  <p className="text-sm text-gray-500 mt-1">주최자에게 직접 수령합니다.</p>
+                </div>
+              )}
+
+              {participant.delivery_method === 'delivery' && participant.delivery_info && (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <User className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">받는 분</p>
+                      <p className="text-gray-900">{participant.delivery_info.recipientName}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <Phone className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">연락처</p>
+                      <p className="text-gray-900">{participant.delivery_info.phone}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">배송지</p>
+                      <p className="text-gray-900">
+                        ({participant.delivery_info.postalCode}) {participant.delivery_info.address}
+                        {participant.delivery_info.addressDetail && `, ${participant.delivery_info.addressDetail}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {participant.delivery_info.memo && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-4 h-4" />
+                      <div>
+                        <p className="text-sm text-gray-500">배송 메모</p>
+                        <p className="text-gray-900">{participant.delivery_info.memo}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Payment Info */}
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">결제 정보</h2>
+
+              <div className="space-y-2">
+                {participant.delivery_method === 'delivery' && participant.delivery_fee > 0 && (
+                  <div className="flex justify-between items-center text-gray-600">
+                    <span>배송비</span>
+                    <span>{formatCurrency(participant.delivery_fee)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <span className="text-gray-900 font-medium">총 결제 금액</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    {participant.payment_amount ? formatCurrency(participant.payment_amount) : '-'}
+                  </span>
+                </div>
+
+                {participant.paid_at && (
+                  <div className="text-right text-sm text-gray-500">
+                    {formatDate(participant.paid_at)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">참여자 정보</h2>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{participant.name}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{participant.email}</span>
+                </div>
+
+                {participant.phone && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-900">{participant.phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Action Button */}
         <button
           type="button"
           onClick={() => router.push(`/cobuy/${shareToken}`)}
-          className="w-full py-3 rounded-lg bg-black text-white font-medium hover:bg-gray-800 transition"
+          className="w-full py-4 rounded-xl bg-black text-white font-medium hover:bg-gray-800 transition"
         >
           공동구매 페이지로 돌아가기
         </button>

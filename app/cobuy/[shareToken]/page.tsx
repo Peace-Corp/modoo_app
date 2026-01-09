@@ -187,6 +187,10 @@ export default function CoBuySharePage() {
     return session?.pricing_tiers || [];
   }, [session]);
 
+  const deliverySettings = useMemo(() => {
+    return session?.delivery_settings || null;
+  }, [session]);
+
   // Calculate applicable price based on quantity and pricing tiers
   const getApplicablePrice = (quantity: number) => {
     const currentTotal = session?.current_total_quantity || 0;
@@ -240,6 +244,9 @@ export default function CoBuySharePage() {
       fieldResponses: data.fieldResponses,
       selectedSize: data.selectedSize,
       selectedItems: data.selectedItems,
+      deliveryMethod: data.deliveryMethod,
+      deliveryInfo: data.deliveryInfo,
+      deliveryFee: data.deliveryFee,
     });
 
     if (!participant) {
@@ -250,7 +257,7 @@ export default function CoBuySharePage() {
 
     const totalQuantity = data.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
     const applicablePrice = getApplicablePrice(totalQuantity);
-    const paymentAmount = Math.round(applicablePrice * totalQuantity);
+    const paymentAmount = Math.round(applicablePrice * totalQuantity) + (data.deliveryFee || 0);
     const generatedOrderId = `CB-${session.id.slice(0, 8)}-${participant.id.slice(0, 8)}-${Date.now()}`;
     fetch('/api/cobuy/notify/participant-joined', {
       method: 'POST',
@@ -419,12 +426,16 @@ export default function CoBuySharePage() {
                 {participantInfo && participantId && orderId && (() => {
                   const totalQty = participantInfo.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
                   const unitPrice = getApplicablePrice(totalQty);
-                  const totalAmount = Math.round(unitPrice * totalQty);
+                  const deliveryFee = participantInfo.deliveryFee || 0;
+                  const totalAmount = Math.round(unitPrice * totalQty) + deliveryFee;
+                  const orderName = deliveryFee > 0
+                    ? `${session.title} 공동구매 (${totalQty}벌, 배송)`
+                    : `${session.title} 공동구매 (${totalQty}벌)`;
                   return (
                     <TossPaymentWidget
                       amount={totalAmount}
                       orderId={orderId}
-                      orderName={`${session.title} 공동구매 (${totalQty}벌)`}
+                      orderName={orderName}
                       customerEmail={participantInfo.email}
                       customerName={participantInfo.name}
                       customerMobilePhone={participantInfo.phone}
@@ -475,6 +486,7 @@ export default function CoBuySharePage() {
                   pricePerItem={design.price_per_item}
                   pricingTiers={pricingTiers}
                   currentTotalQuantity={session.current_total_quantity || 0}
+                  deliverySettings={deliverySettings}
                 />
                 {submitError && (
                   <p className="text-red-500 text-sm mt-3">{submitError}</p>

@@ -607,7 +607,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         isOpen={isLoginPromptOpen}
         onClose={() => setIsLoginPromptOpen(false)}
         title="로그인이 필요합니다"
-        message="구매를 진행하려면 로그인이 필요합니다. 디자인을 임시 저장해두었습니다."
+        message="구매를 진행하려면 로그인이 필요합니다.\n 디자인을 임시 저장해두었습니다."
       />
 
       <GuestDesignRecallModal

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2 } from 'lucide-react';
-import { CoBuyCustomField, SizeOption, CoBuyPricingTier } from '@/types/types';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin } from 'lucide-react';
+import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
 import type { CoBuySession } from '@/types/types';
@@ -54,6 +54,11 @@ export default function CreateCoBuyModal({
   const [maxQuantity, setMaxQuantity] = useState<number | ''>('');
   const [pricingTiers, setPricingTiers] = useState<CoBuyPricingTier[]>(DEFAULT_PRICING_TIERS);
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
+  const [deliverySettings, setDeliverySettings] = useState<CoBuyDeliverySettings>({
+    enabled: false,
+    deliveryFee: 3000,
+    pickupLocation: '',
+  });
 
   // Pricing tier handlers
   const addPricingTier = () => {
@@ -89,6 +94,7 @@ export default function CreateCoBuyModal({
         setMaxQuantity('');
         setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
+        setDeliverySettings({ enabled: false, deliveryFee: 3000, pickupLocation: '' });
         setCreatedSession(null);
       }, 300); // Wait for modal close animation
     }
@@ -178,6 +184,7 @@ export default function CreateCoBuyModal({
         maxQuantity: maxQuantity === '' ? null : Number(maxQuantity),
         pricingTiers,
         customFields,
+        deliverySettings: deliverySettings.enabled ? deliverySettings : null,
       });
 
       if (!result) {
@@ -223,7 +230,7 @@ export default function CreateCoBuyModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4 pb-25">
       <div className="bg-white rounded-md max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
@@ -448,6 +455,82 @@ export default function CreateCoBuyModal({
                 </div>
               </div>
 
+              {/* Delivery Settings */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Truck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">배송 옵션 설정</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      참여자가 직접 수령 또는 배송 중 선택할 수 있도록 설정합니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-4">
+                  {/* Enable delivery toggle */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={deliverySettings.enabled}
+                      onChange={(e) => setDeliverySettings(prev => ({ ...prev, enabled: e.target.checked }))}
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900">배송 옵션 활성화</span>
+                  </label>
+
+                  {deliverySettings.enabled && (
+                    <div className="space-y-4 pl-8 border-l-2 border-blue-100">
+                      {/* Delivery fee */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          배송비
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">₩</span>
+                          <input
+                            type="number"
+                            value={deliverySettings.deliveryFee}
+                            onChange={(e) => setDeliverySettings(prev => ({
+                              ...prev,
+                              deliveryFee: Math.max(0, parseInt(e.target.value) || 0)
+                            }))}
+                            className="w-32 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+                            min="0"
+                            step="500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          0원으로 설정하면 무료 배송입니다
+                        </p>
+                      </div>
+
+                      {/* Pickup location */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          <MapPin className="w-4 h-4 inline-block mr-1" />
+                          직접 수령 장소 (선택)
+                        </label>
+                        <input
+                          type="text"
+                          value={deliverySettings.pickupLocation || ''}
+                          onChange={(e) => setDeliverySettings(prev => ({
+                            ...prev,
+                            pickupLocation: e.target.value
+                          }))}
+                          placeholder="예: 학교 정문 앞, 회사 1층 로비"
+                          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          maxLength={100}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          직접 수령을 선택한 참여자에게 안내됩니다
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Pricing Strategy Tips */}
               <div className="bg-gray-50 rounded-lg p-4 text-sm">
                 <p className="font-medium text-gray-900 mb-2">💡 가격 설정 팁</p>
@@ -650,6 +733,26 @@ export default function CreateCoBuyModal({
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">배송 옵션</p>
+                  {deliverySettings.enabled ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-green-600">✓ 배송 옵션 활성화</p>
+                      <p className="text-sm text-gray-600">
+                        배송비: ₩{deliverySettings.deliveryFee.toLocaleString()}
+                        {deliverySettings.deliveryFee === 0 && ' (무료)'}
+                      </p>
+                      {deliverySettings.pickupLocation && (
+                        <p className="text-sm text-gray-600">
+                          직접 수령 장소: {deliverySettings.pickupLocation}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">직접 수령만 가능</p>
+                  )}
                 </div>
               </div>
 

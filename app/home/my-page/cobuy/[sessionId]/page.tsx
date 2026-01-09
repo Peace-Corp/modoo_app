@@ -12,7 +12,7 @@ import {
   requestCancellation
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin } from 'lucide-react';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   open: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -230,6 +230,75 @@ export default function CoBuyDetailPage() {
             <span>{responses[field.id]}</span>
           </div>
         ))}
+      </div>
+    );
+  };
+
+  // Helper to render delivery info
+  const renderDeliveryInfo = (participant: CoBuyParticipant, variant: 'mobile' | 'desktop' = 'desktop') => {
+    if (!participant.delivery_method) return null;
+
+    const isDelivery = participant.delivery_method === 'delivery';
+    const deliveryInfo = participant.delivery_info;
+
+    if (variant === 'mobile') {
+      return (
+        <div className="space-y-1.5 pt-2 mt-2 border-t border-gray-100">
+          <div className="flex items-center gap-2 text-sm">
+            {isDelivery ? (
+              <Truck className="w-4 h-4 text-blue-600" />
+            ) : (
+              <MapPin className="w-4 h-4 text-green-600" />
+            )}
+            <span className="font-medium">
+              {isDelivery ? '배송' : '직접 수령'}
+            </span>
+            {participant.delivery_fee > 0 && (
+              <span className="text-xs text-gray-500">
+                (+₩{participant.delivery_fee.toLocaleString()})
+              </span>
+            )}
+          </div>
+          {isDelivery && deliveryInfo && (
+            <div className="pl-6 text-sm text-gray-600 space-y-0.5">
+              <p>{deliveryInfo.recipientName} / {deliveryInfo.phone}</p>
+              <p>({deliveryInfo.postalCode}) {deliveryInfo.address}</p>
+              <p>{deliveryInfo.addressDetail}</p>
+              {deliveryInfo.memo && (
+                <p className="text-xs text-gray-500">요청: {deliveryInfo.memo}</p>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Desktop variant
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5">
+          {isDelivery ? (
+            <Truck className="w-3.5 h-3.5 text-blue-600" />
+          ) : (
+            <MapPin className="w-3.5 h-3.5 text-green-600" />
+          )}
+          <span className="text-xs font-medium">
+            {isDelivery ? '배송' : '직접 수령'}
+          </span>
+          {participant.delivery_fee > 0 && (
+            <span className="text-xs text-gray-500">
+              (+₩{participant.delivery_fee.toLocaleString()})
+            </span>
+          )}
+        </div>
+        {isDelivery && deliveryInfo && (
+          <div className="text-xs text-gray-500 space-y-0.5">
+            <p>{deliveryInfo.recipientName} / {deliveryInfo.phone}</p>
+            <p className="truncate max-w-48" title={`${deliveryInfo.address} ${deliveryInfo.addressDetail}`}>
+              {deliveryInfo.address}
+            </p>
+          </div>
+        )}
       </div>
     );
   };
@@ -586,6 +655,9 @@ export default function CoBuyDetailPage() {
                             </div>
                           </div>
 
+                          {/* Delivery info */}
+                          {renderDeliveryInfo(participant, 'mobile')}
+
                           {/* Custom field responses */}
                           {renderFieldResponses(participant, 'mobile')}
                         </div>
@@ -602,6 +674,7 @@ export default function CoBuyDetailPage() {
                     <tr className="text-left text-gray-500 border-b">
                       <th className="py-2 pr-4 font-medium">참여자 정보</th>
                       <th className="py-2 pr-4 font-medium">주문 내역</th>
+                      <th className="py-2 pr-4 font-medium">수령 방법</th>
                       <th className="py-2 pr-4 font-medium">추가 정보</th>
                       <th className="py-2 pr-4 font-medium">결제 상태</th>
                       <th className="py-2 pr-4 font-medium">결제 금액</th>
@@ -622,6 +695,11 @@ export default function CoBuyDetailPage() {
                           </td>
                           <td className="py-3 pr-4 text-gray-600">
                             {renderSelectedItems(participant)}
+                          </td>
+                          <td className="py-3 pr-4 text-gray-600">
+                            {renderDeliveryInfo(participant, 'desktop') || (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
                           </td>
                           <td className="py-3 pr-4 text-gray-600">
                             {renderFieldResponses(participant, 'desktop') || (

@@ -1,5 +1,5 @@
 import { createClient } from './supabase-client';
-import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem } from '@/types/types';
+import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
 
 // ============================================================================
 // Type Definitions for Service Parameters
@@ -16,6 +16,7 @@ export interface CreateCoBuySessionData {
   maxParticipants?: number | null; // Legacy - max number of participants
   pricingTiers?: CoBuyPricingTier[]; // Quantity-based pricing
   customFields: CoBuyCustomField[];
+  deliverySettings?: CoBuyDeliverySettings | null; // Delivery configuration
 }
 
 export interface UpdateCoBuySessionData {
@@ -36,6 +37,9 @@ export interface AddParticipantData {
   fieldResponses: Record<string, string>;
   selectedSize: string; // Legacy - kept for backward compatibility
   selectedItems: CoBuySelectedItem[]; // New - supports multiple sizes with quantities
+  deliveryMethod?: CoBuyDeliveryMethod | null; // 'pickup' or 'delivery'
+  deliveryInfo?: CoBuyDeliveryInfo | null; // Address info if delivery method is 'delivery'
+  deliveryFee?: number; // Fee for delivery (0 for pickup)
 }
 
 // ============================================================================
@@ -107,6 +111,7 @@ export async function createCoBuySession(
       max_participants: data.maxParticipants ?? null,
       pricing_tiers: data.pricingTiers || [],
       custom_fields: data.customFields,
+      delivery_settings: data.deliverySettings ?? null,
       status: 'open' as const,
       current_participant_count: 0,
       current_total_quantity: 0,
@@ -399,6 +404,9 @@ export async function addParticipant(
       selected_size: data.selectedSize, // Legacy field
       selected_items: data.selectedItems,
       total_quantity: totalQuantity,
+      delivery_method: data.deliveryMethod || null,
+      delivery_info: data.deliveryInfo || null,
+      delivery_fee: data.deliveryFee || 0,
       payment_status: 'pending' as const,
     };
 
@@ -427,6 +435,9 @@ export async function addParticipant(
       selected_size: participantData.selected_size,
       selected_items: participantData.selected_items,
       total_quantity: participantData.total_quantity,
+      delivery_method: participantData.delivery_method,
+      delivery_info: participantData.delivery_info,
+      delivery_fee: participantData.delivery_fee,
       payment_status: participantData.payment_status,
       payment_key: null,
       payment_amount: null,

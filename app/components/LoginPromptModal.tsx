@@ -48,7 +48,7 @@ export default function LoginPromptModal({
       >
         <div className="max-w-md w-full text-center">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">{title}</h3>
-          <p className="text-base text-gray-600 mb-8">
+          <p className=" text-gray-600 mb-8 whitespace-pre-line w-65 mx-auto">
             {message}
           </p>
           <div className="flex flex-col gap-3">
