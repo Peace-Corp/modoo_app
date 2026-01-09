@@ -151,6 +151,10 @@ export default function CreateCoBuyModal({
         alert('종료일은 시작일보다 나중이어야 합니다.');
         return;
       }
+      if (!receiveByDate) {
+        alert('수령 예정일을 선택해주세요.');
+        return;
+      }
       if (!deliverySettings.pickupLocation?.trim()) {
         alert('직접 수령 장소를 입력해주세요.');
         return;
@@ -364,7 +368,7 @@ export default function CreateCoBuyModal({
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  수령 예정일 (선택)
+                  수령 예정일 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -702,14 +706,12 @@ export default function CreateCoBuyModal({
                   </div>
                 </div>
 
-                {receiveByDate && (
-                  <div>
-                    <p className="text-sm text-gray-500">수령 예정일</p>
-                    <p className="text-sm font-medium">
-                      {new Date(receiveByDate).toLocaleString('ko-KR')}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm text-gray-500">수령 예정일</p>
+                  <p className="text-sm font-medium">
+                    {new Date(receiveByDate).toLocaleString('ko-KR')}
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
