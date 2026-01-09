@@ -385,12 +385,12 @@ export default function CheckoutPage() {
             <input
               type="tel"
               value={customerInfo.phone}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value.replace(/[^0-9]/g, '') })}
               disabled={isAuthenticated && useProfileInfo}
               className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
                 isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
               }`}
-              placeholder="010-1234-5678"
+              placeholder="01012345678"
             />
           </div>
         </div>
