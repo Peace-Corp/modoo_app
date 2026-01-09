@@ -4,12 +4,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase-client';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination } from 'swiper/modules';
+import Image from 'next/image';
+
+import 'swiper/css';
+import 'swiper/css/pagination';
 
 interface AnnouncementDetail {
   id: string;
   title: string;
   content: string;
   created_at: string;
+  image_links?: string[];
 }
 
 export default function NoticeDetailPage() {
@@ -32,7 +39,7 @@ export default function NoticeDetailPage() {
         const supabase = createClient();
         const { data, error: fetchError } = await supabase
           .from('announcements')
-          .select('id, title, content, created_at')
+          .select('id, title, content, created_at, image_links')
           .eq('id', noticeId)
           .eq('is_published', true)
           .maybeSingle();
@@ -87,11 +94,47 @@ export default function NoticeDetailPage() {
             </button>
           </div>
         ) : !notice ? null : (
-          <article className="bg-white rounded-xl shadow-sm p-5">
+          <article className="bg-white shadow-sm p-5">
             <h2 className="text-xl font-bold text-gray-900 mb-2">{notice.title}</h2>
             <div className="text-xs text-gray-400 mb-4">
               {new Date(notice.created_at).toLocaleDateString('ko-KR')}
             </div>
+
+            {/* Image Swiper */}
+            {notice.image_links && notice.image_links.length > 0 && (
+              <div className="mb-6">
+                <Swiper
+                  modules={[Pagination]}
+                  pagination={{ clickable: true }}
+                  spaceBetween={0}
+                  slidesPerView={1}
+                  className="rounded-lg overflow-hidden notice-swiper"
+                >
+                  {notice.image_links.map((imageUrl, index) => (
+                    <SwiperSlide key={index}>
+                      <div className="relative w-full aspect-video bg-gray-100">
+                        <Image
+                          src={imageUrl}
+                          alt={`${notice.title} - 이미지 ${index + 1}`}
+                          fill
+                          className="object-contain"
+                          sizes="(max-width: 768px) 100vw, 768px"
+                        />
+                      </div>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+                <style jsx global>{`
+                  .notice-swiper .swiper-pagination-bullet {
+                    background: #9ca3af;
+                  }
+                  .notice-swiper .swiper-pagination-bullet-active {
+                    background: #000;
+                  }
+                `}</style>
+              </div>
+            )}
+
             <div className="text-sm text-gray-700 whitespace-pre-line">{notice.content}</div>
           </article>
         )}

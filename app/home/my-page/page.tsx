@@ -52,7 +52,7 @@ export default function MyPage() {
           // Fetch user profile with role
           const { data: profile } = await supabase
             .from('profiles')
-            .select('role, email, phone_number')
+            .select('name, role, email, phone_number')
             .eq('id', supabaseUser.id)
             .single();
 
