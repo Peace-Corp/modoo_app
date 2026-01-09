@@ -131,15 +131,15 @@ export default function ProductSelectionModal({
         </div>
 
         {/* Products List */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="h-[300px] overflow-y-auto p-4">
           {isLoading ? (
-            <div className="text-center py-8 text-gray-500">로딩 중...</div>
+            <div className="flex items-center justify-center h-full text-gray-500">로딩 중...</div>
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="flex items-center justify-center h-full text-gray-500">
               {searchQuery ? '검색 결과가 없습니다.' : '제품이 없습니다.'}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-wrap gap-2">
               {filteredProducts.map((product) => {
                 const isSelected = selectedProducts.some(p => p.id === product.id);
                 return (
@@ -147,32 +147,15 @@ export default function ProductSelectionModal({
                     key={product.id}
                     onClick={() => toggleProductSelection(product)}
                     className={`
-                      relative cursor-pointer rounded-lg border-2 p-3 transition
+                      flex items-center gap-2 cursor-pointer rounded-full border-2 px-2 py-1 transition
                       ${isSelected
-                        ? 'border-black bg-gray-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-black bg-gray-100'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
                       }
                     `}
                   >
-                    {/* Checkbox */}
-                    <div className="absolute top-3 right-3 z-10">
-                      <div className={`
-                        w-5 h-5 rounded border-2 flex items-center justify-center
-                        ${isSelected
-                          ? 'bg-black border-black'
-                          : 'bg-white border-gray-300'
-                        }
-                      `}>
-                        {isSelected && (
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-
                     {/* Product Image */}
-                    <div className="aspect-square bg-gray-100 rounded-lg mb-3 overflow-hidden relative">
+                    <div className="w-8 h-8 bg-gray-100 rounded-full overflow-hidden relative flex-shrink-0">
                       <Image
                         src={getProductImageUrl(product)}
                         alt={product.title}
@@ -181,20 +164,19 @@ export default function ProductSelectionModal({
                       />
                     </div>
 
-                    {/* Product Info */}
-                    <div>
-                      <h3 className="font-medium text-sm line-clamp-2 mb-1">
-                        {product.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        ₩{product.base_price.toLocaleString()}
-                      </p>
-                      {product.category && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {product.category}
-                        </p>
-                      )}
-                    </div>
+                    {/* Product Name */}
+                    <span className="text-sm font-medium max-w-[150px] truncate">
+                      {product.title}
+                    </span>
+
+                    {/* Checkbox */}
+                    {isSelected && (
+                      <div className="w-4 h-4 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 );
               })}
