@@ -364,6 +364,7 @@ export interface CoBuySession {
   share_token: string;
   start_date: string;
   end_date: string;
+  receive_by_date: string | null; // Date when items need to be received by (can be after end_date)
   min_quantity: number | null; // Minimum total quantity to proceed
   max_quantity: number | null; // Maximum total quantity (optional cap)
   max_participants: number | null; // Max number of participants (legacy, optional)

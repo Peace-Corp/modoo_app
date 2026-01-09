@@ -50,6 +50,7 @@ export default function CreateCoBuyModal({
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [receiveByDate, setReceiveByDate] = useState('');
   const [minQuantity, setMinQuantity] = useState<number | ''>('');
   const [maxQuantity, setMaxQuantity] = useState<number | ''>('');
   const [pricingTiers, setPricingTiers] = useState<CoBuyPricingTier[]>(DEFAULT_PRICING_TIERS);
@@ -90,6 +91,7 @@ export default function CreateCoBuyModal({
         setDescription('');
         setStartDate('');
         setEndDate('');
+        setReceiveByDate('');
         setMinQuantity('');
         setMaxQuantity('');
         setPricingTiers(DEFAULT_PRICING_TIERS);
@@ -184,6 +186,7 @@ export default function CreateCoBuyModal({
         description: description.trim() || undefined,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
+        receiveByDate: receiveByDate ? new Date(receiveByDate) : null,
         minQuantity: minQuantity === '' ? null : Number(minQuantity),
         maxQuantity: maxQuantity === '' ? null : Number(maxQuantity),
         pricingTiers,
@@ -357,6 +360,21 @@ export default function CreateCoBuyModal({
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  수령 예정일 (선택)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={receiveByDate}
+                  onChange={(e) => setReceiveByDate(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  참여자에게 물품 수령 예정 시기를 안내합니다 (종료일 이후 가능)
+                </p>
               </div>
 
               {/* Pricing Tiers Editor */}
@@ -683,6 +701,15 @@ export default function CreateCoBuyModal({
                     </p>
                   </div>
                 </div>
+
+                {receiveByDate && (
+                  <div>
+                    <p className="text-sm text-gray-500">수령 예정일</p>
+                    <p className="text-sm font-medium">
+                      {new Date(receiveByDate).toLocaleString('ko-KR')}
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

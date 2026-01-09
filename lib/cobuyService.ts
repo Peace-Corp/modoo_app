@@ -11,6 +11,7 @@ export interface CreateCoBuySessionData {
   description?: string;
   startDate: Date;
   endDate: Date;
+  receiveByDate?: Date | null; // Date when items need to be received by (can be after endDate)
   minQuantity?: number | null; // Minimum total quantity to proceed
   maxQuantity?: number | null; // Maximum total quantity (optional cap)
   maxParticipants?: number | null; // Legacy - max number of participants
@@ -106,6 +107,7 @@ export async function createCoBuySession(
       description: data.description || null,
       start_date: data.startDate.toISOString(),
       end_date: data.endDate.toISOString(),
+      receive_by_date: data.receiveByDate ? data.receiveByDate.toISOString() : null,
       min_quantity: data.minQuantity ?? null,
       max_quantity: data.maxQuantity ?? null,
       max_participants: data.maxParticipants ?? null,
