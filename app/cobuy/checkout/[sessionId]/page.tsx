@@ -163,7 +163,7 @@ export default function CoBuyCheckoutPage() {
 
   const deliveryFee = useMemo(() => {
     if (shippingMethod === 'domestic') return 3000;
-    if (shippingMethod === 'international') return 5000;
+    if (shippingMethod === 'international') return 15000;
     return 0; // pickup
   }, [shippingMethod]);
 
@@ -510,7 +510,7 @@ export default function CoBuyCheckoutPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-black">해외배송</p>
-                  <p className="text-xs text-gray-500 mt-1">배송비 5,000원</p>
+                  <p className="text-xs text-gray-500 mt-1">배송비 15,000원</p>
                 </div>
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                   shippingMethod === 'international' ? 'border-black' : 'border-gray-300'
