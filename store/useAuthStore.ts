@@ -55,13 +55,21 @@ export const useAuthStore = create<AuthState>()(
           const { data: { session } } = await supabase.auth.getSession();
 
           if (session?.user) {
-            // User is authenticated
+            // Fetch profile data from profiles table
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, email, phone_number, role')
+              .eq('id', session.user.id)
+              .single();
+
+            // User is authenticated - prefer profile data over user_metadata
             const userData: UserData = {
               id: session.user.id,
-              email: session.user.email!,
-              name: session.user.user_metadata?.name,
+              email: profile?.email || session.user.email!,
+              name: profile?.name || session.user.user_metadata?.name,
               avatar_url: session.user.user_metadata?.avatar_url,
-              phone: session.user.phone,
+              phone: profile?.phone_number || session.user.phone,
+              role: profile?.role as 'admin' | 'customer' | undefined,
               created_at: session.user.created_at,
             };
 
@@ -131,13 +139,21 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (data.user) {
-            // Set user data in store
+            // Fetch profile data from profiles table
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, email, phone_number, role')
+              .eq('id', data.user.id)
+              .single();
+
+            // Set user data in store - prefer profile data over user_metadata
             const userData: UserData = {
               id: data.user.id,
-              email: data.user.email!,
-              name: data.user.user_metadata?.name,
+              email: profile?.email || data.user.email!,
+              name: profile?.name || data.user.user_metadata?.name,
               avatar_url: data.user.user_metadata?.avatar_url,
-              phone: data.user.phone,
+              phone: profile?.phone_number || data.user.phone,
+              role: profile?.role as 'admin' | 'customer' | undefined,
               created_at: data.user.created_at,
             };
 

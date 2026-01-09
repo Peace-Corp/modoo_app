@@ -271,9 +271,9 @@ export default function LoginPage() {
                       type="tel"
                       autoComplete="tel"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                       className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                      placeholder="010-1234-5678"
+                      placeholder="01012345678"
                       tabIndex={isSignUp ? 0 : -1}
                     />
                   </div>

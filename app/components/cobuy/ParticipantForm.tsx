@@ -284,7 +284,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
         newErrors[field.id] = '올바른 이메일 형식이 아닙니다';
       }
 
-      if (value && field.type === 'phone' && !/^[0-9-+()]*$/.test(value)) {
+      if (value && field.type === 'phone' && !/^[0-9]*$/.test(value)) {
         newErrors[field.id] = '올바른 전화번호 형식이 아닙니다';
       }
     });
@@ -369,9 +369,9 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
           <input
             type="tel"
             value={value}
-            onChange={(e) => handleInputChange(field.id, e.target.value)}
+            onChange={(e) => handleInputChange(field.id, e.target.value.replace(/[^0-9]/g, ''))}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="010-1234-5678"
+            placeholder="01012345678"
             required={field.required}
           />
         ) : (
@@ -434,9 +434,9 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
         <input
           type="tel"
           value={formData.phone}
-          onChange={(e) => handleInputChange('phone', e.target.value)}
+          onChange={(e) => handleInputChange('phone', e.target.value.replace(/[^0-9]/g, ''))}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="010-1234-5678"
+          placeholder="01012345678"
         />
         {errors.phone && (
           <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
@@ -684,11 +684,11 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                 <input
                   type="tel"
                   value={formData.deliveryInfo?.phone || ''}
-                  onChange={(e) => handleDeliveryInfoChange('phone', e.target.value)}
+                  onChange={(e) => handleDeliveryInfoChange('phone', e.target.value.replace(/[^0-9]/g, ''))}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
                     errors.deliveryPhone ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="010-1234-5678"
+                  placeholder="01012345678"
                 />
                 {errors.deliveryPhone && (
                   <p className="text-red-500 text-xs mt-1">{errors.deliveryPhone}</p>

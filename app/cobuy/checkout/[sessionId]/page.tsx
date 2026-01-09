@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getCoBuySession, getParticipants } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySessionWithDetails } from '@/types/types';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
+import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 
@@ -94,8 +95,9 @@ export default function CoBuyCheckoutPage() {
           return;
         }
 
-        // Check if session is already finalized
-        if (sessionData.status === 'finalized') {
+        // Check if session is already past order_complete (order already created)
+        const orderCreatedStates = ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering', 'delivery_complete'];
+        if (orderCreatedStates.includes(sessionData.status)) {
           setError('이미 주문이 생성된 세션입니다.');
           return;
         }
@@ -163,7 +165,7 @@ export default function CoBuyCheckoutPage() {
 
   const deliveryFee = useMemo(() => {
     if (shippingMethod === 'domestic') return 3000;
-    if (shippingMethod === 'international') return 5000;
+    if (shippingMethod === 'international') return 15000;
     return 0; // pickup
   }, [shippingMethod]);
 
@@ -172,12 +174,7 @@ export default function CoBuyCheckoutPage() {
 
   // Generate order ID and name
   const { orderId, orderName } = useMemo(() => {
-    const today = new Date;
-    const day = today.getDate();
-    const month = today.getMonth() + 1;
-    const year = today.getFullYear()
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const id = `COBUY-${year}${month}${day}-${randomStr}`;
+    const id = generateCoBuyOrderId();
     const name = `공동구매: ${session?.title || '주문'}`;
 
     return { orderId: id, orderName: name };
@@ -510,7 +507,7 @@ export default function CoBuyCheckoutPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-black">해외배송</p>
-                  <p className="text-xs text-gray-500 mt-1">배송비 5,000원</p>
+                  <p className="text-xs text-gray-500 mt-1">배송비 15,000원</p>
                 </div>
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                   shippingMethod === 'international' ? 'border-black' : 'border-gray-300'

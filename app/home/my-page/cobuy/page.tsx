@@ -48,11 +48,15 @@ export default function CoBuyListPage() {
   };
 
   const getStatusBadge = (status: CoBuySession['status']) => {
-    const badges = {
-      open: { label: '모집중', color: 'bg-green-100 text-green-800' },
-      closed: { label: '마감', color: 'bg-gray-100 text-gray-800' },
+    const badges: Record<CoBuySession['status'], { label: string; color: string }> = {
+      gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
+      gather_complete: { label: '모집 완료', color: 'bg-blue-100 text-blue-800' },
+      order_complete: { label: '주문 완료', color: 'bg-blue-100 text-blue-800' },
+      manufacturing: { label: '제작중', color: 'bg-yellow-100 text-yellow-800' },
+      manufacture_complete: { label: '제작 완료', color: 'bg-blue-100 text-blue-800' },
+      delivering: { label: '배송중', color: 'bg-purple-100 text-purple-800' },
+      delivery_complete: { label: '배송 완료', color: 'bg-gray-100 text-gray-800' },
       cancelled: { label: '취소됨', color: 'bg-red-100 text-red-800' },
-      finalized: { label: '완료', color: 'bg-blue-100 text-blue-800' },
     };
     return badges[status];
   };
@@ -132,7 +136,7 @@ export default function CoBuyListPage() {
                           >
                             {badge.label}
                           </span>
-                          {expired && session.status === 'open' && (
+                          {expired && session.status === 'gathering' && (
                             <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                               기간 만료
                             </span>

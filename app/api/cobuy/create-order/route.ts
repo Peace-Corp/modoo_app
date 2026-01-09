@@ -43,7 +43,7 @@ interface CreateCoBuyOrderRequest {
  * 3. Aggregates participant selections into order item variants
  * 4. Marks the order with order_category = 'cobuy'
  * 5. Links the order to the CoBuy session via bulk_order_id
- * 6. Updates the session status to 'finalized'
+ * 6. Updates the session status to 'order_complete'
  */
 export async function POST(request: NextRequest) {
   try {
@@ -109,8 +109,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if session has already been finalized
-    if (session.status === 'finalized') {
+    // Check if session has already had an order created
+    const orderCreatedStates = ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering', 'delivery_complete'];
+    if (orderCreatedStates.includes(session.status)) {
       return NextResponse.json(
         { success: false, error: '이미 주문이 생성된 세션입니다.' },
         { status: 400 }
@@ -307,12 +308,12 @@ export async function POST(request: NextRequest) {
       console.error(`Failed to export SVG for order ${order.id}:`, exportError);
     }
 
-    // Update session with bulk_order_id and set status to finalized
+    // Update session with bulk_order_id and set status to order_complete
     const { error: sessionUpdateError } = await supabase
       .from('cobuy_sessions')
       .update({
         bulk_order_id: order.id,
-        status: 'finalized',
+        status: 'order_complete',
       })
       .eq('id', sessionId);
 

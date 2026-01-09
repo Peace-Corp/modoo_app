@@ -68,18 +68,26 @@ export interface ProductColor {
   updated_at: string;
 }
 
+// Discount tier for quantity-based pricing
+export interface DiscountTier {
+  min_quantity: number;
+  discount_rate: number; // Percentage (e.g., 5 means 5%)
+}
+
 export interface Product {
   id: string;
   title: string;
   base_price: number;
   configuration: ProductSide[];
   size_options?: SizeOption[];
+  discount_rates?: DiscountTier[]; // Quantity-based discount tiers
   category: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   thumbnail_image_link?: string;
   description_image?: string | null;
+  sizing_chart_image?: string | null;
 }
 
 export interface ProductionExample {
@@ -320,6 +328,9 @@ export interface CoBuySelectedItem {
 // Delivery method options
 export type CoBuyDeliveryMethod = 'pickup' | 'delivery';
 
+// Pickup status for tracking distribution (배부 기능)
+export type CoBuyPickupStatus = 'pending' | 'picked_up'; // 미수령 | 수령
+
 // Delivery address info for participants who choose delivery
 export interface CoBuyDeliveryInfo {
   recipientName: string;
@@ -337,16 +348,27 @@ export interface CoBuyDeliverySettings {
   pickupLocation?: string; // Optional pickup location description
 }
 
+export type CoBuyStatus =
+  | 'gathering'           // 모집중
+  | 'gather_complete'     // 모집 완료
+  | 'order_complete'      // 주문 완료
+  | 'manufacturing'       // 제작중
+  | 'manufacture_complete' // 제작 완료
+  | 'delivering'          // 배송중
+  | 'delivery_complete'   // 배송 완료
+  | 'cancelled';          // 취소됨
+
 export interface CoBuySession {
   id: string;
   user_id: string;
   saved_design_screenshot_id: string;
   title: string;
   description: string | null;
-  status: 'open' | 'closed' | 'cancelled' | 'finalized';
+  status: CoBuyStatus;
   share_token: string;
   start_date: string;
   end_date: string;
+  receive_by_date: string | null; // Date when items need to be received by (can be after end_date)
   min_quantity: number | null; // Minimum total quantity to proceed
   max_quantity: number | null; // Maximum total quantity (optional cap)
   max_participants: number | null; // Max number of participants (legacy, optional)
@@ -373,6 +395,7 @@ export interface CoBuyParticipant {
   delivery_method: CoBuyDeliveryMethod | null; // 'pickup' or 'delivery'
   delivery_info: CoBuyDeliveryInfo | null; // Address info if delivery method is 'delivery'
   delivery_fee: number; // Fee paid for delivery (0 for pickup)
+  pickup_status: CoBuyPickupStatus; // 수령 상태 for pickup participants (배부 기능)
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
   payment_key: string | null;
   payment_amount: number | null;

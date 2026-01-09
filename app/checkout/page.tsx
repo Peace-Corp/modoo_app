@@ -10,6 +10,7 @@ import {
 } from '@/lib/cartService';
 import TossPaymentWidget from '../components/toss/TossPaymentWidget';
 import { useAuthStore } from '@/store/useAuthStore';
+import { generateOrderId } from '@/lib/orderIdUtils';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -43,6 +44,7 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('domestic');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('toss');
+  const [tossWidgetKey, setTossWidgetKey] = useState(0);
   const [useProfileInfo, setUseProfileInfo] = useState(true);
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -127,9 +129,7 @@ export default function CheckoutPage() {
 
   // Generate unique order ID and order name
   const { orderId, orderName } = useMemo(() => {
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 9);
-    const id = `ORDER-${timestamp}-${randomStr}`;
+    const id = generateOrderId();
 
     // Create order name from grouped items
     const firstItemName = groupedItems[0]?.designName || groupedItems[0]?.product_title || '주문 상품';
@@ -385,12 +385,12 @@ export default function CheckoutPage() {
             <input
               type="tel"
               value={customerInfo.phone}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value.replace(/[^0-9]/g, '') })}
               disabled={isAuthenticated && useProfileInfo}
               className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
                 isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
               }`}
-              placeholder="010-1234-5678"
+              placeholder="01012345678"
             />
           </div>
         </div>
@@ -434,7 +434,7 @@ export default function CheckoutPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-black">해외배송</p>
-                <p className="text-xs text-gray-500 mt-1">배송비 5,000원</p>
+                <p className="text-xs text-gray-500 mt-1">배송비 15,000원</p>
               </div>
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                 shippingMethod === 'international' ? 'border-black' : 'border-gray-300'
@@ -479,19 +479,19 @@ export default function CheckoutPage() {
             <div>
               <label className="block text-sm text-gray-700 mb-1">주소</label>
               <div className="flex gap-2">
+                <button
+                  onClick={handleAddressSearch}
+                  className="w-25 px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
+                >
+                  주소 검색
+                </button>
                 <input
                   type="text"
                   value={domesticAddress.postalCode}
                   readOnly
-                  className="w-24 px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                  className="flex-3 px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
                   placeholder="우편번호"
                 />
-                <button
-                  onClick={handleAddressSearch}
-                  className="px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
-                >
-                  주소 검색
-                </button>
               </div>
             </div>
             {domesticAddress.roadAddress && (
@@ -639,7 +639,12 @@ export default function CheckoutPage() {
         <h2 className="font-medium text-black mb-4">결제 수단</h2>
         <div className="space-y-2">
           <button
-            onClick={() => setPaymentMethod('toss')}
+            onClick={() => {
+              if (paymentMethod !== 'toss') {
+                setTossWidgetKey(prev => prev + 1);
+              }
+              setPaymentMethod('toss');
+            }}
             className={`w-full p-4 rounded-lg border-2 transition text-left ${
               paymentMethod === 'toss'
                 ? 'border-black bg-gray-50'
@@ -700,6 +705,7 @@ export default function CheckoutPage() {
       {paymentMethod === 'toss' && (
         <div className='w-full px-4 mt-4'>
           <TossPaymentWidget
+            key={tossWidgetKey}
             amount={finalTotal}
             orderId={orderId}
             orderName={orderName}

@@ -135,7 +135,11 @@ export default function OrdersPage() {
               const formattedTotal = (order.total_amount || 0).toLocaleString('ko-KR');
 
               return (
-                <div key={order.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                <div
+                  key={order.id}
+                  className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer hover:border-gray-300 transition-colors"
+                  onClick={() => router.push(`/order/${order.id}`)}
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-sm text-gray-500">주문번호</p>
@@ -188,19 +192,16 @@ export default function OrdersPage() {
 
                   <div className="mt-4 flex justify-end">
                     <button
-                      onClick={() => setReviewOrder(order)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReviewOrder(order);
+                      }}
                       disabled={itemCount === 0}
                       className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
                     >
                       리뷰 작성하기
                     </button>
                   </div>
-
-                  {order.payment_status && (
-                    <div className="mt-3 text-xs text-gray-500">
-                      결제 상태: {order.payment_status}
-                    </div>
-                  )}
                 </div>
               );
             })}

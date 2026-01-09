@@ -9,16 +9,22 @@ import {
   closeCoBuySession,
   getCoBuySession,
   getParticipants,
-  requestCancellation
+  requestCancellation,
+  updateParticipantPickupStatus
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check } from 'lucide-react';
+import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
-  open: { label: '모집중', color: 'bg-green-100 text-green-800' },
-  closed: { label: '마감', color: 'bg-gray-100 text-gray-800' },
+  gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
+  gather_complete: { label: '모집 완료', color: 'bg-blue-100 text-blue-800' },
+  order_complete: { label: '주문 완료', color: 'bg-blue-100 text-blue-800' },
+  manufacturing: { label: '제작중', color: 'bg-yellow-100 text-yellow-800' },
+  manufacture_complete: { label: '제작 완료', color: 'bg-blue-100 text-blue-800' },
+  delivering: { label: '배송중', color: 'bg-purple-100 text-purple-800' },
+  delivery_complete: { label: '배송 완료', color: 'bg-gray-100 text-gray-800' },
   cancelled: { label: '취소됨', color: 'bg-red-100 text-red-800' },
-  finalized: { label: '완료', color: 'bg-blue-100 text-blue-800' },
 };
 
 const paymentLabels: Record<CoBuyParticipant['payment_status'], { label: string; color: string }> = {
@@ -26,6 +32,11 @@ const paymentLabels: Record<CoBuyParticipant['payment_status'], { label: string;
   completed: { label: '완료', color: 'bg-green-100 text-green-800' },
   failed: { label: '실패', color: 'bg-red-100 text-red-800' },
   refunded: { label: '환불', color: 'bg-gray-100 text-gray-800' },
+};
+
+const pickupStatusLabels: Record<CoBuyParticipant['pickup_status'], { label: string; color: string }> = {
+  pending: { label: '미수령', color: 'bg-orange-100 text-orange-800' },
+  picked_up: { label: '수령', color: 'bg-green-100 text-green-800' },
 };
 
 export default function CoBuyDetailPage() {
@@ -41,6 +52,7 @@ export default function CoBuyDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [expandedParticipants, setExpandedParticipants] = useState<Set<string>>(new Set());
+  const [updatingPickupStatus, setUpdatingPickupStatus] = useState<Set<string>>(new Set());
 
   const toggleParticipantExpand = (participantId: string) => {
     setExpandedParticipants((prev) => {
@@ -50,6 +62,30 @@ export default function CoBuyDetailPage() {
       } else {
         next.add(participantId);
       }
+      return next;
+    });
+  };
+
+  const handlePickupStatusToggle = async (participant: CoBuyParticipant) => {
+    if (updatingPickupStatus.has(participant.id)) return;
+
+    const newStatus = participant.pickup_status === 'picked_up' ? 'pending' : 'picked_up';
+
+    setUpdatingPickupStatus((prev) => new Set(prev).add(participant.id));
+
+    const updated = await updateParticipantPickupStatus(participant.id, newStatus);
+
+    if (updated) {
+      setParticipants((current) =>
+        current.map((p) => (p.id === participant.id ? { ...p, pickup_status: newStatus } : p))
+      );
+    } else {
+      alert('수령 상태 변경에 실패했습니다.');
+    }
+
+    setUpdatingPickupStatus((prev) => {
+      const next = new Set(prev);
+      next.delete(participant.id);
       return next;
     });
   };
@@ -234,6 +270,38 @@ export default function CoBuyDetailPage() {
     );
   };
 
+  // Helper to render pickup status toggle button for pickup participants (checkmark icon)
+  const renderPickupStatusToggle = (participant: CoBuyParticipant) => {
+    // Only show for pickup participants
+    if (participant.delivery_method !== 'pickup') return null;
+
+    const pickupStatus = participant.pickup_status || 'pending';
+    const isPickedUp = pickupStatus === 'picked_up';
+    const isUpdating = updatingPickupStatus.has(participant.id);
+
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePickupStatusToggle(participant);
+        }}
+        disabled={isUpdating}
+        title={isPickedUp ? '수령 완료 (클릭하여 미수령으로 변경)' : '미수령 (클릭하여 수령 완료로 변경)'}
+        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+          isPickedUp
+            ? 'bg-green-500 text-white hover:bg-green-600'
+            : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
+        } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {isUpdating ? (
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Check className="w-4 h-4" strokeWidth={3} />
+        )}
+      </button>
+    );
+  };
+
   // Helper to render delivery info
   const renderDeliveryInfo = (participant: CoBuyParticipant, variant: 'mobile' | 'desktop' = 'desktop') => {
     if (!participant.delivery_method) return null;
@@ -312,7 +380,7 @@ export default function CoBuyDetailPage() {
   };
 
   const handleCloseSession = async () => {
-    if (!session || session.status !== 'open') return;
+    if (!session || session.status !== 'gathering') return;
     const confirmed = window.confirm('공동구매를 마감하시겠습니까? 이후에는 참여자가 추가될 수 없습니다.');
     if (!confirmed) return;
 
@@ -456,11 +524,11 @@ export default function CoBuyDetailPage() {
                   </>
                 )}
               </button>
-              {session.status !== 'finalized' && (
+              {session.status !== 'delivery_complete' && (
                 <>
                   <button
                     onClick={handleCloseSession}
-                    disabled={isUpdating || session.status !== 'open'}
+                    disabled={isUpdating || session.status !== 'gathering'}
                     className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     마감하기
@@ -474,7 +542,7 @@ export default function CoBuyDetailPage() {
                   </button>
                   <button
                     onClick={handleCreateOrders}
-                    disabled={session.status === 'cancelled' || completedCount === 0}
+                    disabled={session.status === 'cancelled'}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <PackageCheck className="w-4 h-4" />
@@ -484,6 +552,12 @@ export default function CoBuyDetailPage() {
               )}
             </div>
           </div>
+        </section>
+
+        {/* Progress Bar Section */}
+        <section className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">진행 상태</h2>
+          <CoBuyProgressBar currentStatus={session.status} />
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm p-6">
@@ -591,30 +665,41 @@ export default function CoBuyDetailPage() {
                   const totalQty = participant.total_quantity || participant.selected_items?.reduce((sum, i) => sum + i.quantity, 0) || 1;
 
                   return (
-                    <div key={participant.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                      {/* Accordion Header - Always visible */}
-                      <button
-                        type="button"
-                        onClick={() => toggleParticipantExpand(participant.id)}
-                        className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="min-w-0 text-left">
-                            <p className="font-medium text-gray-900 truncate">{participant.name}</p>
-                            <p className="text-xs text-gray-500">{totalQty}벌 · {participant.payment_amount ? `₩${participant.payment_amount.toLocaleString()}` : '미결제'}</p>
+                    <div key={participant.id} className="flex items-stretch gap-2">
+                      {/* Pickup status toggle - outside the accordion on the left */}
+                      <div className="flex items-center shrink-0">
+                        {participant.delivery_method === 'pickup' ? (
+                          renderPickupStatusToggle(participant)
+                        ) : (
+                          <div className="w-7" /> // Spacer for non-pickup participants
+                        )}
+                      </div>
+
+                      {/* Accordion item */}
+                      <div className="flex-1 border border-gray-200 rounded-xl overflow-hidden">
+                        {/* Accordion Header - Always visible */}
+                        <button
+                          type="button"
+                          onClick={() => toggleParticipantExpand(participant.id)}
+                          className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="min-w-0 text-left">
+                              <p className="font-medium text-gray-900 truncate">{participant.name}</p>
+                              <p className="text-xs text-gray-500">{totalQty}벌 · {participant.payment_amount ? `₩${participant.payment_amount.toLocaleString()}` : '미결제'}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
-                            {paymentInfo.label}
-                          </span>
-                          <ChevronDown
-                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                              isExpanded ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
+                              {paymentInfo.label}
+                            </span>
+                            <ChevronDown
+                              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </div>
+                        </button>
 
                       {/* Accordion Content - Expandable */}
                       <div
@@ -662,6 +747,7 @@ export default function CoBuyDetailPage() {
                           {renderFieldResponses(participant, 'mobile')}
                         </div>
                       </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -678,7 +764,8 @@ export default function CoBuyDetailPage() {
                       <th className="py-2 pr-4 font-medium">추가 정보</th>
                       <th className="py-2 pr-4 font-medium">결제 상태</th>
                       <th className="py-2 pr-4 font-medium">결제 금액</th>
-                      <th className="py-2 font-medium">참여일</th>
+                      <th className="py-2 pr-4 font-medium">참여일</th>
+                      <th className="py-2 font-medium text-center">배부</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -714,8 +801,13 @@ export default function CoBuyDetailPage() {
                           <td className="py-3 pr-4 text-gray-600">
                             {participant.payment_amount ? participant.payment_amount.toLocaleString('ko-KR') + '원' : '-'}
                           </td>
-                          <td className="py-3 text-gray-600">
+                          <td className="py-3 pr-4 text-gray-600">
                             {new Date(participant.joined_at).toLocaleDateString('ko-KR')}
+                          </td>
+                          <td className="py-3 text-center">
+                            {renderPickupStatusToggle(participant) || (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
                           </td>
                         </tr>
                       );

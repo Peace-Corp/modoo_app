@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Info } from 'lucide-react';
+import { Info, Ruler, X } from 'lucide-react';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
 import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
+import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
 import ParticipantForm, { ParticipantFormData } from '@/app/components/cobuy/ParticipantForm';
 import CoBuyClosedScreen from '@/app/components/cobuy/CoBuyClosedScreen';
@@ -44,6 +45,7 @@ export default function CoBuySharePage() {
   const [participantInfo, setParticipantInfo] = useState<ParticipantFormData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isDiscountInfoOpen, setIsDiscountInfoOpen] = useState(false);
+  const [isSizingChartOpen, setIsSizingChartOpen] = useState(false);
   const discountInfoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -212,7 +214,7 @@ export default function CoBuySharePage() {
       return 'cancelled' as const;
     }
 
-    if (session.status !== 'open') {
+    if (session.status !== 'gathering') {
       return 'closed' as const;
     }
 
@@ -258,7 +260,7 @@ export default function CoBuySharePage() {
     const totalQuantity = data.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
     const applicablePrice = getApplicablePrice(totalQuantity);
     const paymentAmount = Math.round(applicablePrice * totalQuantity) + (data.deliveryFee || 0);
-    const generatedOrderId = `CB-${session.id.slice(0, 8)}-${participant.id.slice(0, 8)}-${Date.now()}`;
+    const generatedOrderId = generateCoBuyOrderId();
     fetch('/api/cobuy/notify/participant-joined', {
       method: 'POST',
       headers: {
@@ -388,7 +390,7 @@ export default function CoBuySharePage() {
               </div>
               {getProgressInfo.nextTierQuantity && (
                 <p className="text-xs text-blue-600">
-                  💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인!
+                  💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인! <span className='text-gray-400'>(차액은 캐시백으로 환불됩니다.)</span>
                 </p>
               )}
             </div>
@@ -410,6 +412,19 @@ export default function CoBuySharePage() {
               canvasState={design.canvas_state as Record<string, string>}
               productColor={productColor}
             />
+            {/* Sizing Chart Button */}
+            {product?.sizing_chart_image && (
+              <div className="p-4 bg-white border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setIsSizingChartOpen(true)}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
+                >
+                  <Ruler className="w-4 h-4" />
+                  사이즈 정보 보기
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Participant Information Input */}
@@ -496,6 +511,38 @@ export default function CoBuySharePage() {
           </section>
         </div>
       </div>
+
+      {/* Sizing Chart Modal */}
+      {isSizingChartOpen && product?.sizing_chart_image && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setIsSizingChartOpen(false)}
+        >
+          <div
+            className="relative max-w-2xl w-full max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">사이즈 정보</h3>
+              <button
+                type="button"
+                onClick={() => setIsSizingChartOpen(false)}
+                className="p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                aria-label="닫기"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-auto max-h-[calc(90vh-60px)]">
+              <img
+                src={product.sizing_chart_image}
+                alt="사이즈 정보"
+                className="w-full h-auto"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

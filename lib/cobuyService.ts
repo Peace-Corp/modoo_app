@@ -1,5 +1,5 @@
 import { createClient } from './supabase-client';
-import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
+import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo, CoBuyStatus, CoBuyPickupStatus } from '@/types/types';
 
 // ============================================================================
 // Type Definitions for Service Parameters
@@ -11,6 +11,7 @@ export interface CreateCoBuySessionData {
   description?: string;
   startDate: Date;
   endDate: Date;
+  receiveByDate?: Date | null; // Date when items need to be received by (can be after endDate)
   minQuantity?: number | null; // Minimum total quantity to proceed
   maxQuantity?: number | null; // Maximum total quantity (optional cap)
   maxParticipants?: number | null; // Legacy - max number of participants
@@ -26,7 +27,7 @@ export interface UpdateCoBuySessionData {
   endDate?: Date;
   maxParticipants?: number | null;
   customFields?: CoBuyCustomField[];
-  status?: 'open' | 'closed' | 'cancelled' | 'finalized';
+  status?: CoBuyStatus;
 }
 
 export interface AddParticipantData {
@@ -106,13 +107,14 @@ export async function createCoBuySession(
       description: data.description || null,
       start_date: data.startDate.toISOString(),
       end_date: data.endDate.toISOString(),
+      receive_by_date: data.receiveByDate ? data.receiveByDate.toISOString() : null,
       min_quantity: data.minQuantity ?? null,
       max_quantity: data.maxQuantity ?? null,
       max_participants: data.maxParticipants ?? null,
       pricing_tiers: data.pricingTiers || [],
       custom_fields: data.customFields,
       delivery_settings: data.deliverySettings ?? null,
-      status: 'open' as const,
+      status: 'gathering' as const,
       current_participant_count: 0,
       current_total_quantity: 0,
     };
@@ -125,7 +127,7 @@ export async function createCoBuySession(
       .single();
 
     if (insertError) {
-      console.error('Error creating CoBuy session:', insertError);
+      console.error('Error creating CoBuy session:', JSON.stringify(insertError, null, 2));
       throw insertError;
     }
 
@@ -217,7 +219,8 @@ export async function getCoBuySessionByToken(
             id,
             title,
             configuration,
-            size_options
+            size_options,
+            sizing_chart_image
           )
         )
       `)
@@ -336,12 +339,12 @@ export async function updateCoBuySession(
 }
 
 /**
- * Close a CoBuy session (set status to 'closed')
+ * Close a CoBuy session (set status to 'gather_complete')
  * @param sessionId The session ID
  * @returns The updated session or null if failed
  */
 export async function closeCoBuySession(sessionId: string): Promise<CoBuySession | null> {
-  return updateCoBuySession(sessionId, { status: 'closed' });
+  return updateCoBuySession(sessionId, { status: 'gather_complete' });
 }
 
 /**
@@ -407,6 +410,7 @@ export async function addParticipant(
       delivery_method: data.deliveryMethod || null,
       delivery_info: data.deliveryInfo || null,
       delivery_fee: data.deliveryFee || 0,
+      pickup_status: 'pending' as const, // Default to 미수령
       payment_status: 'pending' as const,
     };
 
@@ -438,6 +442,7 @@ export async function addParticipant(
       delivery_method: participantData.delivery_method,
       delivery_info: participantData.delivery_info,
       delivery_fee: participantData.delivery_fee,
+      pickup_status: participantData.pickup_status,
       payment_status: participantData.payment_status,
       payment_key: null,
       payment_amount: null,
@@ -557,8 +562,8 @@ export async function canAcceptParticipants(sessionId: string, additionalQuantit
       return false;
     }
 
-    // Check status
-    if (session.status !== 'open') {
+    // Check status - only allow participation when status is 'gathering'
+    if (session.status !== 'gathering') {
       return false;
     }
 
@@ -669,4 +674,37 @@ export async function requestCancellation(sessionId: string): Promise<CoBuySessi
   // In production, this would create a notification for admin review
   // For now, we'll just set the status to 'cancelled'
   return updateCoBuySession(sessionId, { status: 'cancelled' });
+}
+
+/**
+ * Update participant pickup status (배부 기능)
+ * Only applicable for participants with delivery_method = 'pickup'
+ * @param participantId The participant ID
+ * @param pickupStatus The new pickup status ('pending' = 미수령, 'picked_up' = 수령)
+ * @returns The updated participant or null if failed
+ */
+export async function updateParticipantPickupStatus(
+  participantId: string,
+  pickupStatus: CoBuyPickupStatus
+): Promise<CoBuyParticipant | null> {
+  const supabase = createClient();
+
+  try {
+    const { data: updatedParticipant, error } = await supabase
+      .from('cobuy_participants')
+      .update({ pickup_status: pickupStatus })
+      .eq('id', participantId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating participant pickup status:', error);
+      throw error;
+    }
+
+    return updatedParticipant;
+  } catch (error) {
+    console.error('Failed to update participant pickup status:', error);
+    return null;
+  }
 }
