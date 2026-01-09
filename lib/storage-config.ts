@@ -9,12 +9,14 @@
 export const STORAGE_BUCKETS = {
   USER_DESIGNS: 'user-designs',
   TEXT_EXPORTS: 'text-exports',
+  FONTS: 'user-fonts',
 } as const;
 
 export const STORAGE_FOLDERS = {
   IMAGES: 'images',
   TEXTS: 'texts',
   SVG: 'svg',
+  FONTS: 'fonts',
 } as const;
 
 /**
@@ -35,6 +37,7 @@ export function getStoragePath(bucket: string, folder?: string): { bucket: strin
  * 3. Create the following buckets with public access:
  *    - user-designs (Public bucket)
  *    - text-exports (Public bucket)
+ *    - user-fonts (Public bucket)
  *
  * 4. Set up RLS policies for authenticated uploads (optional):
  *    - Allow INSERT for authenticated users
@@ -50,6 +53,10 @@ export function getStoragePath(bucket: string, folder?: string): { bucket: strin
  * -- Create text-exports bucket
  * INSERT INTO storage.buckets (id, name, public)
  * VALUES ('text-exports', 'text-exports', true);
+ *
+ * -- Create user-fonts bucket
+ * INSERT INTO storage.buckets (id, name, public)
+ * VALUES ('user-fonts', 'user-fonts', true);
  *
  * -- Optional: Add RLS policies
  * CREATE POLICY "Public read access"

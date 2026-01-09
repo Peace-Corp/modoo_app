@@ -1,6 +1,7 @@
 import { createClient } from './supabase-client';
 import { saveDesign, updateDesign, SaveDesignData } from './designService';
 import * as fabric from 'fabric';
+import { FontMetadata } from './fontUtils';
 
 export interface CartItemData {
   id?: string;
@@ -34,6 +35,7 @@ export interface AddToCartParams {
   designName?: string; // Optional: custom name for the design
   previewImage?: string; // Optional: preview image for the design (base64 data URL)
   canvasMap?: Record<string, fabric.Canvas>; // Optional: canvas instances for SVG export
+  customFonts?: FontMetadata[]; // Optional: custom fonts used in the design
 }
 
 /**
@@ -67,6 +69,7 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
         previewImage: params.previewImage,
         pricePerItem: params.pricePerItem,
         canvasMap: params.canvasMap, // Pass canvas instances for SVG export
+        customFonts: params.customFonts, // Pass custom fonts metadata
       };
 
       const savedDesign = await saveDesign(designData);

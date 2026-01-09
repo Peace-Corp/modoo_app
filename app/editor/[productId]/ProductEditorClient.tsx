@@ -8,6 +8,7 @@ import ObjectPreviewPanel from "@/app/components/canvas/ObjectPreviewPanel";
 import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
+import { useFontStore } from "@/store/useFontStore";
 import Header from "@/app/components/Header";
 import { Share } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -149,6 +150,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       const canvasState = saveAllCanvasState();
       const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
 
+      // Get custom fonts from store
+      const customFonts = useFontStore.getState().customFonts;
+
       const savedDesign = await saveDesign({
         productId: product.id,
         title: designTitle.trim(),
@@ -157,6 +161,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
         previewImage: previewImage,
         pricePerItem: pricePerItem,
         canvasMap: canvasMap, // Pass canvas instances for client-side SVG export
+        customFonts: customFonts, // Include custom fonts metadata
       });
 
       if (!savedDesign) {
@@ -206,6 +211,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
       const colorName = productColors.find(c => c.hex === productColor)?.name || '색상';
 
+      // Get custom fonts from store
+      const customFonts = useFontStore.getState().customFonts;
+
       // Save design once and reuse for all cart items
       let sharedDesignId: string | undefined;
 
@@ -226,6 +234,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           savedDesignId: sharedDesignId, // Reuse design for subsequent items
           designName: designName, // Use the custom design name
           previewImage: previewImage, // Add preview image for the design
+          customFonts: customFonts, // Include custom fonts metadata
         });
 
         // Store the design ID from the first item

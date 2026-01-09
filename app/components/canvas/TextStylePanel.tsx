@@ -17,7 +17,11 @@ import {
   LetterText,
   Baseline,
   CaseSensitive,
+  Upload,
 } from 'lucide-react';
+import { useFontStore } from '@/store/useFontStore';
+import { uploadFont, isValidFontFile } from '@/lib/fontUtils';
+import { createClient } from '@/lib/supabase-client';
 
 interface TextStylePanelProps {
   selectedObject: fabric.IText | fabric.Text;
@@ -41,10 +45,15 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const [textBackgroundColor, setTextBackgroundColor] = useState<string>('');
   const [opacity, setOpacity] = useState<number>(1);
   const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
+  const [isUploadingFont, setIsUploadingFont] = useState(false);
   const fontDropdownRef = useRef<HTMLDivElement | null>(null);
+  const fontFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Font families available
-  const fontFamilies = [
+  // Get custom fonts from store
+  const { customFonts, addFont, loadAllFonts } = useFontStore();
+
+  // System font families available
+  const systemFonts = [
     'Arial',
     'Times New Roman',
     'Courier New',
@@ -186,9 +195,56 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     updateTextProperty('opacity', value);
   };
 
+  // Handle font file upload
+  const handleFontUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate font file
+    if (!isValidFontFile(file)) {
+      alert('유효하지 않은 폰트 파일입니다. 지원 형식: .ttf, .otf, .woff, .woff2');
+      return;
+    }
+
+    setIsUploadingFont(true);
+
+    try {
+      const supabase = createClient();
+      const result = await uploadFont(supabase, file);
+
+      if (result.success && result.fontMetadata) {
+        // Add font to store
+        addFont(result.fontMetadata);
+
+        // Load the font into the browser
+        await loadAllFonts();
+
+        // Apply the font to selected text
+        handleFontFamilyChange(result.fontMetadata.fontFamily);
+
+        alert(`폰트 "${result.fontMetadata.fontFamily}"가 성공적으로 업로드되었습니다!`);
+      } else {
+        alert(`폰트 업로드 실패: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Font upload error:', error);
+      alert('폰트 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploadingFont(false);
+      // Reset file input
+      if (fontFileInputRef.current) {
+        fontFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFontUploadClick = () => {
+    fontFileInputRef.current?.click();
+  };
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-      <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl  h-[33vh] flex flex-col px-4">
+      <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl h-[34vh] flex flex-col px-4">
         {/* Header with Tabs */}
         <div className="shrink-0 sticky top-0 border-b border-gray-100">
           <div className='py-3 w-10 mx-auto'>
@@ -261,34 +317,101 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                       aria-label="Font family"
                       className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
                     >
-                      {fontFamilies.map((font) => {
-                        const isSelected = font === fontFamily;
-                        return (
-                          <button
-                            key={font}
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            onClick={() => {
-                              handleFontFamilyChange(font);
-                              setIsFontDropdownOpen(false);
-                            }}
-                            className={`w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 ${
-                              isSelected ? 'bg-gray-100' : ''
-                            }`}
-                          >
-                            <span className="w-4 shrink-0">
-                              {isSelected ? <Check className="size-4" /> : null}
-                            </span>
-                            <span className="flex-1 min-w-0 truncate" style={{ fontFamily: font }}>
-                              {font}
-                            </span>
-                            <span className="shrink-0 text-sm text-gray-500" style={{ fontFamily: font }}>
-                              Aa 가나다
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {/* Font Upload Button */}
+                      <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
+                        <button
+                          type="button"
+                          onClick={handleFontUploadClick}
+                          disabled={isUploadingFont}
+                          className="w-full px-3 py-2 flex items-center gap-2 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Upload className="size-4 text-blue-600" />
+                          <span className="flex-1 text-sm font-medium text-blue-600">
+                            {isUploadingFont ? '업로드 중...' : '커스텀 폰트 업로드'}
+                          </span>
+                        </button>
+                        <input
+                          ref={fontFileInputRef}
+                          type="file"
+                          accept=".ttf,.otf,.woff,.woff2"
+                          onChange={handleFontUpload}
+                          className="hidden"
+                        />
+                      </div>
+
+                      {/* Custom Fonts */}
+                      {customFonts.length > 0 && (
+                        <div className="border-b border-gray-100">
+                          <div className="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                            커스텀 폰트
+                          </div>
+                          {customFonts.map((customFont) => {
+                            const isSelected = customFont.fontFamily === fontFamily;
+                            return (
+                              <button
+                                key={customFont.fontFamily}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  handleFontFamilyChange(customFont.fontFamily);
+                                  setIsFontDropdownOpen(false);
+                                }}
+                                className={`w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 ${
+                                  isSelected ? 'bg-gray-100' : ''
+                                }`}
+                              >
+                                <span className="w-4 shrink-0">
+                                  {isSelected ? <Check className="size-4" /> : null}
+                                </span>
+                                <span className="flex-1 min-w-0 truncate" style={{ fontFamily: customFont.fontFamily }}>
+                                  {customFont.fontFamily}
+                                </span>
+                                <span className="shrink-0 text-sm text-gray-500" style={{ fontFamily: customFont.fontFamily }}>
+                                  Aa 가나다
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* System Fonts */}
+                      {systemFonts.length > 0 && (
+                        <div>
+                          <div className="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                            시스템 폰트
+                          </div>
+                          {systemFonts.map((font) => {
+                            const isSelected = font === fontFamily;
+                            return (
+                              <button
+                                key={font}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  handleFontFamilyChange(font);
+                                  setIsFontDropdownOpen(false);
+                                }}
+                                className={`w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 ${
+                                  isSelected ? 'bg-gray-100' : ''
+                                }`}
+                              >
+                                <span className="w-4 shrink-0">
+                                  {isSelected ? <Check className="size-4" /> : null}
+                                </span>
+                                <span className="flex-1 min-w-0 truncate" style={{ fontFamily: font }}>
+                                  {font}
+                                </span>
+                                <span className="shrink-0 text-sm text-gray-500" style={{ fontFamily: font }}>
+                                  Aa 가나다
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

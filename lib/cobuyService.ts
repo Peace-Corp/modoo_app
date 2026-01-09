@@ -59,7 +59,7 @@ export async function createCoBuySession(
 
     const { data: savedDesign, error: savedDesignError } = await supabase
       .from('saved_designs')
-      .select('user_id, product_id, title, color_selections, canvas_state, preview_url, price_per_item, image_urls')
+      .select('user_id, product_id, title, color_selections, canvas_state, preview_url, price_per_item, image_urls, text_svg_exports, custom_fonts')
       .eq('id', data.savedDesignId)
       .single();
 
@@ -79,6 +79,8 @@ export async function createCoBuySession(
         preview_url: savedDesign.preview_url,
         price_per_item: savedDesign.price_per_item,
         image_urls: savedDesign.image_urls,
+        text_svg_exports: savedDesign.text_svg_exports,
+        custom_fonts: savedDesign.custom_fonts || [],
       })
       .select('id')
       .single();
@@ -149,7 +151,9 @@ export async function getCoBuySession(
           created_at,
           updated_at,
           price_per_item,
-          image_urls
+          image_urls,
+          text_svg_exports,
+          custom_fonts
         )
       `)
       .eq('id', sessionId);
@@ -194,6 +198,8 @@ export async function getCoBuySessionByToken(
           canvas_state,
           color_selections,
           price_per_item,
+          text_svg_exports,
+          custom_fonts,
           product:products (
             id,
             title,
