@@ -26,7 +26,7 @@ const shoppingMenuItems: MenuItem[] = [
 
 const supportMenuItems: MenuItem[] = [
   { icon: MessageSquare, label: '나의 문의', href: '/inquiries?tab=my', badge: null },
-  { label: '공지사항', href: '/support/notices', badge: 'new' },
+  { label: '공지사항', href: '/support/notices', badge: null },
   { label: '이용약관', href: '/policies', badge: null },
   { label: '개인정보 처리방침', href: '/support/privacy', badge: null },
 ];

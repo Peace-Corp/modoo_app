@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/useAuthStore'
-import { Mail, Lock, User, Phone } from 'lucide-react'
 
 const LOGIN_RETURN_TO_KEY = 'login:returnTo'
 
@@ -157,42 +156,32 @@ export default function LoginPage() {
                     <label htmlFor="login-email" className="block text-sm font-semibold text-gray-700 mb-1">
                       이메일
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="login-email"
-                        type="email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                        placeholder="example@email.com"
-                        tabIndex={isSignUp ? -1 : 0}
-                      />
-                    </div>
+                    <input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      placeholder="example@email.com"
+                      tabIndex={isSignUp ? -1 : 0}
+                    />
                   </div>
 
                   <div>
                     <label htmlFor="login-password" className="block text-sm font-semibold text-gray-700 mb-1">
                       비밀번호
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="login-password"
-                        type="password"
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                        placeholder="••••••••"
-                        tabIndex={isSignUp ? -1 : 0}
-                      />
-                    </div>
+                    <input
+                      id="login-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      placeholder="••••••••"
+                      tabIndex={isSignUp ? -1 : 0}
+                    />
                   </div>
 
                   {error && !isSignUp && (
@@ -245,84 +234,64 @@ export default function LoginPage() {
                     <label htmlFor="signup-name" className="block text-sm font-semibold text-gray-700 mb-1">
                       이름
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="signup-name"
-                        type="text"
-                        autoComplete="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                        placeholder="홍길동"
-                        tabIndex={isSignUp ? 0 : -1}
-                      />
-                    </div>
+                    <input
+                      id="signup-name"
+                      type="text"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      placeholder="홍길동"
+                      tabIndex={isSignUp ? 0 : -1}
+                    />
                   </div>
 
                   <div>
                     <label htmlFor="signup-email" className="block text-sm font-semibold text-gray-700 mb-1">
                       이메일
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="signup-email"
-                        type="email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                        placeholder="example@email.com"
-                        tabIndex={isSignUp ? 0 : -1}
-                      />
-                    </div>
+                    <input
+                      id="signup-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      placeholder="example@email.com"
+                      tabIndex={isSignUp ? 0 : -1}
+                    />
                   </div>
 
                   <div>
                     <label htmlFor="signup-phone" className="block text-sm font-semibold text-gray-700 mb-1">
                       전화번호
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Phone className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="signup-phone"
-                        type="tel"
-                        autoComplete="tel"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                        placeholder="010-1234-5678"
-                        tabIndex={isSignUp ? 0 : -1}
-                      />
-                    </div>
+                    <input
+                      id="signup-phone"
+                      type="tel"
+                      autoComplete="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      placeholder="010-1234-5678"
+                      tabIndex={isSignUp ? 0 : -1}
+                    />
                   </div>
 
                   <div>
                     <label htmlFor="signup-password" className="block text-sm font-semibold text-gray-700 mb-1">
                       비밀번호
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="signup-password"
-                        type="password"
-                        autoComplete="new-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                        placeholder="••••••••"
-                        tabIndex={isSignUp ? 0 : -1}
-                      />
-                    </div>
+                    <input
+                      id="signup-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      placeholder="••••••••"
+                      tabIndex={isSignUp ? 0 : -1}
+                    />
                   </div>
 
                   {error && isSignUp && (
