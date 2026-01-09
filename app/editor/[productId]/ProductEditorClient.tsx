@@ -235,6 +235,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           designName: designName, // Use the custom design name
           previewImage: previewImage, // Add preview image for the design
           customFonts: customFonts, // Include custom fonts metadata
+          canvasMap: canvasMap, // Pass canvas instances for SVG text export
         });
 
         // Store the design ID from the first item

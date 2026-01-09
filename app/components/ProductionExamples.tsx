@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase-client';
 import { ProductionExample } from '@/types/types';
 import Image from 'next/image';
-import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -94,10 +93,9 @@ export default function ProductionExamples() {
       <div className="relative max-w-7xl mx-auto">
         <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-4 scrollbar-hide">
           {examples.map((example, idx) => (
-            <Link
+            <div
               key={example.id+idx} // for unique id
-              href={`/product/${example.product_id}`}
-              className="group shrink-0 w-64 sm:w-80 lg:w-[340px] bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              className="group shrink-0 w-64 sm:w-80 lg:w-85 bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="relative aspect-4/3 w-full overflow-hidden bg-gray-100">
                 <Image
@@ -116,12 +114,12 @@ export default function ProductionExamples() {
                   {/* {example.description} */}
                 {/* </p> */}
               </div>
-            </Link>
+            </div>
           ))}
 
           {/* Loading indicator */}
           {loading && (
-            <div className="shrink-0 w-64 sm:w-80 lg:w-[340px] flex items-center justify-center">
+            <div className="shrink-0 w-64 sm:w-80 lg:w-85 flex items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
           )}
