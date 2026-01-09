@@ -56,7 +56,7 @@ export default function CreateCoBuyModal({
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<CoBuyDeliverySettings>({
     enabled: false,
-    deliveryFee: 3000,
+    deliveryFee: 4000,
     pickupLocation: '',
   });
 
@@ -94,7 +94,7 @@ export default function CreateCoBuyModal({
         setMaxQuantity('');
         setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
-        setDeliverySettings({ enabled: false, deliveryFee: 3000, pickupLocation: '' });
+        setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '' });
         setCreatedSession(null);
       }, 300); // Wait for modal close animation
     }
@@ -149,6 +149,10 @@ export default function CreateCoBuyModal({
         alert('종료일은 시작일보다 나중이어야 합니다.');
         return;
       }
+      if (!deliverySettings.pickupLocation?.trim()) {
+        alert('직접 수령 장소를 입력해주세요.');
+        return;
+      }
       setCurrentStep('custom-fields');
     } else if (currentStep === 'custom-fields') {
       // Validate custom fields (max 10)
@@ -184,7 +188,7 @@ export default function CreateCoBuyModal({
         maxQuantity: maxQuantity === '' ? null : Number(maxQuantity),
         pricingTiers,
         customFields,
-        deliverySettings: deliverySettings.enabled ? deliverySettings : null,
+        deliverySettings,
       });
 
       if (!result) {
@@ -458,76 +462,61 @@ export default function CreateCoBuyModal({
               {/* Delivery Settings */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start gap-2 mb-3">
-                  <Truck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <MapPin className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-gray-900">배송 옵션 설정</p>
+                    <p className="font-medium text-gray-900">수령 및 배송 설정</p>
                     <p className="text-sm text-gray-600 mt-1">
-                      참여자가 직접 수령 또는 배송 중 선택할 수 있도록 설정합니다.
+                      직접 수령 장소를 입력하고, 개별 배송 허용 여부를 설정하세요.
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-4 mt-4">
-                  {/* Enable delivery toggle */}
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  {/* Pickup location - always required */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      <MapPin className="w-4 h-4 inline-block mr-1" />
+                      직접 수령 장소 <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={deliverySettings.enabled}
-                      onChange={(e) => setDeliverySettings(prev => ({ ...prev, enabled: e.target.checked }))}
-                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      type="text"
+                      value={deliverySettings.pickupLocation || ''}
+                      onChange={(e) => setDeliverySettings(prev => ({
+                        ...prev,
+                        pickupLocation: e.target.value
+                      }))}
+                      placeholder="예: 학교 정문 앞, 회사 1층 로비"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      maxLength={100}
                     />
-                    <span className="text-sm font-medium text-gray-900">배송 옵션 활성화</span>
-                  </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      참여자에게 직접 수령 장소로 안내됩니다
+                    </p>
+                  </div>
 
-                  {deliverySettings.enabled && (
-                    <div className="space-y-4 pl-8 border-l-2 border-blue-100">
-                      {/* Delivery fee */}
+                  {/* Enable separate delivery toggle */}
+                  <div className="border-t pt-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={deliverySettings.enabled}
+                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, enabled: e.target.checked }))}
+                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          배송비
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">₩</span>
-                          <input
-                            type="number"
-                            value={deliverySettings.deliveryFee}
-                            onChange={(e) => setDeliverySettings(prev => ({
-                              ...prev,
-                              deliveryFee: Math.max(0, parseInt(e.target.value) || 0)
-                            }))}
-                            className="w-32 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
-                            min="0"
-                            step="500"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          0원으로 설정하면 무료 배송입니다
-                        </p>
+                        <span className="text-sm font-medium text-gray-900">개별 배송 허용</span>
+                        <p className="text-xs text-gray-500">참여자가 직접 수령 대신 배송을 선택할 수 있습니다</p>
                       </div>
+                    </label>
 
-                      {/* Pickup location */}
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          <MapPin className="w-4 h-4 inline-block mr-1" />
-                          직접 수령 장소 (선택)
-                        </label>
-                        <input
-                          type="text"
-                          value={deliverySettings.pickupLocation || ''}
-                          onChange={(e) => setDeliverySettings(prev => ({
-                            ...prev,
-                            pickupLocation: e.target.value
-                          }))}
-                          placeholder="예: 학교 정문 앞, 회사 1층 로비"
-                          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          maxLength={100}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          직접 수령을 선택한 참여자에게 안내됩니다
-                        </p>
+                    {deliverySettings.enabled && (
+                      <div className="mt-3 pl-8 flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm text-gray-600">배송비:</span>
+                        <span className="text-sm font-medium">₩{deliverySettings.deliveryFee.toLocaleString()}</span>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -736,23 +725,19 @@ export default function CreateCoBuyModal({
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-500 mb-2">배송 옵션</p>
-                  {deliverySettings.enabled ? (
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-green-600">✓ 배송 옵션 활성화</p>
-                      <p className="text-sm text-gray-600">
-                        배송비: ₩{deliverySettings.deliveryFee.toLocaleString()}
-                        {deliverySettings.deliveryFee === 0 && ' (무료)'}
+                  <p className="text-sm text-gray-500 mb-2">수령 및 배송</p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-600">
+                      직접 수령 장소: {deliverySettings.pickupLocation}
+                    </p>
+                    {deliverySettings.enabled ? (
+                      <p className="text-sm font-medium text-green-600">
+                        ✓ 개별 배송 허용 (배송비: ₩{deliverySettings.deliveryFee.toLocaleString()})
                       </p>
-                      {deliverySettings.pickupLocation && (
-                        <p className="text-sm text-gray-600">
-                          직접 수령 장소: {deliverySettings.pickupLocation}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">직접 수령만 가능</p>
-                  )}
+                    ) : (
+                      <p className="text-sm text-gray-500">직접 수령만 가능</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
