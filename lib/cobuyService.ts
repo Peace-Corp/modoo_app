@@ -1,5 +1,5 @@
 import { createClient } from './supabase-client';
-import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo, CoBuyStatus } from '@/types/types';
+import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo, CoBuyStatus, CoBuyPickupStatus } from '@/types/types';
 
 // ============================================================================
 // Type Definitions for Service Parameters
@@ -410,6 +410,7 @@ export async function addParticipant(
       delivery_method: data.deliveryMethod || null,
       delivery_info: data.deliveryInfo || null,
       delivery_fee: data.deliveryFee || 0,
+      pickup_status: 'pending' as const, // Default to 미수령
       payment_status: 'pending' as const,
     };
 
@@ -441,6 +442,7 @@ export async function addParticipant(
       delivery_method: participantData.delivery_method,
       delivery_info: participantData.delivery_info,
       delivery_fee: participantData.delivery_fee,
+      pickup_status: participantData.pickup_status,
       payment_status: participantData.payment_status,
       payment_key: null,
       payment_amount: null,
@@ -672,4 +674,37 @@ export async function requestCancellation(sessionId: string): Promise<CoBuySessi
   // In production, this would create a notification for admin review
   // For now, we'll just set the status to 'cancelled'
   return updateCoBuySession(sessionId, { status: 'cancelled' });
+}
+
+/**
+ * Update participant pickup status (배부 기능)
+ * Only applicable for participants with delivery_method = 'pickup'
+ * @param participantId The participant ID
+ * @param pickupStatus The new pickup status ('pending' = 미수령, 'picked_up' = 수령)
+ * @returns The updated participant or null if failed
+ */
+export async function updateParticipantPickupStatus(
+  participantId: string,
+  pickupStatus: CoBuyPickupStatus
+): Promise<CoBuyParticipant | null> {
+  const supabase = createClient();
+
+  try {
+    const { data: updatedParticipant, error } = await supabase
+      .from('cobuy_participants')
+      .update({ pickup_status: pickupStatus })
+      .eq('id', participantId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating participant pickup status:', error);
+      throw error;
+    }
+
+    return updatedParticipant;
+  } catch (error) {
+    console.error('Failed to update participant pickup status:', error);
+    return null;
+  }
 }

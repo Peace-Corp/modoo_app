@@ -9,7 +9,8 @@ import {
   closeCoBuySession,
   getCoBuySession,
   getParticipants,
-  requestCancellation
+  requestCancellation,
+  updateParticipantPickupStatus
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
 import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin } from 'lucide-react';
@@ -33,6 +34,11 @@ const paymentLabels: Record<CoBuyParticipant['payment_status'], { label: string;
   refunded: { label: '환불', color: 'bg-gray-100 text-gray-800' },
 };
 
+const pickupStatusLabels: Record<CoBuyParticipant['pickup_status'], { label: string; color: string }> = {
+  pending: { label: '미수령', color: 'bg-orange-100 text-orange-800' },
+  picked_up: { label: '수령', color: 'bg-green-100 text-green-800' },
+};
+
 export default function CoBuyDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -46,6 +52,7 @@ export default function CoBuyDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [expandedParticipants, setExpandedParticipants] = useState<Set<string>>(new Set());
+  const [updatingPickupStatus, setUpdatingPickupStatus] = useState<Set<string>>(new Set());
 
   const toggleParticipantExpand = (participantId: string) => {
     setExpandedParticipants((prev) => {
@@ -55,6 +62,30 @@ export default function CoBuyDetailPage() {
       } else {
         next.add(participantId);
       }
+      return next;
+    });
+  };
+
+  const handlePickupStatusToggle = async (participant: CoBuyParticipant) => {
+    if (updatingPickupStatus.has(participant.id)) return;
+
+    const newStatus = participant.pickup_status === 'picked_up' ? 'pending' : 'picked_up';
+
+    setUpdatingPickupStatus((prev) => new Set(prev).add(participant.id));
+
+    const updated = await updateParticipantPickupStatus(participant.id, newStatus);
+
+    if (updated) {
+      setParticipants((current) =>
+        current.map((p) => (p.id === participant.id ? { ...p, pickup_status: newStatus } : p))
+      );
+    } else {
+      alert('수령 상태 변경에 실패했습니다.');
+    }
+
+    setUpdatingPickupStatus((prev) => {
+      const next = new Set(prev);
+      next.delete(participant.id);
       return next;
     });
   };
@@ -236,6 +267,58 @@ export default function CoBuyDetailPage() {
           </div>
         ))}
       </div>
+    );
+  };
+
+  // Helper to render pickup status toggle button for pickup participants
+  const renderPickupStatusToggle = (participant: CoBuyParticipant, variant: 'mobile' | 'desktop' = 'desktop') => {
+    // Only show for pickup participants
+    if (participant.delivery_method !== 'pickup') return null;
+
+    const pickupStatus = participant.pickup_status || 'pending';
+    const statusInfo = pickupStatusLabels[pickupStatus];
+    const isUpdating = updatingPickupStatus.has(participant.id);
+
+    if (variant === 'mobile') {
+      return (
+        <div className="pt-2 mt-2 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">수령 상태</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePickupStatusToggle(participant);
+              }}
+              disabled={isUpdating}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                pickupStatus === 'picked_up'
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                  : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+              } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              {isUpdating ? '...' : statusInfo.label}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Desktop variant
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePickupStatusToggle(participant);
+        }}
+        disabled={isUpdating}
+        className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+          pickupStatus === 'picked_up'
+            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+            : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+        } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {isUpdating ? '...' : statusInfo.label}
+      </button>
     );
   };
 
@@ -669,6 +752,9 @@ export default function CoBuyDetailPage() {
                           {/* Delivery info */}
                           {renderDeliveryInfo(participant, 'mobile')}
 
+                          {/* Pickup status toggle for pickup participants */}
+                          {renderPickupStatusToggle(participant, 'mobile')}
+
                           {/* Custom field responses */}
                           {renderFieldResponses(participant, 'mobile')}
                         </div>
@@ -686,6 +772,7 @@ export default function CoBuyDetailPage() {
                       <th className="py-2 pr-4 font-medium">참여자 정보</th>
                       <th className="py-2 pr-4 font-medium">주문 내역</th>
                       <th className="py-2 pr-4 font-medium">수령 방법</th>
+                      <th className="py-2 pr-4 font-medium">배부</th>
                       <th className="py-2 pr-4 font-medium">추가 정보</th>
                       <th className="py-2 pr-4 font-medium">결제 상태</th>
                       <th className="py-2 pr-4 font-medium">결제 금액</th>
@@ -709,6 +796,11 @@ export default function CoBuyDetailPage() {
                           </td>
                           <td className="py-3 pr-4 text-gray-600">
                             {renderDeliveryInfo(participant, 'desktop') || (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4 text-gray-600">
+                            {renderPickupStatusToggle(participant, 'desktop') || (
                               <span className="text-gray-400 text-xs">-</span>
                             )}
                           </td>

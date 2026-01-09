@@ -328,6 +328,9 @@ export interface CoBuySelectedItem {
 // Delivery method options
 export type CoBuyDeliveryMethod = 'pickup' | 'delivery';
 
+// Pickup status for tracking distribution (배부 기능)
+export type CoBuyPickupStatus = 'pending' | 'picked_up'; // 미수령 | 수령
+
 // Delivery address info for participants who choose delivery
 export interface CoBuyDeliveryInfo {
   recipientName: string;
@@ -392,6 +395,7 @@ export interface CoBuyParticipant {
   delivery_method: CoBuyDeliveryMethod | null; // 'pickup' or 'delivery'
   delivery_info: CoBuyDeliveryInfo | null; // Address info if delivery method is 'delivery'
   delivery_fee: number; // Fee paid for delivery (0 for pickup)
+  pickup_status: CoBuyPickupStatus; // 수령 상태 for pickup participants (배부 기능)
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
   payment_key: string | null;
   payment_amount: number | null;
