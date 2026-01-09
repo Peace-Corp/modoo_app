@@ -13,7 +13,7 @@ import {
   updateParticipantPickupStatus
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check } from 'lucide-react';
 import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
@@ -270,40 +270,15 @@ export default function CoBuyDetailPage() {
     );
   };
 
-  // Helper to render pickup status toggle button for pickup participants
-  const renderPickupStatusToggle = (participant: CoBuyParticipant, variant: 'mobile' | 'desktop' = 'desktop') => {
+  // Helper to render pickup status toggle button for pickup participants (checkmark icon)
+  const renderPickupStatusToggle = (participant: CoBuyParticipant) => {
     // Only show for pickup participants
     if (participant.delivery_method !== 'pickup') return null;
 
     const pickupStatus = participant.pickup_status || 'pending';
-    const statusInfo = pickupStatusLabels[pickupStatus];
+    const isPickedUp = pickupStatus === 'picked_up';
     const isUpdating = updatingPickupStatus.has(participant.id);
 
-    if (variant === 'mobile') {
-      return (
-        <div className="pt-2 mt-2 border-t border-gray-100">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">수령 상태</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePickupStatusToggle(participant);
-              }}
-              disabled={isUpdating}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                pickupStatus === 'picked_up'
-                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                  : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-              } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
-              {isUpdating ? '...' : statusInfo.label}
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // Desktop variant
     return (
       <button
         onClick={(e) => {
@@ -311,13 +286,18 @@ export default function CoBuyDetailPage() {
           handlePickupStatusToggle(participant);
         }}
         disabled={isUpdating}
-        className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-          pickupStatus === 'picked_up'
-            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-            : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+        title={isPickedUp ? '수령 완료 (클릭하여 미수령으로 변경)' : '미수령 (클릭하여 수령 완료로 변경)'}
+        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+          isPickedUp
+            ? 'bg-green-500 text-white hover:bg-green-600'
+            : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
         } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
-        {isUpdating ? '...' : statusInfo.label}
+        {isUpdating ? (
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Check className="w-4 h-4" strokeWidth={3} />
+        )}
       </button>
     );
   };
@@ -702,6 +682,7 @@ export default function CoBuyDetailPage() {
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
                             {paymentInfo.label}
                           </span>
+                          {renderPickupStatusToggle(participant)}
                           <ChevronDown
                             className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
                               isExpanded ? 'rotate-180' : ''
@@ -752,9 +733,6 @@ export default function CoBuyDetailPage() {
                           {/* Delivery info */}
                           {renderDeliveryInfo(participant, 'mobile')}
 
-                          {/* Pickup status toggle for pickup participants */}
-                          {renderPickupStatusToggle(participant, 'mobile')}
-
                           {/* Custom field responses */}
                           {renderFieldResponses(participant, 'mobile')}
                         </div>
@@ -772,11 +750,11 @@ export default function CoBuyDetailPage() {
                       <th className="py-2 pr-4 font-medium">참여자 정보</th>
                       <th className="py-2 pr-4 font-medium">주문 내역</th>
                       <th className="py-2 pr-4 font-medium">수령 방법</th>
-                      <th className="py-2 pr-4 font-medium">배부</th>
                       <th className="py-2 pr-4 font-medium">추가 정보</th>
                       <th className="py-2 pr-4 font-medium">결제 상태</th>
                       <th className="py-2 pr-4 font-medium">결제 금액</th>
-                      <th className="py-2 font-medium">참여일</th>
+                      <th className="py-2 pr-4 font-medium">참여일</th>
+                      <th className="py-2 font-medium text-center">배부</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -800,11 +778,6 @@ export default function CoBuyDetailPage() {
                             )}
                           </td>
                           <td className="py-3 pr-4 text-gray-600">
-                            {renderPickupStatusToggle(participant, 'desktop') || (
-                              <span className="text-gray-400 text-xs">-</span>
-                            )}
-                          </td>
-                          <td className="py-3 pr-4 text-gray-600">
                             {renderFieldResponses(participant, 'desktop') || (
                               <span className="text-gray-400 text-xs">-</span>
                             )}
@@ -817,8 +790,13 @@ export default function CoBuyDetailPage() {
                           <td className="py-3 pr-4 text-gray-600">
                             {participant.payment_amount ? participant.payment_amount.toLocaleString('ko-KR') + '원' : '-'}
                           </td>
-                          <td className="py-3 text-gray-600">
+                          <td className="py-3 pr-4 text-gray-600">
                             {new Date(participant.joined_at).toLocaleDateString('ko-KR')}
+                          </td>
+                          <td className="py-3 text-center">
+                            {renderPickupStatusToggle(participant) || (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
                           </td>
                         </tr>
                       );
