@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2 } from 'lucide-react';
-import { CoBuyCustomField, SizeOption } from '@/types/types';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2 } from 'lucide-react';
+import { CoBuyCustomField, SizeOption, CoBuyPricingTier } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
 import type { CoBuySession } from '@/types/types';
@@ -19,6 +19,14 @@ interface SavedDesign {
     size_options?: SizeOption[];
   };
 }
+
+// Default pricing tiers (can be customized per product later)
+const DEFAULT_PRICING_TIERS: CoBuyPricingTier[] = [
+  { minQuantity: 10, pricePerItem: 25000 },
+  { minQuantity: 30, pricePerItem: 22000 },
+  { minQuantity: 50, pricePerItem: 20000 },
+  { minQuantity: 100, pricePerItem: 18000 },
+];
 
 interface CreateCoBuyModalProps {
   isOpen: boolean;
@@ -42,8 +50,31 @@ export default function CreateCoBuyModal({
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [maxParticipants, setMaxParticipants] = useState<number | ''>('');
+  const [minQuantity, setMinQuantity] = useState<number | ''>('');
+  const [maxQuantity, setMaxQuantity] = useState<number | ''>('');
+  const [pricingTiers, setPricingTiers] = useState<CoBuyPricingTier[]>(DEFAULT_PRICING_TIERS);
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
+
+  // Pricing tier handlers
+  const addPricingTier = () => {
+    const lastTier = pricingTiers[pricingTiers.length - 1];
+    const newMinQuantity = lastTier ? lastTier.minQuantity + 50 : 10;
+    const newPrice = lastTier ? Math.max(1000, lastTier.pricePerItem - 2000) : 25000;
+    setPricingTiers([...pricingTiers, { minQuantity: newMinQuantity, pricePerItem: newPrice }]);
+  };
+
+  const updatePricingTier = (index: number, field: 'minQuantity' | 'pricePerItem', value: number) => {
+    const newTiers = [...pricingTiers];
+    newTiers[index] = { ...newTiers[index], [field]: value };
+    // Sort by minQuantity
+    newTiers.sort((a, b) => a.minQuantity - b.minQuantity);
+    setPricingTiers(newTiers);
+  };
+
+  const removePricingTier = (index: number) => {
+    if (pricingTiers.length <= 1) return;
+    setPricingTiers(pricingTiers.filter((_, i) => i !== index));
+  };
 
   // Reset form when modal closes
   useEffect(() => {
@@ -54,7 +85,9 @@ export default function CreateCoBuyModal({
         setDescription('');
         setStartDate('');
         setEndDate('');
-        setMaxParticipants('');
+        setMinQuantity('');
+        setMaxQuantity('');
+        setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
         setCreatedSession(null);
       }, 300); // Wait for modal close animation
@@ -141,7 +174,9 @@ export default function CreateCoBuyModal({
         description: description.trim() || undefined,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        maxParticipants: maxParticipants === '' ? null : Number(maxParticipants),
+        minQuantity: minQuantity === '' ? null : Number(minQuantity),
+        maxQuantity: maxQuantity === '' ? null : Number(maxQuantity),
+        pricingTiers,
         customFields,
       });
 
@@ -313,19 +348,114 @@ export default function CreateCoBuyModal({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">최대 참여 인원 (선택)</label>
-                <input
-                  type="number"
-                  value={maxParticipants}
-                  onChange={(e) => setMaxParticipants(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
-                  placeholder="제한 없음"
-                  min="1"
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  비워두면 인원 제한이 없습니다
+              {/* Pricing Tiers Editor */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">수량별 단가 설정</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      주문 수량에 따른 단가를 설정하세요. 참여자들에게 이 정보가 표시됩니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-4">
+                  {pricingTiers.map((tier, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={tier.minQuantity}
+                          onChange={(e) => updatePricingTier(idx, 'minQuantity', Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-20 px-2 py-1.5 border rounded text-sm text-center"
+                          min="1"
+                        />
+                        <span className="text-sm text-gray-600">벌 이상</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">₩</span>
+                        <input
+                          type="number"
+                          value={tier.pricePerItem}
+                          onChange={(e) => updatePricingTier(idx, 'pricePerItem', Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-24 px-2 py-1.5 border rounded text-sm text-right"
+                          min="0"
+                          step="1000"
+                        />
+                      </div>
+                      {pricingTiers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePricingTier(idx)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addPricingTier}
+                  className="mt-3 w-full py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  단가 구간 추가
+                </button>
+
+                <p className="text-xs text-gray-500 mt-3">
+                  * 수량이 많을수록 단가가 낮아지도록 설정하는 것이 일반적입니다
                 </p>
+              </div>
+
+              {/* Quantity Settings */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    최소 수량 (선택)
+                  </label>
+                  <input
+                    type="number"
+                    value={minQuantity}
+                    onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
+                    placeholder="제한 없음"
+                    min="1"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    공구 진행에 필요한 최소 수량
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    최대 수량 (선택)
+                  </label>
+                  <input
+                    type="number"
+                    value={maxQuantity}
+                    onChange={(e) => setMaxQuantity(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
+                    placeholder="제한 없음"
+                    min="1"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    비워두면 수량 제한 없음
+                  </p>
+                </div>
+              </div>
+
+              {/* Pricing Strategy Tips */}
+              <div className="bg-gray-50 rounded-lg p-4 text-sm">
+                <p className="font-medium text-gray-900 mb-2">💡 가격 설정 팁</p>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• <strong>가격 고정:</strong> 최소/최대 수량을 같게 설정하면 단가가 확정됩니다</li>
+                  <li>• <strong>단가 할인:</strong> 최대 수량을 비워두고 참여자를 더 모아 단가를 낮출 수 있습니다</li>
+                  <li>• <strong>차액 환불:</strong> 임시 가격으로 결제 후, 최종 단가 확정 시 차액을 환불합니다</li>
+                </ul>
               </div>
 
               <div className="flex gap-3">
@@ -482,11 +612,30 @@ export default function CreateCoBuyModal({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">최소 수량</p>
+                    <p className="text-sm font-medium">
+                      {minQuantity === '' ? '제한 없음' : `${minQuantity}벌`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">최대 수량</p>
+                    <p className="text-sm font-medium">
+                      {maxQuantity === '' ? '제한 없음' : `${maxQuantity}벌`}
+                    </p>
+                  </div>
+                </div>
+
                 <div>
-                  <p className="text-sm text-gray-500">최대 참여 인원</p>
-                  <p className="text-sm font-medium">
-                    {maxParticipants === '' ? '제한 없음' : `${maxParticipants}명`}
-                  </p>
+                  <p className="text-sm text-gray-500 mb-2">수량별 단가</p>
+                  <div className="flex flex-wrap gap-2">
+                    {pricingTiers.map((tier, idx) => (
+                      <span key={idx} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">
+                        {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 <div>

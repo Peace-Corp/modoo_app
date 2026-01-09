@@ -1,5 +1,5 @@
 import { createClient } from './supabase-client';
-import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails } from '@/types/types';
+import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem } from '@/types/types';
 
 // ============================================================================
 // Type Definitions for Service Parameters
@@ -11,7 +11,10 @@ export interface CreateCoBuySessionData {
   description?: string;
   startDate: Date;
   endDate: Date;
-  maxParticipants?: number | null;
+  minQuantity?: number | null; // Minimum total quantity to proceed
+  maxQuantity?: number | null; // Maximum total quantity (optional cap)
+  maxParticipants?: number | null; // Legacy - max number of participants
+  pricingTiers?: CoBuyPricingTier[]; // Quantity-based pricing
   customFields: CoBuyCustomField[];
 }
 
@@ -31,7 +34,8 @@ export interface AddParticipantData {
   email: string;
   phone?: string;
   fieldResponses: Record<string, string>;
-  selectedSize: string;
+  selectedSize: string; // Legacy - kept for backward compatibility
+  selectedItems: CoBuySelectedItem[]; // New - supports multiple sizes with quantities
 }
 
 // ============================================================================
@@ -98,10 +102,14 @@ export async function createCoBuySession(
       description: data.description || null,
       start_date: data.startDate.toISOString(),
       end_date: data.endDate.toISOString(),
-      max_participants: data.maxParticipants,
+      min_quantity: data.minQuantity ?? null,
+      max_quantity: data.maxQuantity ?? null,
+      max_participants: data.maxParticipants ?? null,
+      pricing_tiers: data.pricingTiers || [],
       custom_fields: data.customFields,
       status: 'open' as const,
       current_participant_count: 0,
+      current_total_quantity: 0,
     };
 
     // Insert into cobuy_sessions table
@@ -378,6 +386,9 @@ export async function addParticipant(
       throw new Error('Session cannot accept more participants (closed, full, or expired)');
     }
 
+    // Calculate total quantity from selected items
+    const totalQuantity = data.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+
     // Create participant record
     const participantData = {
       cobuy_session_id: data.sessionId,
@@ -385,7 +396,9 @@ export async function addParticipant(
       email: data.email,
       phone: data.phone || null,
       field_responses: data.fieldResponses,
-      selected_size: data.selectedSize,
+      selected_size: data.selectedSize, // Legacy field
+      selected_items: data.selectedItems,
+      total_quantity: totalQuantity,
       payment_status: 'pending' as const,
     };
 
@@ -412,6 +425,8 @@ export async function addParticipant(
       phone: participantData.phone,
       field_responses: participantData.field_responses,
       selected_size: participantData.selected_size,
+      selected_items: participantData.selected_items,
+      total_quantity: participantData.total_quantity,
       payment_status: participantData.payment_status,
       payment_key: null,
       payment_amount: null,
@@ -467,9 +482,10 @@ export async function updateParticipantPayment(
       throw error;
     }
 
-    // If payment is completed, increment session participant count
+    // If payment is completed, increment session counts
     if (paymentData.paymentStatus === 'completed' && updatedParticipant) {
-      await incrementParticipantCount(updatedParticipant.cobuy_session_id);
+      const quantity = updatedParticipant.total_quantity || 1;
+      await incrementSessionCounts(updatedParticipant.cobuy_session_id, quantity);
     }
 
     return updatedParticipant;
@@ -513,15 +529,16 @@ export async function getParticipants(sessionId: string): Promise<CoBuyParticipa
 /**
  * Check if a session can accept new participants
  * @param sessionId The session ID
+ * @param additionalQuantity Optional - check if this many additional items can be added
  * @returns true if session can accept participants, false otherwise
  */
-export async function canAcceptParticipants(sessionId: string): Promise<boolean> {
+export async function canAcceptParticipants(sessionId: string, additionalQuantity?: number): Promise<boolean> {
   const supabase = createClient();
 
   try {
     const { data: session, error } = await supabase
       .from('cobuy_sessions')
-      .select('status, end_date, max_participants, current_participant_count')
+      .select('status, end_date, max_participants, current_participant_count, max_quantity, current_total_quantity')
       .eq('id', sessionId)
       .single();
 
@@ -544,6 +561,13 @@ export async function canAcceptParticipants(sessionId: string): Promise<boolean>
     // Check participant limit
     if (session.max_participants !== null) {
       if (session.current_participant_count >= session.max_participants) {
+        return false;
+      }
+    }
+
+    // Check quantity limit if max_quantity is set
+    if (session.max_quantity !== null && additionalQuantity) {
+      if ((session.current_total_quantity || 0) + additionalQuantity > session.max_quantity) {
         return false;
       }
     }
@@ -584,18 +608,19 @@ export async function checkSessionExpiry(sessionId: string): Promise<boolean> {
 }
 
 /**
- * Increment the participant count for a session (atomic operation)
+ * Increment the participant count and total quantity for a session
  * @param sessionId The session ID
+ * @param quantity The quantity to add to the total
  * @returns true if successful, false otherwise
  */
-async function incrementParticipantCount(sessionId: string): Promise<boolean> {
+async function incrementSessionCounts(sessionId: string, quantity: number = 0): Promise<boolean> {
   const supabase = createClient();
 
   try {
-    // Get current count
+    // Get current counts
     const { data: session, error: fetchError } = await supabase
       .from('cobuy_sessions')
-      .select('current_participant_count')
+      .select('current_participant_count, current_total_quantity')
       .eq('id', sessionId)
       .single();
 
@@ -603,10 +628,13 @@ async function incrementParticipantCount(sessionId: string): Promise<boolean> {
       throw fetchError || new Error('Session not found');
     }
 
-    // Increment count
+    // Update counts
     const { error: updateError } = await supabase
       .from('cobuy_sessions')
-      .update({ current_participant_count: session.current_participant_count + 1 })
+      .update({
+        current_participant_count: session.current_participant_count + 1,
+        current_total_quantity: (session.current_total_quantity || 0) + quantity,
+      })
       .eq('id', sessionId);
 
     if (updateError) {
@@ -615,7 +643,7 @@ async function incrementParticipantCount(sessionId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Failed to increment participant count:', error);
+    console.error('Failed to increment session counts:', error);
     return false;
   }
 }

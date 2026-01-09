@@ -305,6 +305,18 @@ export interface CoBuyCustomField {
   options?: string[]; // For dropdown type
 }
 
+// Pricing tier for quantity-based discounts
+export interface CoBuyPricingTier {
+  minQuantity: number;
+  pricePerItem: number;
+}
+
+// Selected item with size and quantity
+export interface CoBuySelectedItem {
+  size: string;
+  quantity: number;
+}
+
 export interface CoBuySession {
   id: string;
   user_id: string;
@@ -315,8 +327,12 @@ export interface CoBuySession {
   share_token: string;
   start_date: string;
   end_date: string;
-  max_participants: number | null;
+  min_quantity: number | null; // Minimum total quantity to proceed
+  max_quantity: number | null; // Maximum total quantity (optional cap)
+  max_participants: number | null; // Max number of participants (legacy, optional)
   current_participant_count: number;
+  current_total_quantity: number; // Total items ordered so far
+  pricing_tiers: CoBuyPricingTier[]; // Quantity-based pricing tiers
   custom_fields: CoBuyCustomField[];
   bulk_order_id: string | null;
   created_at: string;
@@ -330,7 +346,9 @@ export interface CoBuyParticipant {
   email: string;
   phone: string | null;
   field_responses: Record<string, string>;
-  selected_size: string;
+  selected_size: string; // Legacy - kept for backward compatibility
+  selected_items: CoBuySelectedItem[]; // New - supports multiple sizes with quantities
+  total_quantity: number; // Total items this participant ordered
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
   payment_key: string | null;
   payment_amount: number | null;

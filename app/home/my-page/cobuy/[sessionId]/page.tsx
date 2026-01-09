@@ -12,7 +12,7 @@ import {
   requestCancellation
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown } from 'lucide-react';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   open: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -40,6 +40,19 @@ export default function CoBuyDetailPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [expandedParticipants, setExpandedParticipants] = useState<Set<string>>(new Set());
+
+  const toggleParticipantExpand = (participantId: string) => {
+    setExpandedParticipants((prev) => {
+      const next = new Set(prev);
+      if (next.has(participantId)) {
+        next.delete(participantId);
+      } else {
+        next.add(participantId);
+      }
+      return next;
+    });
+  };
 
   const fetchSessionData = async () => {
     if (!sessionId || !user) return;
@@ -152,6 +165,74 @@ export default function CoBuyDetailPage() {
     () => participants.reduce((sum, participant) => sum + (participant.payment_amount || 0), 0),
     [participants]
   );
+
+  const totalQuantity = useMemo(
+    () => participants
+      .filter((p) => p.payment_status === 'completed')
+      .reduce((sum, p) => sum + (p.total_quantity || 0), 0),
+    [participants]
+  );
+
+  // Helper to render selected items
+  const renderSelectedItems = (participant: CoBuyParticipant) => {
+    const items = participant.selected_items;
+    if (!items || items.length === 0) {
+      // Fallback to legacy selected_size
+      return participant.selected_size || '-';
+    }
+
+    return (
+      <div className="space-y-1">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-medium">
+              {item.size}
+            </span>
+            <span className="text-gray-500">×</span>
+            <span className="font-medium">{item.quantity}</span>
+          </div>
+        ))}
+        <div className="text-xs text-gray-500 pt-1 border-t border-gray-100">
+          총 {participant.total_quantity || items.reduce((sum, i) => sum + i.quantity, 0)}벌
+        </div>
+      </div>
+    );
+  };
+
+  // Helper to render custom field responses
+  const renderFieldResponses = (participant: CoBuyParticipant, variant: 'mobile' | 'desktop' = 'desktop') => {
+    const customFields = session?.custom_fields || [];
+    const responses = participant.field_responses || {};
+
+    // Filter out fixed fields (like size) since we show those separately
+    const fieldsToShow = customFields.filter((f) => !f.fixed && responses[f.id]);
+
+    if (fieldsToShow.length === 0) return null;
+
+    if (variant === 'mobile') {
+      return (
+        <div className="space-y-1.5 pt-2 mt-2 border-t border-gray-100">
+          {fieldsToShow.map((field) => (
+            <div key={field.id} className="flex justify-between text-sm">
+              <span className="text-gray-500">{field.label}</span>
+              <span className="text-gray-700">{responses[field.id]}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-0.5 text-xs text-gray-500">
+        {fieldsToShow.map((field) => (
+          <div key={field.id}>
+            <span className="text-gray-400">{field.label}:</span>{' '}
+            <span>{responses[field.id]}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const copyShareLink = () => {
     if (!session) return;
@@ -338,7 +419,7 @@ export default function CoBuyDetailPage() {
 
         <section className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">진행 현황</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-xl bg-gray-50 p-4">
               <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                 <Users className="w-4 h-4" />
@@ -348,6 +429,19 @@ export default function CoBuyDetailPage() {
                 {session.current_participant_count}
                 {session.max_participants ? (
                   <span className="text-sm text-gray-500"> / {session.max_participants}</span>
+                ) : null}
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                <ShoppingBag className="w-4 h-4" />
+                총 주문 수량
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {totalQuantity}
+                <span className="text-sm text-gray-500">벌</span>
+                {session.max_quantity ? (
+                  <span className="text-sm text-gray-500"> / {session.max_quantity}</span>
                 ) : null}
               </p>
             </div>
@@ -362,11 +456,53 @@ export default function CoBuyDetailPage() {
               </p>
             </div>
           </div>
+
+          {/* Pricing Tiers Info */}
+          {session.pricing_tiers && session.pricing_tiers.length > 0 && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-xl">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900 mb-2">수량별 단가</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[...session.pricing_tiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => {
+                      const isActive = totalQuantity >= tier.minQuantity;
+                      return (
+                        <span
+                          key={idx}
+                          className={`px-3 py-1.5 rounded-lg text-sm ${
+                            isActive
+                              ? 'bg-blue-500 text-white font-medium'
+                              : 'bg-white border border-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {session.min_quantity && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      최소 수량: {session.min_quantity}벌
+                      {totalQuantity < session.min_quantity && (
+                        <span className="text-red-600 ml-2">
+                          ({session.min_quantity - totalQuantity}벌 더 필요)
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
-        <section className="bg-white rounded-2xl shadow-sm p-6">
+        <section className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">참여자 목록</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              참여자 목록
+              <span className="ml-2 text-sm font-normal text-gray-500">({participants.length}명)</span>
+            </h2>
             <button
               onClick={fetchSessionData}
               className="text-sm text-gray-500 hover:text-gray-700"
@@ -377,43 +513,139 @@ export default function CoBuyDetailPage() {
           {participants.length === 0 ? (
             <p className="text-gray-500 text-sm">아직 참여한 인원이 없습니다.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-500 border-b">
-                    <th className="py-2 pr-4 font-medium">이름</th>
-                    <th className="py-2 pr-4 font-medium">이메일</th>
-                    <th className="py-2 pr-4 font-medium">사이즈</th>
-                    <th className="py-2 pr-4 font-medium">결제 상태</th>
-                    <th className="py-2 pr-4 font-medium">결제 금액</th>
-                    <th className="py-2 font-medium">참여일</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {participants.map((participant) => {
-                    const paymentInfo = paymentLabels[participant.payment_status];
-                    return (
-                      <tr key={participant.id} className="border-b last:border-b-0">
-                        <td className="py-3 pr-4 text-gray-900 font-medium">{participant.name}</td>
-                        <td className="py-3 pr-4 text-gray-600">{participant.email}</td>
-                        <td className="py-3 pr-4 text-gray-600">{participant.selected_size}</td>
-                        <td className="py-3 pr-4">
+            <>
+              {/* Mobile view - Accordion layout */}
+              <div className="md:hidden space-y-2">
+                {participants.map((participant) => {
+                  const paymentInfo = paymentLabels[participant.payment_status];
+                  const isExpanded = expandedParticipants.has(participant.id);
+                  const totalQty = participant.total_quantity || participant.selected_items?.reduce((sum, i) => sum + i.quantity, 0) || 1;
+
+                  return (
+                    <div key={participant.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                      {/* Accordion Header - Always visible */}
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipantExpand(participant.id)}
+                        className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="min-w-0 text-left">
+                            <p className="font-medium text-gray-900 truncate">{participant.name}</p>
+                            <p className="text-xs text-gray-500">{totalQty}벌 · {participant.payment_amount ? `₩${participant.payment_amount.toLocaleString()}` : '미결제'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
                             {paymentInfo.label}
                           </span>
-                        </td>
-                        <td className="py-3 pr-4 text-gray-600">
-                          {participant.payment_amount ? participant.payment_amount.toLocaleString('ko-KR') + '원' : '-'}
-                        </td>
-                        <td className="py-3 text-gray-600">
-                          {new Date(participant.joined_at).toLocaleDateString('ko-KR')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <ChevronDown
+                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                              isExpanded ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Accordion Content - Expandable */}
+                      <div
+                        className={`overflow-hidden transition-all duration-200 ${
+                          isExpanded ? 'max-h-96' : 'max-h-0'
+                        }`}
+                      >
+                        <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50 space-y-3">
+                          {/* Contact Info */}
+                          <div className="text-sm">
+                            <p className="text-gray-600">{participant.email}</p>
+                            {participant.phone && (
+                              <p className="text-gray-600">{participant.phone}</p>
+                            )}
+                          </div>
+
+                          {/* Order Details */}
+                          <div className="text-sm">
+                            <p className="text-xs text-gray-500 mb-1">주문 내역</p>
+                            <div className="bg-white rounded-lg p-2">
+                              {renderSelectedItems(participant)}
+                            </div>
+                          </div>
+
+                          {/* Payment & Date */}
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-500">결제 금액</p>
+                              <p className="font-medium text-gray-900">
+                                {participant.payment_amount ? `₩${participant.payment_amount.toLocaleString()}` : '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">참여일</p>
+                              <p className="text-gray-700">
+                                {new Date(participant.joined_at).toLocaleDateString('ko-KR')}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Custom field responses */}
+                          {renderFieldResponses(participant, 'mobile')}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop view - Table layout */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b">
+                      <th className="py-2 pr-4 font-medium">참여자 정보</th>
+                      <th className="py-2 pr-4 font-medium">주문 내역</th>
+                      <th className="py-2 pr-4 font-medium">추가 정보</th>
+                      <th className="py-2 pr-4 font-medium">결제 상태</th>
+                      <th className="py-2 pr-4 font-medium">결제 금액</th>
+                      <th className="py-2 font-medium">참여일</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {participants.map((participant) => {
+                      const paymentInfo = paymentLabels[participant.payment_status];
+                      return (
+                        <tr key={participant.id} className="border-b last:border-b-0 align-top">
+                          <td className="py-3 pr-4">
+                            <div className="text-gray-900 font-medium">{participant.name}</div>
+                            <div className="text-gray-500 text-xs">{participant.email}</div>
+                            {participant.phone && (
+                              <div className="text-gray-500 text-xs">{participant.phone}</div>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4 text-gray-600">
+                            {renderSelectedItems(participant)}
+                          </td>
+                          <td className="py-3 pr-4 text-gray-600">
+                            {renderFieldResponses(participant, 'desktop') || (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
+                              {paymentInfo.label}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-gray-600">
+                            {participant.payment_amount ? participant.payment_amount.toLocaleString('ko-KR') + '원' : '-'}
+                          </td>
+                          <td className="py-3 text-gray-600">
+                            {new Date(participant.joined_at).toLocaleDateString('ko-KR')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </div>
