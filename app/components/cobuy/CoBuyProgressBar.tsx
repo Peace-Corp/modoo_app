@@ -1,10 +1,13 @@
 'use client';
 
-import { CoBuyProgressState } from '@/types/types';
+import { CoBuyStatus } from '@/types/types';
 import { Check } from 'lucide-react';
 
+// Progress states in order (excludes 'cancelled' as it's not a progress step)
+type ProgressStatus = Exclude<CoBuyStatus, 'cancelled'>;
+
 interface ProgressStep {
-  key: CoBuyProgressState;
+  key: ProgressStatus;
   label: string;
 }
 
@@ -19,11 +22,13 @@ const PROGRESS_STEPS: ProgressStep[] = [
 ];
 
 interface CoBuyProgressBarProps {
-  currentState: CoBuyProgressState;
+  currentStatus: CoBuyStatus;
 }
 
-export default function CoBuyProgressBar({ currentState }: CoBuyProgressBarProps) {
-  const currentIndex = PROGRESS_STEPS.findIndex((step) => step.key === currentState);
+export default function CoBuyProgressBar({ currentStatus }: CoBuyProgressBarProps) {
+  // If cancelled, don't show progress (or show at gathering step)
+  const effectiveStatus = currentStatus === 'cancelled' ? 'gathering' : currentStatus;
+  const currentIndex = PROGRESS_STEPS.findIndex((step) => step.key === effectiveStatus);
 
   return (
     <div className="w-full">

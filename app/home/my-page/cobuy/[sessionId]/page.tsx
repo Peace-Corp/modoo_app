@@ -16,10 +16,14 @@ import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, I
 import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
-  open: { label: '모집중', color: 'bg-green-100 text-green-800' },
-  closed: { label: '마감', color: 'bg-gray-100 text-gray-800' },
+  gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
+  gather_complete: { label: '모집 완료', color: 'bg-blue-100 text-blue-800' },
+  order_complete: { label: '주문 완료', color: 'bg-blue-100 text-blue-800' },
+  manufacturing: { label: '제작중', color: 'bg-yellow-100 text-yellow-800' },
+  manufacture_complete: { label: '제작 완료', color: 'bg-blue-100 text-blue-800' },
+  delivering: { label: '배송중', color: 'bg-purple-100 text-purple-800' },
+  delivery_complete: { label: '배송 완료', color: 'bg-gray-100 text-gray-800' },
   cancelled: { label: '취소됨', color: 'bg-red-100 text-red-800' },
-  finalized: { label: '완료', color: 'bg-blue-100 text-blue-800' },
 };
 
 const paymentLabels: Record<CoBuyParticipant['payment_status'], { label: string; color: string }> = {
@@ -313,7 +317,7 @@ export default function CoBuyDetailPage() {
   };
 
   const handleCloseSession = async () => {
-    if (!session || session.status !== 'open') return;
+    if (!session || session.status !== 'gathering') return;
     const confirmed = window.confirm('공동구매를 마감하시겠습니까? 이후에는 참여자가 추가될 수 없습니다.');
     if (!confirmed) return;
 
@@ -457,11 +461,11 @@ export default function CoBuyDetailPage() {
                   </>
                 )}
               </button>
-              {session.status !== 'finalized' && (
+              {session.status !== 'delivery_complete' && (
                 <>
                   <button
                     onClick={handleCloseSession}
-                    disabled={isUpdating || session.status !== 'open'}
+                    disabled={isUpdating || session.status !== 'gathering'}
                     className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     마감하기
@@ -490,7 +494,7 @@ export default function CoBuyDetailPage() {
         {/* Progress Bar Section */}
         <section className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">진행 상태</h2>
-          <CoBuyProgressBar currentState={session.progress_state || 'gathering'} />
+          <CoBuyProgressBar currentStatus={session.status} />
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm p-6">

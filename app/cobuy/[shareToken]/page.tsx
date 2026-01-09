@@ -212,7 +212,7 @@ export default function CoBuySharePage() {
       return 'cancelled' as const;
     }
 
-    if (session.status !== 'open') {
+    if (session.status !== 'gathering') {
       return 'closed' as const;
     }
 

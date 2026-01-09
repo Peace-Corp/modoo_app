@@ -1,5 +1,5 @@
 import { createClient } from './supabase-client';
-import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
+import { CoBuySession, CoBuyParticipant, CoBuyCustomField, CoBuySessionWithDetails, CoBuyPricingTier, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo, CoBuyStatus } from '@/types/types';
 
 // ============================================================================
 // Type Definitions for Service Parameters
@@ -26,7 +26,7 @@ export interface UpdateCoBuySessionData {
   endDate?: Date;
   maxParticipants?: number | null;
   customFields?: CoBuyCustomField[];
-  status?: 'open' | 'closed' | 'cancelled' | 'finalized';
+  status?: CoBuyStatus;
 }
 
 export interface AddParticipantData {
@@ -112,7 +112,7 @@ export async function createCoBuySession(
       pricing_tiers: data.pricingTiers || [],
       custom_fields: data.customFields,
       delivery_settings: data.deliverySettings ?? null,
-      status: 'open' as const,
+      status: 'gathering' as const,
       current_participant_count: 0,
       current_total_quantity: 0,
     };
@@ -336,12 +336,12 @@ export async function updateCoBuySession(
 }
 
 /**
- * Close a CoBuy session (set status to 'closed')
+ * Close a CoBuy session (set status to 'gather_complete')
  * @param sessionId The session ID
  * @returns The updated session or null if failed
  */
 export async function closeCoBuySession(sessionId: string): Promise<CoBuySession | null> {
-  return updateCoBuySession(sessionId, { status: 'closed' });
+  return updateCoBuySession(sessionId, { status: 'gather_complete' });
 }
 
 /**
@@ -557,8 +557,8 @@ export async function canAcceptParticipants(sessionId: string, additionalQuantit
       return false;
     }
 
-    // Check status
-    if (session.status !== 'open') {
+    // Check status - only allow participation when status is 'gathering'
+    if (session.status !== 'gathering') {
       return false;
     }
 

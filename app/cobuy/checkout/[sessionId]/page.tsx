@@ -94,8 +94,9 @@ export default function CoBuyCheckoutPage() {
           return;
         }
 
-        // Check if session is already finalized
-        if (sessionData.status === 'finalized') {
+        // Check if session is already past order_complete (order already created)
+        const orderCreatedStates = ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering', 'delivery_complete'];
+        if (orderCreatedStates.includes(sessionData.status)) {
           setError('이미 주문이 생성된 세션입니다.');
           return;
         }

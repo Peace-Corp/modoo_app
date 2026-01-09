@@ -344,14 +344,15 @@ export interface CoBuyDeliverySettings {
   pickupLocation?: string; // Optional pickup location description
 }
 
-export type CoBuyProgressState =
+export type CoBuyStatus =
   | 'gathering'           // 모집중
   | 'gather_complete'     // 모집 완료
   | 'order_complete'      // 주문 완료
   | 'manufacturing'       // 제작중
   | 'manufacture_complete' // 제작 완료
   | 'delivering'          // 배송중
-  | 'delivery_complete';  // 배송 완료
+  | 'delivery_complete'   // 배송 완료
+  | 'cancelled';          // 취소됨
 
 export interface CoBuySession {
   id: string;
@@ -359,8 +360,7 @@ export interface CoBuySession {
   saved_design_screenshot_id: string;
   title: string;
   description: string | null;
-  status: 'open' | 'closed' | 'cancelled' | 'finalized';
-  progress_state: CoBuyProgressState; // Current progress state of the session
+  status: CoBuyStatus;
   share_token: string;
   start_date: string;
   end_date: string;
