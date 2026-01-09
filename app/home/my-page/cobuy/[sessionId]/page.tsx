@@ -665,31 +665,41 @@ export default function CoBuyDetailPage() {
                   const totalQty = participant.total_quantity || participant.selected_items?.reduce((sum, i) => sum + i.quantity, 0) || 1;
 
                   return (
-                    <div key={participant.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                      {/* Accordion Header - Always visible */}
-                      <button
-                        type="button"
-                        onClick={() => toggleParticipantExpand(participant.id)}
-                        className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="min-w-0 text-left">
-                            <p className="font-medium text-gray-900 truncate">{participant.name}</p>
-                            <p className="text-xs text-gray-500">{totalQty}벌 · {participant.payment_amount ? `₩${participant.payment_amount.toLocaleString()}` : '미결제'}</p>
+                    <div key={participant.id} className="flex items-stretch gap-2">
+                      {/* Pickup status toggle - outside the accordion on the left */}
+                      <div className="flex items-center shrink-0">
+                        {participant.delivery_method === 'pickup' ? (
+                          renderPickupStatusToggle(participant)
+                        ) : (
+                          <div className="w-7" /> // Spacer for non-pickup participants
+                        )}
+                      </div>
+
+                      {/* Accordion item */}
+                      <div className="flex-1 border border-gray-200 rounded-xl overflow-hidden">
+                        {/* Accordion Header - Always visible */}
+                        <button
+                          type="button"
+                          onClick={() => toggleParticipantExpand(participant.id)}
+                          className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="min-w-0 text-left">
+                              <p className="font-medium text-gray-900 truncate">{participant.name}</p>
+                              <p className="text-xs text-gray-500">{totalQty}벌 · {participant.payment_amount ? `₩${participant.payment_amount.toLocaleString()}` : '미결제'}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
-                            {paymentInfo.label}
-                          </span>
-                          {renderPickupStatusToggle(participant)}
-                          <ChevronDown
-                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                              isExpanded ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentInfo.color}`}>
+                              {paymentInfo.label}
+                            </span>
+                            <ChevronDown
+                              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </div>
+                        </button>
 
                       {/* Accordion Content - Expandable */}
                       <div
@@ -736,6 +746,7 @@ export default function CoBuyDetailPage() {
                           {/* Custom field responses */}
                           {renderFieldResponses(participant, 'mobile')}
                         </div>
+                      </div>
                       </div>
                     </div>
                   );
