@@ -44,24 +44,34 @@ export default function PurchaseOptionModal({
           어떻게 진행할까요?
         </p>
 
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={onSelectCoBuy}
-            disabled={isDisabled}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            공동구매하기
-          </button>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={onSelectCoBuy}
+              disabled={isDisabled}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              공동구매하기
+            </button>
+            <p className="text-xs text-gray-400 text-center">
+              링크 하나로 공동 구매 간편하게 개설하기
+            </p>
+          </div>
 
-          <button
-            type="button"
-            onClick={onSelectCart}
-            disabled={isDisabled}
-            className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            장바구니에 담기
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={onSelectCart}
+              disabled={isDisabled}
+              className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              장바구니에 담기
+            </button>
+            <p className="text-xs text-gray-400 text-center">
+              수량 선택하고 장바구니에 담기
+            </p>
+          </div>
         </div>
       </div>
     </div>
