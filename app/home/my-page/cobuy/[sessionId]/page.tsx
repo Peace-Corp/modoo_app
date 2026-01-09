@@ -13,6 +13,7 @@ import {
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
 import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin } from 'lucide-react';
+import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   open: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -484,6 +485,12 @@ export default function CoBuyDetailPage() {
               )}
             </div>
           </div>
+        </section>
+
+        {/* Progress Bar Section */}
+        <section className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">진행 상태</h2>
+          <CoBuyProgressBar currentState={session.progress_state || 'gathering'} />
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm p-6">
