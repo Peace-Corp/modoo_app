@@ -390,7 +390,7 @@ export default function CoBuySharePage() {
               </div>
               {getProgressInfo.nextTierQuantity && (
                 <p className="text-xs text-blue-600">
-                  💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인!
+                  💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인! <span className='text-gray-400'>(차액은 캐시백으로 환불됩니다.)</span>
                 </p>
               )}
             </div>

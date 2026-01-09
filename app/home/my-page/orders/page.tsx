@@ -202,12 +202,6 @@ export default function OrdersPage() {
                       리뷰 작성하기
                     </button>
                   </div>
-
-                  {order.payment_status && (
-                    <div className="mt-3 text-xs text-gray-500">
-                      결제 상태: {order.payment_status}
-                    </div>
-                  )}
                 </div>
               );
             })}

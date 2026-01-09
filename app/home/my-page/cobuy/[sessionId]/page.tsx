@@ -479,7 +479,7 @@ export default function CoBuyDetailPage() {
                   </button>
                   <button
                     onClick={handleCreateOrders}
-                    disabled={session.status === 'cancelled' || completedCount === 0}
+                    disabled={session.status === 'cancelled'}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <PackageCheck className="w-4 h-4" />
