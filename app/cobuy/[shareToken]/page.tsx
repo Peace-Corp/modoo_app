@@ -388,7 +388,7 @@ export default function CoBuySharePage() {
                 </div>
 
                 {/* Checkpoint Progress Bar */}
-                <div className="relative pt-1 pb-6">
+                <div className="relative pt-1 pb-6 h-15">
                   {/* Background line */}
                   <div className="absolute left-0 right-0 top-4 h-1 bg-gray-200 rounded-full" />
 
