@@ -341,11 +341,21 @@ export interface CoBuyDeliveryInfo {
   memo?: string; // 배송 요청사항
 }
 
+// Address information for CoBuy delivery settings
+export interface CoBuyAddressInfo {
+  roadAddress: string; // 도로명 주소
+  jibunAddress?: string; // 지번 주소
+  postalCode: string; // 우편번호
+  addressDetail?: string; // 상세주소
+}
+
 // Delivery settings configured by session creator
 export interface CoBuyDeliverySettings {
   enabled: boolean; // Whether delivery option is available
   deliveryFee: number; // Extra fee for delivery (0 if free)
-  pickupLocation?: string; // Optional pickup location description
+  pickupLocation?: string; // Optional pickup location description (legacy, for display)
+  deliveryAddress?: CoBuyAddressInfo; // 배송받을 장소 - where organizer receives products
+  pickupAddress?: CoBuyAddressInfo; // 배부 장소 - where participants pick up orders
 }
 
 export type CoBuyStatus =

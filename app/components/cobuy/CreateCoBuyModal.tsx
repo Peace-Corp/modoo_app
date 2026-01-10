@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin } from 'lucide-react';
-import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings } from '@/types/types';
+import Script from 'next/script';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin, Search, Package } from 'lucide-react';
+import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
 import type { CoBuySession } from '@/types/types';
@@ -59,7 +60,10 @@ export default function CreateCoBuyModal({
     enabled: false,
     deliveryFee: 4000,
     pickupLocation: '',
+    deliveryAddress: undefined,
+    pickupAddress: undefined,
   });
+  const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
 
   // Pricing tier handlers
   const addPricingTier = () => {
@@ -82,6 +86,61 @@ export default function CreateCoBuyModal({
     setPricingTiers(pricingTiers.filter((_, i) => i !== index));
   };
 
+  // Check if Daum Postcode script is already loaded
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
+      setIsPostcodeScriptLoaded(true);
+    }
+  }, []);
+
+  // Handle Daum Postcode API address search for delivery address (배송받을 장소)
+  const handleDeliveryAddressSearch = () => {
+    if (!(window as any).daum?.Postcode) {
+      alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new (window as any).daum.Postcode({
+      oncomplete: function(data: any) {
+        const addressInfo: CoBuyAddressInfo = {
+          roadAddress: data.roadAddress || data.jibunAddress,
+          jibunAddress: data.jibunAddress,
+          postalCode: data.zonecode,
+          addressDetail: '',
+        };
+        setDeliverySettings(prev => ({
+          ...prev,
+          deliveryAddress: addressInfo,
+        }));
+      }
+    }).open();
+  };
+
+  // Handle Daum Postcode API address search for pickup address (배부 장소)
+  const handlePickupAddressSearch = () => {
+    if (!(window as any).daum?.Postcode) {
+      alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new (window as any).daum.Postcode({
+      oncomplete: function(data: any) {
+        const addressInfo: CoBuyAddressInfo = {
+          roadAddress: data.roadAddress || data.jibunAddress,
+          jibunAddress: data.jibunAddress,
+          postalCode: data.zonecode,
+          addressDetail: '',
+        };
+        setDeliverySettings(prev => ({
+          ...prev,
+          pickupAddress: addressInfo,
+          // Also update pickupLocation for backward compatibility
+          pickupLocation: data.roadAddress || data.jibunAddress,
+        }));
+      }
+    }).open();
+  };
+
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -96,7 +155,7 @@ export default function CreateCoBuyModal({
         setMaxQuantity('');
         setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
-        setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '' });
+        setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '', deliveryAddress: undefined, pickupAddress: undefined });
         setCreatedSession(null);
       }, 300); // Wait for modal close animation
     }
@@ -155,8 +214,12 @@ export default function CreateCoBuyModal({
         alert('수령 예정일을 선택해주세요.');
         return;
       }
-      if (!deliverySettings.pickupLocation?.trim()) {
-        alert('직접 수령 장소를 입력해주세요.');
+      if (!deliverySettings.deliveryAddress?.roadAddress) {
+        alert('배송받을 장소를 입력해주세요.');
+        return;
+      }
+      if (!deliverySettings.pickupAddress?.roadAddress) {
+        alert('배부 장소를 입력해주세요.');
         return;
       }
       setCurrentStep('custom-fields');
@@ -481,6 +544,15 @@ export default function CreateCoBuyModal({
                 </div>
               </div>
 
+              {/* Load Daum Postcode Script */}
+              {!isPostcodeScriptLoaded && (
+                <Script
+                  src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+                  strategy="lazyOnload"
+                  onLoad={() => setIsPostcodeScriptLoaded(true)}
+                />
+              )}
+
               {/* Delivery Settings */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start gap-2 mb-3">
@@ -488,32 +560,119 @@ export default function CreateCoBuyModal({
                   <div>
                     <p className="font-medium text-gray-900">수령 및 배송 설정</p>
                     <p className="text-sm text-gray-600 mt-1">
-                      직접 수령 장소를 입력하고, 개별 배송 허용 여부를 설정하세요.
+                      배송받을 장소와 배부 장소를 입력하고, 개별 배송 허용 여부를 설정하세요.
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-4 mt-4">
-                  {/* Pickup location - always required */}
+                  {/* 배송받을 장소 - Delivery Address (where organizer receives products) */}
                   <div>
                     <label className="block text-sm font-medium mb-2">
-                      <MapPin className="w-4 h-4 inline-block mr-1" />
-                      직접 수령 장소 <span className="text-red-500">*</span>
+                      <Package className="w-4 h-4 inline-block mr-1" />
+                      배송받을 장소 <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={deliverySettings.pickupLocation || ''}
-                      onChange={(e) => setDeliverySettings(prev => ({
-                        ...prev,
-                        pickupLocation: e.target.value
-                      }))}
-                      placeholder="예: 학교 정문 앞, 회사 1층 로비"
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      maxLength={100}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      참여자에게 직접 수령 장소로 안내됩니다
+                    <p className="text-xs text-gray-500 mb-2">
+                      제품을 배송받을 주소입니다 (공동구매 주최자가 받을 장소)
                     </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={deliverySettings.deliveryAddress?.postalCode || ''}
+                        readOnly
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                        placeholder="우편번호"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDeliveryAddressSearch}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center gap-1.5"
+                      >
+                        <Search className="w-4 h-4" />
+                        주소 검색
+                      </button>
+                    </div>
+                    {deliverySettings.deliveryAddress?.roadAddress && (
+                      <>
+                        <input
+                          type="text"
+                          value={deliverySettings.deliveryAddress.roadAddress}
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 mb-2"
+                          placeholder="도로명 주소"
+                        />
+                        <input
+                          type="text"
+                          value={deliverySettings.deliveryAddress.addressDetail || ''}
+                          onChange={(e) => setDeliverySettings(prev => ({
+                            ...prev,
+                            deliveryAddress: prev.deliveryAddress ? {
+                              ...prev.deliveryAddress,
+                              addressDetail: e.target.value
+                            } : undefined
+                          }))}
+                          placeholder="상세주소 (동/호수, 건물명 등)"
+                          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          maxLength={100}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* 배부 장소 - Pickup Address (where participants pick up orders) */}
+                  <div className="border-t pt-4">
+                    <label className="block text-sm font-medium mb-2">
+                      <MapPin className="w-4 h-4 inline-block mr-1" />
+                      배부 장소 <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      참여자들이 물품을 수령할 장소입니다
+                    </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={deliverySettings.pickupAddress?.postalCode || ''}
+                        readOnly
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                        placeholder="우편번호"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickupAddressSearch}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center gap-1.5"
+                      >
+                        <Search className="w-4 h-4" />
+                        주소 검색
+                      </button>
+                    </div>
+                    {deliverySettings.pickupAddress?.roadAddress && (
+                      <>
+                        <input
+                          type="text"
+                          value={deliverySettings.pickupAddress.roadAddress}
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 mb-2"
+                          placeholder="도로명 주소"
+                        />
+                        <input
+                          type="text"
+                          value={deliverySettings.pickupAddress.addressDetail || ''}
+                          onChange={(e) => setDeliverySettings(prev => ({
+                            ...prev,
+                            pickupAddress: prev.pickupAddress ? {
+                              ...prev.pickupAddress,
+                              addressDetail: e.target.value
+                            } : undefined,
+                            // Also update pickupLocation for backward compatibility
+                            pickupLocation: prev.pickupAddress ?
+                              `${prev.pickupAddress.roadAddress} ${e.target.value}`.trim() : ''
+                          }))}
+                          placeholder="상세주소 (동/호수, 건물명 등)"
+                          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          maxLength={100}
+                        />
+                      </>
+                    )}
                   </div>
 
                   {/* Enable separate delivery toggle */}
@@ -755,10 +914,25 @@ export default function CreateCoBuyModal({
 
                 <div>
                   <p className="text-sm text-gray-500 mb-2">수령 및 배송</p>
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-600">
-                      직접 수령 장소: {deliverySettings.pickupLocation}
-                    </p>
+                  <div className="space-y-2">
+                    {deliverySettings.deliveryAddress && (
+                      <div>
+                        <p className="text-xs text-gray-400">배송받을 장소</p>
+                        <p className="text-sm text-gray-600">
+                          {deliverySettings.deliveryAddress.roadAddress}
+                          {deliverySettings.deliveryAddress.addressDetail && ` ${deliverySettings.deliveryAddress.addressDetail}`}
+                        </p>
+                      </div>
+                    )}
+                    {deliverySettings.pickupAddress && (
+                      <div>
+                        <p className="text-xs text-gray-400">배부 장소</p>
+                        <p className="text-sm text-gray-600">
+                          {deliverySettings.pickupAddress.roadAddress}
+                          {deliverySettings.pickupAddress.addressDetail && ` ${deliverySettings.pickupAddress.addressDetail}`}
+                        </p>
+                      </div>
+                    )}
                     {deliverySettings.enabled ? (
                       <p className="text-sm font-medium text-green-600">
                         ✓ 개별 배송 허용 (배송비: ₩{deliverySettings.deliveryFee.toLocaleString()})
