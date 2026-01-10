@@ -18,6 +18,8 @@ import {
   Baseline,
   CaseSensitive,
   Upload,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { useFontStore } from '@/store/useFontStore';
 import { uploadFont, isValidFontFile } from '@/lib/fontUtils';
@@ -46,6 +48,8 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const [opacity, setOpacity] = useState<number>(1);
   const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
   const [isUploadingFont, setIsUploadingFont] = useState(false);
+  const [showCopyrightNotice, setShowCopyrightNotice] = useState(false);
+  const [uploadedFontName, setUploadedFontName] = useState<string>('');
   const fontDropdownRef = useRef<HTMLDivElement | null>(null);
   const fontFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -222,7 +226,9 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
         // Apply the font to selected text
         handleFontFamilyChange(result.fontMetadata.fontFamily);
 
-        alert(`폰트 "${result.fontMetadata.fontFamily}"가 성공적으로 업로드되었습니다!`);
+        // Show copyright notice modal
+        setUploadedFontName(result.fontMetadata.fontFamily);
+        setShowCopyrightNotice(true);
       } else {
         alert(`폰트 업로드 실패: ${result.error}`);
       }
@@ -243,6 +249,40 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   };
 
   return (
+    <>
+    {/* Copyright Notice Modal */}
+    {showCopyrightNotice && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-2xl shadow-xl max-w-sm mx-4 overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <AlertTriangle className="size-6 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">저작권 안내</h3>
+            </div>
+            <p className="text-gray-600 text-sm leading-relaxed mb-4">
+              폰트 <span className="font-semibold">&quot;{uploadedFontName}&quot;</span>가 성공적으로 업로드되었습니다.
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="text-gray-700 text-sm leading-relaxed">
+                커스텀 폰트 사용 시 <span className="font-semibold text-amber-700">저작권 및 사용 범위에 대한 모든 책임은 사용자에게 있습니다.</span>
+              </p>
+              <p className="text-gray-600 text-xs mt-2">
+                상업적 용도로 사용하기 전에 해당 폰트의 라이선스를 반드시 확인해 주세요.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCopyrightNotice(false)}
+              className="w-full py-3 bg-black text-white font-medium rounded-lg hover:bg-gray-800 transition"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
       <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl h-[34vh] flex flex-col px-4">
         {/* Header with Tabs */}
@@ -678,6 +718,7 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
         </div>
       </div>
     </div>
+    </>
   );
 };
 
