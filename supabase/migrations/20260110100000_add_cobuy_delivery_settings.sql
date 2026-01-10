@@ -1,25 +1,30 @@
 -- Add delivery_settings column to cobuy_sessions table
--- This column stores delivery configuration as JSONB including:
--- - enabled: boolean - Whether delivery option is available
--- - deliveryFee: number - Extra fee for delivery (0 if free)
--- - pickupLocation: string - Optional pickup location description (legacy, for display)
--- - deliveryAddress: object - 배송받을 장소 (where organizer receives products)
---   - roadAddress: string - 도로명 주소
---   - jibunAddress: string - 지번 주소 (optional)
---   - postalCode: string - 우편번호
---   - addressDetail: string - 상세주소 (optional)
--- - pickupAddress: object - 배부 장소 (where participants pick up orders)
---   - roadAddress: string - 도로명 주소
---   - jibunAddress: string - 지번 주소 (optional)
---   - postalCode: string - 우편번호
---   - addressDetail: string - 상세주소 (optional)
+-- This column stores delivery configuration as JSONB with the following structure:
+--
+-- {
+--   "enabled": boolean,           -- Whether individual delivery option is available for participants
+--   "deliveryFee": number,        -- Extra fee for delivery (0 if free), e.g., 4000
+--   "pickupLocation": string,     -- Legacy field for backward compatibility (full address string)
+--   "deliveryAddress": {          -- 배송받을 장소 (where organizer receives bulk products)
+--     "roadAddress": string,      -- 도로명 주소, e.g., "서울특별시 강남구 테헤란로 123"
+--     "jibunAddress": string,     -- 지번 주소 (optional)
+--     "postalCode": string,       -- 우편번호, e.g., "06234"
+--     "addressDetail": string     -- 상세주소 (optional), e.g., "101동 202호"
+--   },
+--   "pickupAddress": {            -- 배부 장소 (where participants pick up their orders)
+--     "roadAddress": string,      -- 도로명 주소
+--     "jibunAddress": string,     -- 지번 주소 (optional)
+--     "postalCode": string,       -- 우편번호
+--     "addressDetail": string     -- 상세주소 (optional)
+--   }
+-- }
 
 -- Add delivery_settings column if not exists
 ALTER TABLE cobuy_sessions
 ADD COLUMN IF NOT EXISTS delivery_settings JSONB DEFAULT NULL;
 
--- Add comment for documentation
-COMMENT ON COLUMN cobuy_sessions.delivery_settings IS 'Delivery configuration including enabled flag, deliveryFee, pickupLocation (legacy), deliveryAddress (배송받을 장소), and pickupAddress (배부 장소)';
+-- Add comment for documentation with JSON schema example
+COMMENT ON COLUMN cobuy_sessions.delivery_settings IS 'Delivery configuration as JSONB: { enabled: boolean, deliveryFee: number, pickupLocation?: string (legacy), deliveryAddress?: { roadAddress, jibunAddress?, postalCode, addressDetail? }, pickupAddress?: { roadAddress, jibunAddress?, postalCode, addressDetail? } }';
 
 -- Also ensure other related columns exist (these may have been added via dashboard)
 ALTER TABLE cobuy_sessions
