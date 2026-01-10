@@ -15,6 +15,7 @@ import {
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
 import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check } from 'lucide-react';
 import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
+import CoBuyOrderModal from '@/app/components/cobuy/CoBuyOrderModal';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -53,6 +54,7 @@ export default function CoBuyDetailPage() {
   const [copied, setCopied] = useState(false);
   const [expandedParticipants, setExpandedParticipants] = useState<Set<string>>(new Set());
   const [updatingPickupStatus, setUpdatingPickupStatus] = useState<Set<string>>(new Set());
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   const toggleParticipantExpand = (participantId: string) => {
     setExpandedParticipants((prev) => {
@@ -418,16 +420,16 @@ export default function CoBuyDetailPage() {
 
   const handleCreateOrders = () => {
     if (!session) return;
+    setIsOrderModalOpen(true);
+  };
 
-    const completedParticipants = participants.filter(p => p.payment_status === 'completed');
+  const handleOrderCreated = () => {
+    // Refresh the session data after order creation
+    fetchSessionData();
+  };
 
-    if (completedParticipants.length === 0) {
-      alert('결제가 완료된 참여자가 없습니다.');
-      return;
-    }
-
-    // Redirect to checkout page
-    router.push(`/cobuy/checkout/${session.id}`);
+  const handleSessionUpdated = (updatedSession: CoBuySession) => {
+    setSession(updatedSession);
   };
 
   if (!isAuthenticated) {
@@ -819,6 +821,18 @@ export default function CoBuyDetailPage() {
           )}
         </section>
       </div>
+
+      {/* Order Modal */}
+      {session && (
+        <CoBuyOrderModal
+          isOpen={isOrderModalOpen}
+          onClose={() => setIsOrderModalOpen(false)}
+          session={session}
+          participants={participants}
+          onOrderCreated={handleOrderCreated}
+          onSessionUpdated={handleSessionUpdated}
+        />
+      )}
     </div>
   );
 }
