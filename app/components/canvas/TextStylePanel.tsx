@@ -19,19 +19,59 @@ import {
   CaseSensitive,
   Upload,
   AlertTriangle,
+  ArrowUpFromLine,
+  ArrowDownFromLine,
+  CircleDashed,
+  Waves,
+  Pencil,
   X,
 } from 'lucide-react';
 import { useFontStore } from '@/store/useFontStore';
 import { uploadFont, isValidFontFile } from '@/lib/fontUtils';
 import { createClient } from '@/lib/supabase-client';
 
+// Warped text path shape types
+type WarpedPathShape = 'arc-up' | 'arc-down' | 'wave' | 'circle';
+
+// Helper function to generate path based on shape and parameters
+const generateWarpedPath = (
+  shape: WarpedPathShape,
+  width: number,
+  arc: number,
+  waveFrequency?: number
+): string => {
+  const height = arc;
+
+  switch (shape) {
+    case 'arc-up':
+      return `M 0 ${height} Q ${width / 2} 0 ${width} ${height}`;
+    case 'arc-down':
+      return `M 0 0 Q ${width / 2} ${height} ${width} 0`;
+    case 'wave':
+      const freq = waveFrequency || 2;
+      const segmentWidth = width / (freq * 2);
+      let wavePath = `M 0 ${height / 2}`;
+      for (let i = 0; i < freq * 2; i++) {
+        const x = segmentWidth * (i + 1);
+        const y = i % 2 === 0 ? 0 : height;
+        wavePath += ` Q ${segmentWidth * i + segmentWidth / 2} ${y} ${x} ${height / 2}`;
+      }
+      return wavePath;
+    case 'circle':
+      const radius = width / 2;
+      return `M 0 ${radius} A ${radius} ${radius} 0 0 1 ${width} ${radius}`;
+    default:
+      return `M 0 ${height} Q ${width / 2} 0 ${width} ${height}`;
+  }
+};
+
 interface TextStylePanelProps {
   selectedObject: fabric.IText | fabric.Text;
   onClose?: () => void;
 }
 
-const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'font' | 'colors' | 'spacing'>('font');
+const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject }) => {
+  const [activeTab, setActiveTab] = useState<'font' | 'colors' | 'spacing' | 'shape'>('font');
   const [fontFamily, setFontFamily] = useState<string>('Arial');
   const [fontSize, setFontSize] = useState<number>(30);
   const [fillColor, setFillColor] = useState<string>('#333333');
@@ -52,6 +92,17 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const [uploadedFontName, setUploadedFontName] = useState<string>('');
   const fontDropdownRef = useRef<HTMLDivElement | null>(null);
   const fontFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Warped text state
+  const [isWarpEnabled, setIsWarpEnabled] = useState<boolean>(false);
+  const [pathShape, setPathShape] = useState<WarpedPathShape>('arc-up');
+  const [arcAmount, setArcAmount] = useState<number>(50);
+  const [pathWidth, setPathWidth] = useState<number>(200);
+  const [waveFrequency, setWaveFrequency] = useState<number>(2);
+
+  // Text edit modal state
+  const [isTextEditModalOpen, setIsTextEditModalOpen] = useState<boolean>(false);
+  const [editingText, setEditingText] = useState<string>('');
 
   // Get custom fonts from store
   const { customFonts, addFont, loadAllFonts } = useFontStore();
@@ -87,6 +138,19 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
       setCharSpacing((selectedObject.charSpacing as number) || 0);
       setTextBackgroundColor((selectedObject.textBackgroundColor as string) || '');
       setOpacity((selectedObject.opacity as number) || 1);
+
+      // Load warped text settings from object data
+      // @ts-expect-error - Reading custom data property
+      const data = selectedObject.data || {};
+      if (data.isWarpedText) {
+        setIsWarpEnabled(true);
+        if (data.pathShape) setPathShape(data.pathShape);
+        if (data.arcAmount !== undefined) setArcAmount(data.arcAmount);
+        if (data.pathWidth !== undefined) setPathWidth(data.pathWidth);
+        if (data.waveFrequency !== undefined) setWaveFrequency(data.waveFrequency);
+      } else {
+        setIsWarpEnabled(false);
+      }
     }
   }, [selectedObject]);
 
@@ -189,6 +253,148 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     updateTextProperty('charSpacing', value);
   };
 
+  // Calculate approximate path length for bezier curves
+  const calculatePathLength = (shape: WarpedPathShape, width: number, arc: number, freq: number): number => {
+    switch (shape) {
+      case 'arc-up':
+      case 'arc-down': {
+        // Approximate quadratic bezier length using control point distance
+        const controlHeight = arc;
+        // Use a simple approximation: straight line + extra for curve
+        const straightDist = width;
+        const curveExtra = Math.sqrt((width / 2) ** 2 + controlHeight ** 2) * 2 - width;
+        return straightDist + curveExtra * 0.5;
+      }
+      case 'wave': {
+        // Wave has multiple segments
+        const segments = freq * 2;
+        const segmentWidth = width / segments;
+        let totalLength = 0;
+        for (let i = 0; i < segments; i++) {
+          const curveHeight = arc / 2;
+          totalLength += Math.sqrt(segmentWidth ** 2 + curveHeight ** 2);
+        }
+        return totalLength;
+      }
+      case 'circle': {
+        // Semi-circle arc length = π * radius
+        const radius = width / 2;
+        return Math.PI * radius;
+      }
+      default:
+        return width * 1.2;
+    }
+  };
+
+  // Warped text handlers
+  const updateWarpPath = (shape: WarpedPathShape, arc: number, widthScale: number, freq: number) => {
+    if (!selectedObject || !selectedObject.canvas) return;
+
+    // Get the actual text width and use it as the base for path width
+    // First, temporarily remove path to get accurate text width
+    const currentPath = selectedObject.path;
+    selectedObject.set('path', undefined);
+    selectedObject.setCoords();
+
+    // Get the natural text width without path
+    const textWidth = selectedObject.width || 100;
+
+    // Apply width scale (1.0 = exact fit, >1.0 = wider arc, <1.0 = tighter arc)
+    const scaleFactor = widthScale / 200; // Convert slider value (100-500) to scale (0.5-2.5)
+    const actualPathWidth = textWidth * scaleFactor;
+
+    const pathString = generateWarpedPath(shape, actualPathWidth, arc, freq);
+    const newPath = new fabric.Path(pathString, {
+      // Make path completely invisible
+      stroke: 'transparent',
+      fill: 'transparent',
+      strokeWidth: 0,
+      opacity: 0,
+      selectable: false,
+      evented: false,
+    });
+
+    selectedObject.set('path', newPath);
+
+    // Set pathSide to render text on the correct side of the curve
+    selectedObject.set('pathSide', 'left');
+
+    // Center the text on the path - offset should be 0 when path fits text exactly
+    // Calculate path length and center the text
+    const pathLength = calculatePathLength(shape, actualPathWidth, arc, freq);
+    const centerOffset = Math.max(0, (pathLength - textWidth) / 2);
+    selectedObject.set('pathStartOffset', centerOffset);
+
+    // Store settings in object data
+    // @ts-expect-error - Adding custom data property
+    selectedObject.data = {
+      // @ts-expect-error - Reading data property
+      ...(selectedObject.data || {}),
+      isWarpedText: true,
+      pathShape: shape,
+      arcAmount: arc,
+      pathWidth: widthScale, // Store the scale value, not actual width
+      waveFrequency: freq,
+    };
+
+    selectedObject.setCoords();
+    selectedObject.canvas.renderAll();
+  };
+
+  const handleToggleWarp = (enabled: boolean) => {
+    setIsWarpEnabled(enabled);
+    if (!selectedObject || !selectedObject.canvas) return;
+
+    if (enabled) {
+      // Enable warping with current settings
+      updateWarpPath(pathShape, arcAmount, pathWidth, waveFrequency);
+    } else {
+      // Disable warping - remove the path and reset settings
+      selectedObject.set('path', undefined);
+      selectedObject.set('pathStartOffset', 0);
+      selectedObject.set('pathSide', 'left');
+
+      // Update data to mark as not warped
+      // @ts-expect-error - Adding custom data property
+      selectedObject.data = {
+        // @ts-expect-error - Reading data property
+        ...(selectedObject.data || {}),
+        isWarpedText: false,
+      };
+
+      selectedObject.setCoords();
+      selectedObject.canvas.renderAll();
+    }
+  };
+
+  const handlePathShapeChange = (shape: WarpedPathShape) => {
+    setPathShape(shape);
+    if (isWarpEnabled) {
+      updateWarpPath(shape, arcAmount, pathWidth, waveFrequency);
+    }
+  };
+
+  const handleArcAmountChange = (arc: number) => {
+    setArcAmount(arc);
+    if (isWarpEnabled) {
+      updateWarpPath(pathShape, arc, pathWidth, waveFrequency);
+    }
+  };
+
+  const handlePathWidthChange = (width: number) => {
+    setPathWidth(width);
+    if (isWarpEnabled) {
+      updateWarpPath(pathShape, arcAmount, width, waveFrequency);
+    }
+  };
+
+  const handleWaveFrequencyChange = (freq: number) => {
+    setWaveFrequency(freq);
+    if (isWarpEnabled) {
+      updateWarpPath(pathShape, arcAmount, pathWidth, freq);
+    }
+  };
+
   const handleTextBackgroundColorChange = (value: string) => {
     setTextBackgroundColor(value);
     updateTextProperty('textBackgroundColor', value);
@@ -197,6 +403,35 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const handleOpacityChange = (value: number) => {
     setOpacity(value);
     updateTextProperty('opacity', value);
+  };
+
+  // Text edit modal handlers
+  const openTextEditModal = () => {
+    if (selectedObject) {
+      const currentText = (selectedObject as fabric.IText).text || '';
+      setEditingText(currentText);
+      setIsTextEditModalOpen(true);
+    }
+  };
+
+  const handleTextEditSave = () => {
+    if (selectedObject && selectedObject.canvas) {
+      (selectedObject as fabric.IText).set('text', editingText);
+      selectedObject.setCoords();
+
+      // Re-apply warp if enabled to adjust path to new text width
+      if (isWarpEnabled) {
+        updateWarpPath(pathShape, arcAmount, pathWidth, waveFrequency);
+      }
+
+      selectedObject.canvas.renderAll();
+    }
+    setIsTextEditModalOpen(false);
+  };
+
+  const handleTextEditCancel = () => {
+    setIsTextEditModalOpen(false);
+    setEditingText('');
   };
 
   // Handle font file upload
@@ -283,12 +518,66 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
       </div>
     )}
 
+    {/* Text Edit Modal */}
+    {isTextEditModalOpen && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">텍스트 편집</h3>
+              <button
+                onClick={handleTextEditCancel}
+                className="p-1 hover:bg-gray-100 rounded-full transition"
+              >
+                <X className="size-5 text-gray-500" />
+              </button>
+            </div>
+            <textarea
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              placeholder="텍스트를 입력하세요..."
+              className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none text-base"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleTextEditCancel}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleTextEditSave}
+                className="flex-1 py-3 bg-black text-white font-medium rounded-lg hover:bg-gray-800 transition"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
       <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl h-[34vh] flex flex-col px-4">
         {/* Header with Tabs */}
         <div className="shrink-0 sticky top-0 border-b border-gray-100">
           <div className='py-3 w-10 mx-auto'>
             <hr className='border-2 border-black/20 rounded-full'/>
+          </div>
+
+          {/* Text Edit Button */}
+          <div className="flex items-center justify-between px-2 pb-2">
+            <span className="text-sm font-medium text-gray-600 truncate max-w-[200px]">
+              {(selectedObject as fabric.IText).text?.slice(0, 20)}{((selectedObject as fabric.IText).text?.length || 0) > 20 ? '...' : ''}
+            </span>
+            <button
+              onClick={openTextEditModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition text-sm font-medium text-gray-700"
+            >
+              <Pencil className="size-4" />
+              편집
+            </button>
           </div>
 
           {/* Tabs */}
@@ -322,6 +611,16 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
               }`}
             >
               간격
+            </button>
+            <button
+              onClick={() => setActiveTab('shape')}
+              className={`flex-1 py-2 px-4 text-sm font-medium ${
+                activeTab === 'shape'
+                  ? 'bg-black text-white rounded-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              모양
             </button>
           </div>
         </div>
@@ -713,6 +1012,104 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                   className="w-full"
                 />
               </div>
+            </>
+          )}
+
+          {/* Shape Tab - Warped Text */}
+          {activeTab === 'shape' && (
+            <>
+              {/* Enable/Disable Warp Toggle */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">텍스트 휘기</label>
+                <button
+                  onClick={() => handleToggleWarp(!isWarpEnabled)}
+                  className={`w-full p-3 rounded-lg border-2 transition font-medium ${
+                    isWarpEnabled
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  {isWarpEnabled ? '휘기 켜짐' : '휘기 꺼짐'}
+                </button>
+              </div>
+
+              {/* Warp controls - only show when enabled */}
+              {isWarpEnabled && (
+                <>
+                  {/* Path Shape Selection */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">경로 모양</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { value: 'arc-up' as WarpedPathShape, label: '위로', icon: <ArrowUpFromLine className="size-5" /> },
+                        { value: 'arc-down' as WarpedPathShape, label: '아래로', icon: <ArrowDownFromLine className="size-5" /> },
+                        { value: 'wave' as WarpedPathShape, label: '물결', icon: <Waves className="size-5" /> },
+                        { value: 'circle' as WarpedPathShape, label: '원형', icon: <CircleDashed className="size-5" /> },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => handlePathShapeChange(option.value)}
+                          className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition ${
+                            pathShape === option.value
+                              ? 'bg-black text-white border-black'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                          }`}
+                        >
+                          {option.icon}
+                          <span className="text-xs">{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Arc Amount / Curvature */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      휘어짐 정도: {arcAmount}
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="200"
+                      value={arcAmount}
+                      onChange={(e) => handleArcAmountChange(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Path Width Scale */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      경로 스케일: {Math.round(pathWidth / 2)}%
+                    </label>
+                    <input
+                      type="range"
+                      min="100"
+                      max="400"
+                      value={pathWidth}
+                      onChange={(e) => handlePathWidthChange(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Wave Frequency (only for wave shape) */}
+                  {pathShape === 'wave' && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        파동 횟수: {waveFrequency}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        value={waveFrequency}
+                        onChange={(e) => handleWaveFrequencyChange(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </div>

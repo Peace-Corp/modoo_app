@@ -561,6 +561,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           )}
         </div>
 
+        {/* Show TextStylePanel for text objects */}
         {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
           <TextStylePanel
             selectedObject={selectedObject as fabric.IText}
@@ -745,7 +746,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
       }
 
 
-      {/* Render if selected item is text */}
+      {/* Render TextStylePanel for text objects */}
       {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
         <TextStylePanel
           selectedObject={selectedObject as fabric.IText}
