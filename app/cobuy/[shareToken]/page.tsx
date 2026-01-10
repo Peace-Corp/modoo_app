@@ -9,7 +9,6 @@ import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
 import ParticipantForm, { ParticipantFormData } from '@/app/components/cobuy/ParticipantForm';
 import CoBuyClosedScreen from '@/app/components/cobuy/CoBuyClosedScreen';
-import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 import { createClient } from '@/lib/supabase-client';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -342,12 +341,6 @@ export default function CoBuySharePage() {
             <span>기간: {formatDate(session.start_date)} ~ {formatDate(session.end_date)}</span>
             <span>참여 인원: {session.current_participant_count}{session.max_participants ? ` / ${session.max_participants}` : ''}</span>
             <span>가격: {formatPrice(design.price_per_item)}</span>
-          </div>
-
-          {/* Progress Status Checkpoints */}
-          <div className="px-5 py-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">진행 상태</h3>
-            <CoBuyProgressBar currentStatus={session.status} />
           </div>
 
           {/* Progress Bar - Quantity Based with Checkpoints */}
