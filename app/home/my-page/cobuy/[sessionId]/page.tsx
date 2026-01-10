@@ -537,14 +537,14 @@ export default function CoBuyDetailPage() {
                   </button>
                   <button
                     onClick={handleCancelSession}
-                    disabled={isUpdating || session.status === 'cancelled'}
+                    disabled={isUpdating || session.status === 'cancelled' || ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering'].includes(session.status)}
                     className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     취소 요청
                   </button>
                   <button
                     onClick={handleCreateOrders}
-                    disabled={session.status === 'cancelled'}
+                    disabled={session.status === 'cancelled' || ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering'].includes(session.status)}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <PackageCheck className="w-4 h-4" />
