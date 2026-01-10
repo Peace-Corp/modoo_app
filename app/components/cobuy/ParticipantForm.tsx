@@ -554,7 +554,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
             {/* Next tier hint */}
             {getNextTierInfo() && (
               <div className="text-xs text-blue-700 bg-blue-100 rounded px-2 py-1.5 mt-2">
-                💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 ₩{getNextTierInfo()?.nextPrice?.toLocaleString()}으로 할인!
+                💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 ₩{getNextTierInfo()?.nextPrice?.toLocaleString()}으로 할인! <span className="text-black/80">(차액은 캐시백으로 환불됩니다.)</span>
               </div>
             )}
           </div>
