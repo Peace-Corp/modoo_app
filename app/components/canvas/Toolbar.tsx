@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as fabric from 'fabric';
 import { useCanvasStore } from '@/store/useCanvasStore';
-import { Plus, TextCursor, Layers, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { Plus, TextCursor, Layers, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOut, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, LayoutTemplate } from 'lucide-react';
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
+import TemplatePicker from './TemplatePicker';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from '@/lib/storage-config';
 import { createClient } from '@/lib/supabase-client';
@@ -14,12 +15,14 @@ interface ToolbarProps {
   sides?: ProductSide[];
   handleExitEditMode?: () => void;
   variant?: 'mobile' | 'desktop';
+  productId?: string;
 }
 
-const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, variant = 'mobile' }) => {
+const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, variant = 'mobile', productId }) => {
   const { getActiveCanvas, activeSideId, setActiveSide, isEditMode, canvasMap, incrementCanvasVersion, zoomIn, zoomOut, getZoomLevel } = useCanvasStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
   const currentZoom = getZoomLevel();
   const isDesktop = variant === 'desktop';
@@ -507,6 +510,16 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 <RefreshCcw className="size-4" />
                 초기화
               </button>
+              {productId && (
+                <button
+                  onClick={() => setIsTemplatePickerOpen(true)}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                  title="템플릿"
+                >
+                  <LayoutTemplate className="size-4" />
+                  템플릿
+                </button>
+              )}
             </div>
           </div>
 
@@ -574,6 +587,15 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           message={loadingMessage}
           submessage={loadingSubmessage}
         />
+
+        {/* Template Picker */}
+        {productId && (
+          <TemplatePicker
+            productId={productId}
+            isOpen={isTemplatePickerOpen}
+            onClose={() => setIsTemplatePickerOpen(false)}
+          />
+        )}
       </>
     );
   }
@@ -731,6 +753,19 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
               </div>
               <p className='text-xs'>이미지</p>
             </button>
+            {productId && (
+              <button
+                onClick={() => {
+                  setIsTemplatePickerOpen(true);
+                  setIsExpanded(false);
+                }}
+              >
+                <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
+                  <LayoutTemplate />
+                </div>
+                <p className='text-xs'>템플릿</p>
+              </button>
+            )}
           </div>
 
           {/* Plus button */}
@@ -759,6 +794,15 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
         message={loadingMessage}
         submessage={loadingSubmessage}
       />
+
+      {/* Template Picker */}
+      {productId && (
+        <TemplatePicker
+          productId={productId}
+          isOpen={isTemplatePickerOpen}
+          onClose={() => setIsTemplatePickerOpen(false)}
+        />
+      )}
 
     </>
   );

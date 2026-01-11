@@ -428,7 +428,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                 <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
                 <span className="text-xs text-gray-500">캔버스 편집</span>
               </div>
-              <DesktopToolbar sides={productConfig.sides} />
+              <DesktopToolbar sides={productConfig.sides} productId={productConfig.productId} />
               <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
                 {(() => {
                   const currentSide = product.configuration.find(side => side.id === activeSideId);

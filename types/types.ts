@@ -271,6 +271,29 @@ export interface SavedDesignScreenshot {
   image_urls: Record<string, unknown>;
 }
 
+// Design Template - Admin-managed pre-made designs for products
+export interface DesignTemplate {
+  id: string;
+  product_id: string;
+  title: string;
+  description: string | null;
+  canvas_state: Record<string, string>; // sideId -> JSON string of canvas objects
+  preview_url: string | null;
+  layer_colors: Record<string, Record<string, string>>; // sideId -> layerId -> hex color
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Lightweight type for template picker display
+export interface TemplatePickerItem {
+  id: string;
+  title: string;
+  description: string | null;
+  preview_url: string | null;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;

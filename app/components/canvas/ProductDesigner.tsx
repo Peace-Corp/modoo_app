@@ -213,7 +213,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
       </div>
 
       {/* Toolbar - shows only in edit mode */}
-      {!isDesktop && <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} />}
+      {!isDesktop && <Toolbar sides={config.sides} handleExitEditMode={handleExitEditMode} productId={config.productId} />}
     </div>
   );
 };
