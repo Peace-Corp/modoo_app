@@ -16,6 +16,8 @@ interface CurvedTextOptions {
   top?: number;
   width?: number;
   height?: number;
+  originX?: fabric.TOriginX;
+  originY?: fabric.TOriginY;
   text?: string;
   fontSize?: number;
   fontFamily?: string;
@@ -148,7 +150,8 @@ export class CurvedText extends fabric.FabricObject {
    */
   private _updateBoundsForCurve(): void {
     if (this.curveIntensity === 0) {
-      // For straight text, just use text measurements
+      // For straight text, recalculate both width and height based on text measurements
+      this._updateBoundsForText();
       this.height = this.fontSize * 1.2;
       return;
     }
@@ -156,14 +159,14 @@ export class CurvedText extends fabric.FabricObject {
     // Calculate actual bounds from warped path
     const bounds = this._calculateWarpedBounds();
     if (bounds) {
-      this.width = bounds.width + 10; // Small padding
-      this.height = bounds.height + 10;
+      this.width = bounds.width;
+      this.height = bounds.height;
     } else {
       // Fallback: calculate bounds for rotation-based rendering
       const fallbackBounds = this._calculateFallbackBounds();
       if (fallbackBounds) {
-        this.width = fallbackBounds.width + 10;
-        this.height = fallbackBounds.height + 10;
+        this.width = fallbackBounds.width;
+        this.height = fallbackBounds.height;
       } else {
         // Last resort estimation
         const absIntensity = Math.abs(this.curveIntensity) / 100;
@@ -628,8 +631,8 @@ export class CurvedText extends fabric.FabricObject {
     const metrics = ctx.measureText(this.text);
     const textWidth = metrics.width;
 
-    // Width: text width + small padding
-    this.width = Math.max(textWidth + 20, 100);
+    // Width: use actual text width
+    this.width = Math.max(textWidth, 10);
   }
 
   /**
@@ -959,6 +962,8 @@ export class CurvedText extends fabric.FabricObject {
       top: object.top as number,
       width: object.width as number,
       height: object.height as number,
+      originX: object.originX as fabric.TOriginX,
+      originY: object.originY as fabric.TOriginY,
       text: object.text as string,
       fontSize: object.fontSize as number,
       fontFamily: object.fontFamily as string,
@@ -1007,8 +1012,8 @@ export function createCurvedTextFromText(
   const metrics = ctx.measureText(source.text || 'Text');
   const textWidth = metrics.width;
 
-  // Width: text width + small padding
-  const width = Math.max(textWidth + 20, 100);
+  // Width: use actual text width
+  const width = Math.max(textWidth, 10);
 
   // Height: for curved text, make it square-ish to fit circular arcs
   // For slight curves, height is smaller; for full circles, height = width
@@ -1017,9 +1022,17 @@ export function createCurvedTextFromText(
   const curveHeight = absIntensity > 0.5 ? width : baseHeight + (width - baseHeight) * absIntensity;
   const height = Math.max(curveHeight, baseHeight);
 
+  // Get the center point of the original text object to maintain position
+  // CurvedText renders from center, so we need to calculate proper left/top
+  const sourceCenter = source.getCenterPoint();
+  const scaleX = source.scaleX || 1;
+  const scaleY = source.scaleY || 1;
+
   return new CurvedText({
-    left: source.left,
-    top: source.top,
+    left: sourceCenter.x,
+    top: sourceCenter.y,
+    originX: 'center',
+    originY: 'center',
     width,
     height,
     text: source.text || 'Text',
@@ -1034,6 +1047,8 @@ export function createCurvedTextFromText(
     curveIntensity,
     opacity: source.opacity,
     angle: source.angle,
+    scaleX,
+    scaleY,
     fontUrl,
   });
 }

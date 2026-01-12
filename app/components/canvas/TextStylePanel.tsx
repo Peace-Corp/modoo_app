@@ -61,7 +61,6 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   // Curve state
   const [curveIntensity, setCurveIntensity] = useState<number>(0);
-  const [isApplyingCurve, setIsApplyingCurve] = useState(false);
 
   // Text edit modal state
   const [showTextEditModal, setShowTextEditModal] = useState(false);
@@ -326,46 +325,26 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     fontFileInputRef.current?.click();
   };
 
-  // Handle curve application - converts text to CurvedText or updates existing
-  // UI uses 0-100 (0=straight, 100=max curve), internal uses negative for upward curve
-  const handleApplyCurve = () => {
-    if (!selectedObject) return;
-
-    const canvas = selectedObject.canvas;
-    if (!canvas) return;
-
-    setIsApplyingCurve(true);
-
-    // Convert UI value (0-100) to internal value (0 to -100)
-    const internalIntensity = -curveIntensity;
-
-    try {
-      if (isCurvedText(selectedObject)) {
-        // Already a CurvedText, just update the curve
-        (selectedObject as CurvedText).setCurve(internalIntensity);
-      } else {
-        // Convert to CurvedText
-        convertToCurvedText(selectedObject, internalIntensity);
-      }
-    } catch (error) {
-      console.error('Error applying curve:', error);
-      alert('텍스트 변형 적용 중 오류가 발생했습니다.');
-    } finally {
-      setIsApplyingCurve(false);
-    }
-  };
-
   // Handle live curve intensity change
   // UI uses 0-100 (0=straight, 100=max curve), internal uses negative for upward curve
   const handleCurveIntensityChange = (intensity: number) => {
     setCurveIntensity(intensity);
 
+    if (!selectedObject) return;
+
     // Convert UI value (0-100) to internal value (0 to -100)
     const internalIntensity = -intensity;
 
-    // If already a CurvedText, apply immediately for live preview
-    if (selectedObject && isCurvedText(selectedObject)) {
+    if (isCurvedText(selectedObject)) {
+      // Already a CurvedText, just update the curve
       (selectedObject as CurvedText).setCurve(internalIntensity);
+    } else if (intensity > 0) {
+      // Convert regular text to CurvedText instantly when intensity > 0
+      try {
+        convertToCurvedText(selectedObject, internalIntensity);
+      } catch (error) {
+        console.error('Error converting to curved text:', error);
+      }
     }
   };
 
@@ -938,10 +917,38 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                   곡선 변형
                 </label>
 
-                {/* Visual indicator */}
-                <div className="flex justify-between text-xs text-gray-500 px-1">
-                  <span>직선</span>
-                  <span>⌒ 위로 휘기</span>
+                {/* Preset buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleCurveIntensityChange(0)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                      curveIntensity === 0
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    직선
+                  </button>
+                  <button
+                    onClick={() => handleCurveIntensityChange(30)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                      curveIntensity === 30
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    ⌒ 30%
+                  </button>
+                  <button
+                    onClick={() => handleCurveIntensityChange(100)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                      curveIntensity === 100
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    ⌒ 100%
+                  </button>
                 </div>
 
                 {/* Slider */}
@@ -966,41 +973,10 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                 </div>
               </div>
 
-              {/* Apply Button - only show if not already a CurvedText */}
-              {!isCurvedText(selectedObject) && (
-                <div className="pt-2">
-                  <button
-                    onClick={handleApplyCurve}
-                    disabled={curveIntensity === 0 || isApplyingCurve}
-                    className={`w-full py-3 rounded-lg font-medium transition ${
-                      curveIntensity === 0 || isApplyingCurve
-                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        : 'bg-black text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    {isApplyingCurve ? '적용 중...' : '변형 적용'}
-                  </button>
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    변형을 적용해도 텍스트를 계속 수정할 수 있습니다.
-                  </p>
-                </div>
-              )}
-
-              {/* Edit button and info text for already curved text */}
-              {isCurvedText(selectedObject) && (
-                <div className="pt-2 space-y-3">
-                  <button
-                    onClick={handleOpenTextEdit}
-                    className="w-full py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
-                  >
-                    <Pencil className="size-4" />
-                    텍스트 편집
-                  </button>
-                  <p className="text-xs text-gray-500 text-center">
-                    변형이 실시간으로 적용됩니다.
-                  </p>
-                </div>
-              )}
+              {/* Info text */}
+              <p className="text-xs text-gray-500 text-center pt-2">
+                변형이 실시간으로 적용됩니다.
+              </p>
             </>
           )}
         </div>

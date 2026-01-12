@@ -119,7 +119,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     // Generate unique ID for the object
     const objectId = `text-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
-    const text = new fabric.IText('텍스트', {
+    const text = new fabric.IText('modoo', {
       left: canvas.width / 2,
       top: canvas.height / 2,
       originX: 'center',
