@@ -59,7 +59,7 @@ export default async function HomePage() {
         {/* Featured Products Section */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-3 lg:mb-4">
-            <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 급상승</h2>
+            <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 상품</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
             {products.length > 0 ? (

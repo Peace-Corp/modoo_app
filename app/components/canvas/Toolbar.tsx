@@ -5,6 +5,7 @@ import { Plus, TextCursor, Layers, FileImage, Trash2, RefreshCcw, ZoomIn, ZoomOu
 import { ProductSide } from '@/types/types';
 import TextStylePanel from './TextStylePanel';
 import TemplatePicker from './TemplatePicker';
+import { isCurvedText } from '@/lib/curvedText';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from '@/lib/storage-config';
 import { createClient } from '@/lib/supabase-client';
@@ -574,7 +575,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           )}
         </div>
 
-        {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
+        {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text" || isCurvedText(selectedObject)) && (
           <TextStylePanel
             selectedObject={selectedObject as fabric.IText}
             onClose={() => setSelectedObject(null)}
@@ -781,7 +782,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
 
 
       {/* Render if selected item is text */}
-      {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text") && (
+      {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text" || isCurvedText(selectedObject)) && (
         <TextStylePanel
           selectedObject={selectedObject as fabric.IText}
           onClose={() => setSelectedObject(null)}

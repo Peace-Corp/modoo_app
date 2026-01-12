@@ -308,7 +308,24 @@ export async function updateDesign(
 }
 
 /**
- * Delete a design and its associated font files
+ * Extract storage path from a Supabase storage URL
+ * @param url The full storage URL
+ * @param bucket The bucket name to extract path from
+ * @returns The storage path or null if not found
+ */
+function extractStoragePath(url: string, bucket: string): string | null {
+  try {
+    // Match pattern: /storage/v1/object/public/{bucket}/{path}
+    const regex = new RegExp(`/storage/v1/object/public/${bucket}/(.+)$`);
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete a design and its associated files (fonts, images, SVGs)
  * @param designId The ID of the design to delete
  * @returns true if successful, false otherwise
  */
@@ -316,10 +333,10 @@ export async function deleteDesign(designId: string): Promise<boolean> {
   const supabase = createClient();
 
   try {
-    // First, fetch the design to get custom fonts
+    // First, fetch the full design to get all associated files
     const { data: design, error: fetchError } = await supabase
       .from('saved_designs')
-      .select('custom_fonts')
+      .select('custom_fonts, image_urls, text_svg_exports')
       .eq('id', designId)
       .single();
 
@@ -328,10 +345,68 @@ export async function deleteDesign(designId: string): Promise<boolean> {
       throw fetchError;
     }
 
-    // Check if the design has custom fonts
+    // 1. Delete images from user-designs bucket
+    const imageUrls = design?.image_urls as Record<string, Array<{ url: string; path?: string }>> | null;
+    if (imageUrls) {
+      const imagePaths: string[] = [];
+
+      for (const sideImages of Object.values(imageUrls)) {
+        for (const image of sideImages) {
+          // Use the path property if available, otherwise extract from URL
+          if (image.path) {
+            imagePaths.push(image.path);
+          } else if (image.url) {
+            const extractedPath = extractStoragePath(image.url, STORAGE_BUCKETS.USER_DESIGNS);
+            if (extractedPath) {
+              imagePaths.push(extractedPath);
+            }
+          }
+        }
+      }
+
+      if (imagePaths.length > 0) {
+        console.log(`Deleting ${imagePaths.length} image files...`);
+        const { error: imageDeleteError } = await supabase.storage
+          .from(STORAGE_BUCKETS.USER_DESIGNS)
+          .remove(imagePaths);
+
+        if (imageDeleteError) {
+          console.warn('Error deleting images:', imageDeleteError);
+        }
+      }
+    }
+
+    // 2. Delete SVG exports from text-exports bucket
+    const textSvgExports = design?.text_svg_exports as TextSvgExports | null;
+    if (textSvgExports?.__objects) {
+      const svgPaths: string[] = [];
+
+      for (const sideObjects of Object.values(textSvgExports.__objects)) {
+        if (typeof sideObjects === 'object' && sideObjects !== null) {
+          for (const svgUrl of Object.values(sideObjects as Record<string, string>)) {
+            const extractedPath = extractStoragePath(svgUrl, STORAGE_BUCKETS.TEXT_EXPORTS);
+            if (extractedPath) {
+              svgPaths.push(extractedPath);
+            }
+          }
+        }
+      }
+
+      if (svgPaths.length > 0) {
+        console.log(`Deleting ${svgPaths.length} SVG files...`);
+        const { error: svgDeleteError } = await supabase.storage
+          .from(STORAGE_BUCKETS.TEXT_EXPORTS)
+          .remove(svgPaths);
+
+        if (svgDeleteError) {
+          console.warn('Error deleting SVGs:', svgDeleteError);
+        }
+      }
+    }
+
+    // 3. Delete custom fonts (only if not used elsewhere)
     const customFonts = (design?.custom_fonts as FontMetadata[]) || [];
 
-    // Check if any of these fonts are used in orders (we should NOT delete them if they are)
     if (customFonts.length > 0) {
       const fontPaths = customFonts.map(f => f.path);
 
@@ -369,7 +444,7 @@ export async function deleteDesign(designId: string): Promise<boolean> {
       }
     }
 
-    // Delete the design record
+    // 4. Delete the design record
     const { error: deleteError } = await supabase
       .from('saved_designs')
       .delete()

@@ -2,6 +2,7 @@ import * as fabric from 'fabric';
 import { uploadSVGToStorage, UploadResult } from './supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { CurvedText, isCurvedText } from './curvedText';
 
 export interface TextObjectData {
   objectId?: string;
@@ -19,6 +20,9 @@ export interface TextObjectData {
   angle?: number;
   scaleX?: number;
   scaleY?: number;
+  // CurvedText specific properties
+  curveIntensity?: number;
+  isCurvedText?: boolean;
 }
 
 export interface TextObjectSVGExport {
@@ -38,7 +42,7 @@ export interface SVGExportResult {
 }
 
 /**
- * Extract all text objects (i-text) from a canvas and convert to SVG
+ * Extract all text objects (i-text, text, textbox, curvedtext) from a canvas and convert to SVG
  * @param canvas - Fabric.js canvas instance
  * @returns SVG string containing all text objects
  */
@@ -49,11 +53,13 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
     .map((obj, canvasObjectIndex) => ({ obj, canvasObjectIndex }))
     .filter(({ obj }) => {
       const type = obj.type?.toLowerCase();
-      return type === 'i-text' || type === 'itext' || type === 'text' || type === 'textbox';
+      // Include standard text types and CurvedText
+      return type === 'i-text' || type === 'itext' || type === 'text' || type === 'textbox' || type === 'curvedtext' || isCurvedText(obj);
     })
     .map(({ obj, canvasObjectIndex }) => ({
-      textObj: obj as fabric.IText,
+      textObj: obj,
       canvasObjectIndex,
+      isCurved: isCurvedText(obj),
     }));
 
   if (textObjects.length === 0) {
@@ -68,18 +74,41 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
   const textObjectsData: TextObjectData[] = [];
   const objectSvgs: TextObjectSVGExport[] = [];
 
-  textObjects.forEach(({ textObj, canvasObjectIndex }, textIndex) => {
+  textObjects.forEach(({ textObj, canvasObjectIndex, isCurved }, textIndex) => {
     const objectId = getFabricObjectId(textObj) ?? `text-${textIndex}`;
     const printMethod = getFabricObjectPrintMethod(textObj);
 
     // Get text properties for data storage
-    const text = textObj.text || '';
-    const fontFamily = textObj.fontFamily || 'Arial';
-    const fontSize = textObj.fontSize || 16;
-    const fill = textObj.fill?.toString() || '#000000';
-    const fontWeight = textObj.fontWeight?.toString() || 'normal';
-    const fontStyle = textObj.fontStyle || 'normal';
-    const textAlign = textObj.textAlign || 'left';
+    let text: string;
+    let fontFamily: string;
+    let fontSize: number;
+    let fill: string;
+    let fontWeight: string;
+    let fontStyle: string;
+    let textAlign: string;
+    let curveIntensity: number | undefined;
+
+    if (isCurved) {
+      const curvedObj = textObj as CurvedText;
+      text = curvedObj.text || '';
+      fontFamily = curvedObj.fontFamily || 'Arial';
+      fontSize = curvedObj.fontSize || 16;
+      fill = curvedObj.fill?.toString() || '#000000';
+      fontWeight = curvedObj.fontWeight?.toString() || 'normal';
+      fontStyle = curvedObj.fontStyle || 'normal';
+      textAlign = 'center'; // CurvedText is always centered
+      curveIntensity = curvedObj.curveIntensity;
+    } else {
+      const regularTextObj = textObj as fabric.IText;
+      text = regularTextObj.text || '';
+      fontFamily = regularTextObj.fontFamily || 'Arial';
+      fontSize = regularTextObj.fontSize || 16;
+      fill = regularTextObj.fill?.toString() || '#000000';
+      fontWeight = regularTextObj.fontWeight?.toString() || 'normal';
+      fontStyle = regularTextObj.fontStyle || 'normal';
+      textAlign = regularTextObj.textAlign || 'left';
+    }
+
     const left = textObj.left || 0;
     const top = textObj.top || 0;
     const angle = textObj.angle || 0;
@@ -103,16 +132,19 @@ export function extractTextObjectsToSVG(canvas: fabric.Canvas): SVGExportResult 
       angle,
       scaleX,
       scaleY,
+      curveIntensity,
+      isCurvedText: isCurved,
     };
     textObjectsData.push(textObjectData);
 
     // Create individual object SVG tightly cropped to object bounds
-    // Use Fabric.js toSVG() for consistent rendering
+    // Use toSVG() method for consistent rendering (CurvedText has its own implementation)
     const objectWrapperAttrs =
       ` id="${escapeXml(`text-${objectId}`)}"` +
       ` data-object-id="${escapeXml(objectId)}"` +
       ` data-canvas-index="${canvasObjectIndex}"` +
-      (printMethod ? ` data-print-method="${escapeXml(printMethod)}"` : '');
+      (printMethod ? ` data-print-method="${escapeXml(printMethod)}"` : '') +
+      (isCurved ? ` data-curved-text="true" data-curve-intensity="${curveIntensity}"` : '');
 
     const fabricObjectMarkup = textObj.toSVG();
     const wrappedObjectMarkup = `    <g${objectWrapperAttrs}>\n${indentSvgMarkup(

@@ -28,6 +28,13 @@ interface CanvasObject {
   originY?: string;
   textAlign?: string;
   lineHeight?: number;
+  // CurvedText specific properties
+  curveIntensity?: number;
+  svgPathData?: string; // Pre-computed SVG path data for curved text
+  stroke?: string;
+  strokeWidth?: number;
+  charSpacing?: number;
+  fontUrl?: string;
   data?: {
     id?: string;
     objectId?: string;
@@ -81,8 +88,9 @@ export function extractTextFromCanvasState(
     .map((obj, canvasObjectIndex) => ({ obj, canvasObjectIndex }))
     .filter(({ obj }) => {
       // Filter for text objects only (case-insensitive to handle both Fabric.js v5 and v6)
+      // Also include CurvedText objects
       const type = obj.type?.toLowerCase();
-      return type === 'i-text' || type === 'itext' || type === 'text' || type === 'textbox';
+      return type === 'i-text' || type === 'itext' || type === 'text' || type === 'textbox' || type === 'curvedtext';
     });
 
   if (textObjects.length === 0) {
@@ -136,9 +144,14 @@ export function extractTextFromCanvasState(
     // Calculate position
     const left = textObj.left || 0;
     const top = textObj.top || 0;
-    const angle = textObj.angle || 0; 
+    const angle = textObj.angle || 0;
     const scaleX = textObj.scaleX || 1;
     const scaleY = textObj.scaleY || 1;
+
+    // Check if this is a CurvedText object
+    const isCurvedText = textObj.type?.toLowerCase() === 'curvedtext';
+    const curveIntensity = textObj.curveIntensity || 0;
+    const svgPathData = textObj.svgPathData;
 
     // Build transform string
     let transform = `translate(${left}, ${top})`;
@@ -149,20 +162,36 @@ export function extractTextFromCanvasState(
       transform += ` scale(${scaleX}, ${scaleY})`;
     }
 
-    // Determine text anchor based on alignment
-    let textAnchor = 'start';
-    if (textAlign === 'center') textAnchor = 'middle';
-    else if (textAlign === 'right') textAnchor = 'end';
-
     // Add print method as data attribute if available
     const printMethod = textObj.data?.printMethod || '';
     const dataAttrs =
       ` data-object-id="${escapeXml(objectId)}"` +
       ` data-canvas-index="${canvasObjectIndex}"` +
-      (printMethod ? ` data-print-method="${escapeXml(printMethod)}"` : '');
+      (printMethod ? ` data-print-method="${escapeXml(printMethod)}"` : '') +
+      (isCurvedText ? ` data-curved-text="true" data-curve-intensity="${curveIntensity}"` : '');
 
-    // Create SVG text element
-    svgContent += `    <text
+    // Generate SVG element based on object type
+    if (isCurvedText && svgPathData) {
+      // CurvedText with pre-computed path data - render as path element
+      const stroke = textObj.stroke || '';
+      const strokeWidth = textObj.strokeWidth || 0;
+      const strokeAttr = stroke && strokeWidth > 0
+        ? ` stroke="${escapeXml(stroke)}" stroke-width="${strokeWidth}"`
+        : '';
+
+      svgContent += `    <path
+      id="${escapeXml(sanitizeSvgId(`text-${sideId}-${objectId}-${index}`))}"
+      d="${svgPathData}"
+      fill="${escapeXml(fill)}"${strokeAttr}
+      transform="${transform}"${dataAttrs} />\n`;
+    } else {
+      // Regular text or CurvedText without path data - render as text element
+      // Determine text anchor based on alignment
+      let textAnchor = 'start';
+      if (textAlign === 'center' || isCurvedText) textAnchor = 'middle';
+      else if (textAlign === 'right') textAnchor = 'end';
+
+      svgContent += `    <text
       id="${escapeXml(sanitizeSvgId(`text-${sideId}-${objectId}-${index}`))}"
       x="0"
       y="0"
@@ -174,37 +203,55 @@ export function extractTextFromCanvasState(
       text-anchor="${textAnchor}"
       transform="${transform}"${dataAttrs}>`;
 
-    // Handle multi-line text
-    const lines = text.split('\n');
-    if (lines.length > 1) {
-      lines.forEach((line, lineIndex) => {
-        const dy = lineIndex === 0 ? 0 : fontSize * 1.2;
-        svgContent += `\n      <tspan x="0" dy="${dy}">${escapeXml(line)}</tspan>`;
-      });
-      svgContent += '\n    </text>\n';
-    } else {
-      svgContent += `${escapeXml(text)}</text>\n`;
+      // Handle multi-line text
+      const lines = text.split('\n');
+      if (lines.length > 1) {
+        lines.forEach((line, lineIndex) => {
+          const dy = lineIndex === 0 ? 0 : fontSize * 1.2;
+          svgContent += `\n      <tspan x="0" dy="${dy}">${escapeXml(line)}</tspan>`;
+        });
+        svgContent += '\n    </text>\n';
+      } else {
+        svgContent += `${escapeXml(text)}</text>\n`;
+      }
     }
 
-    const perObjectSvg = createPerObjectTextSvg({
-      sideId,
-      objectId,
-      canvasObjectIndex,
-      text,
-      fontFamily,
-      fontSize,
-      fill,
-      fontWeight,
-      fontStyle,
-      textAlign,
-      lineHeight: typeof textObj.lineHeight === 'number' ? textObj.lineHeight : undefined,
-      width: textObj.width,
-      height: textObj.height,
-      scaleX,
-      scaleY,
-      angle,
-      printMethod: printMethod || undefined,
-    });
+    const perObjectSvg = isCurvedText && svgPathData
+      ? createPerObjectCurvedTextSvg({
+          sideId,
+          objectId,
+          canvasObjectIndex,
+          svgPathData,
+          fill,
+          stroke: textObj.stroke,
+          strokeWidth: textObj.strokeWidth,
+          width: textObj.width,
+          height: textObj.height,
+          scaleX,
+          scaleY,
+          angle,
+          curveIntensity,
+          printMethod: printMethod || undefined,
+        })
+      : createPerObjectTextSvg({
+          sideId,
+          objectId,
+          canvasObjectIndex,
+          text,
+          fontFamily,
+          fontSize,
+          fill,
+          fontWeight,
+          fontStyle,
+          textAlign: isCurvedText ? 'center' : textAlign,
+          lineHeight: typeof textObj.lineHeight === 'number' ? textObj.lineHeight : undefined,
+          width: textObj.width,
+          height: textObj.height,
+          scaleX,
+          scaleY,
+          angle,
+          printMethod: printMethod || undefined,
+        });
 
     if (perObjectSvg) {
       objectSvgs.push(perObjectSvg);
@@ -568,6 +615,85 @@ function createPerObjectTextSvg(options: {
      overflow="hidden">
   <g${transformParts.length ? ` transform="${transformParts.join(' ')}"` : ''}>
 ${textMarkup}  </g>
+</svg>`;
+
+  return {
+    objectId: options.objectId,
+    canvasObjectIndex: options.canvasObjectIndex,
+    svg,
+    printMethod: options.printMethod,
+  };
+}
+
+/**
+ * Create per-object SVG for CurvedText using pre-computed path data
+ */
+function createPerObjectCurvedTextSvg(options: {
+  sideId: string;
+  objectId: string;
+  canvasObjectIndex: number;
+  svgPathData: string;
+  fill: string;
+  stroke?: string;
+  strokeWidth?: number;
+  width?: number;
+  height?: number;
+  scaleX: number;
+  scaleY: number;
+  angle: number;
+  curveIntensity: number;
+  printMethod?: string;
+}): SVGExportResult['objectSvgs'][number] | null {
+  // Use provided dimensions or estimate from path bounds
+  const unscaledWidth = typeof options.width === 'number' && options.width > 0 ? options.width : 200;
+  const unscaledHeight = typeof options.height === 'number' && options.height > 0 ? options.height : 100;
+
+  if (
+    !Number.isFinite(unscaledWidth) ||
+    !Number.isFinite(unscaledHeight) ||
+    unscaledWidth <= 0 ||
+    unscaledHeight <= 0
+  ) {
+    return null;
+  }
+
+  const printMethodAttr = options.printMethod
+    ? ` data-print-method="${escapeXml(options.printMethod)}"`
+    : '';
+  const objectIdAttr = ` data-object-id="${escapeXml(options.objectId)}"`;
+  const canvasIndexAttr = ` data-canvas-index="${options.canvasObjectIndex}"`;
+  const curvedTextAttr = ` data-curved-text="true" data-curve-intensity="${options.curveIntensity}"`;
+
+  const strokeAttr = options.stroke && (options.strokeWidth || 0) > 0
+    ? ` stroke="${escapeXml(options.stroke)}" stroke-width="${options.strokeWidth}"`
+    : '';
+
+  const pathMarkup = `    <path
+      id="${escapeXml(sanitizeSvgId(`curved-${options.sideId}-${options.objectId}`))}"
+      d="${options.svgPathData}"
+      fill="${escapeXml(options.fill)}"${strokeAttr}${objectIdAttr}${canvasIndexAttr}${printMethodAttr}${curvedTextAttr} />\n`;
+
+  const transformParts: string[] = [];
+  if (options.scaleX !== 1 || options.scaleY !== 1) {
+    transformParts.push(
+      `scale(${formatSvgNumber(options.scaleX)}, ${formatSvgNumber(options.scaleY)})`
+    );
+  }
+  if (options.angle) transformParts.push(`rotate(${formatSvgNumber(options.angle)})`);
+  transformParts.push(
+    `translate(${formatSvgNumber(unscaledWidth / 2)}, ${formatSvgNumber(unscaledHeight / 2)})`
+  );
+
+  const svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="${formatSvgNumber(unscaledWidth)}"
+     height="${formatSvgNumber(unscaledHeight)}"
+     viewBox="0 0 ${formatSvgNumber(unscaledWidth)} ${formatSvgNumber(unscaledHeight)}"
+     style="background: none;"
+     overflow="hidden">
+  <g${transformParts.length ? ` transform="${transformParts.join(' ')}"` : ''}>
+${pathMarkup}  </g>
 </svg>`;
 
   return {
