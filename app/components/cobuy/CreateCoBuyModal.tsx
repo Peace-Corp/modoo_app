@@ -211,7 +211,7 @@ export default function CreateCoBuyModal({
         return;
       }
       if (!receiveByDate) {
-        alert('수령 예정일을 선택해주세요.');
+        alert('수령 희망일을 선택해주세요.');
         return;
       }
       if (!deliverySettings.deliveryAddress?.roadAddress) {
@@ -431,7 +431,7 @@ export default function CreateCoBuyModal({
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  수령 예정일 <span className="text-red-500">*</span>
+                  수령 희망일 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -757,25 +757,6 @@ export default function CreateCoBuyModal({
                       }
                       const newField: CoBuyCustomField = {
                         id: `field-${Date.now()}`,
-                        type: 'dropdown',
-                        label: '수령 방법',
-                        required: false,
-                        options: ['직접 수령', '배송'],
-                      };
-                      setCustomFields([...customFields, newField]);
-                    }}
-                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
-                  >
-                    + 수령 방법
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (customFields.length >= 10) {
-                        alert('최대 10개까지만 추가할 수 있습니다.');
-                        return;
-                      }
-                      const newField: CoBuyCustomField = {
-                        id: `field-${Date.now()}`,
                         type: 'text',
                         label: '이니셜',
                         required: false,
@@ -866,7 +847,7 @@ export default function CreateCoBuyModal({
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-500">수령 예정일</p>
+                  <p className="text-sm text-gray-500">수령 희망일</p>
                   <p className="text-sm font-medium">
                     {new Date(receiveByDate).toLocaleString('ko-KR')}
                   </p>
