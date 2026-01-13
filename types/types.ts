@@ -43,15 +43,11 @@ export interface ProductConfig {
   sides: ProductSide[];
 }
 
-export interface SizeOption {
-  id: string;
-  name: string;
-  label: string;
-}
+// Size option is now just a simple string (e.g., "S", "M", "L", "XL")
+export type SizeOption = string;
 
 export interface CartItem {
-  sizeId: string;
-  sizeName: string;
+  size: string;
   quantity: number;
 }
 

@@ -182,7 +182,7 @@ export default function CoBuySharePage() {
   }, [design]);
 
   const sizeOptions = useMemo(() => {
-    return product?.size_options?.map((size) => size.label) || [];
+    return product?.size_options || [];
   }, [product]);
 
   const pricingTiers = useMemo(() => {

@@ -7,8 +7,7 @@ export interface CartItemData {
   productTitle: string;
   productColor: string;
   productColorName: string;
-  sizeId: string;
-  sizeName: string;
+  size: string; // Size option (e.g., "S", "M", "L", "XL")
   quantity: number;
   pricePerItem: number; // Base price + design costs
   canvasState: Record<string, string>; // Serialized canvas state for each side
@@ -51,7 +50,7 @@ export const useCartStore = create<CartState>()(
       addItem: (item) => {
         const newItem: CartItemData = {
           ...item,
-          id: `${item.productId}-${item.sizeId}-${Date.now()}`,
+          id: `${item.productId}-${item.size}-${Date.now()}`,
           addedAt: Date.now(),
         };
 

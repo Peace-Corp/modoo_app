@@ -57,6 +57,14 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  const maskName = (name: string) => {
+    if (name.length <= 2) return name;
+    const firstChar = name[0];
+    const lastChar = name[name.length - 1];
+    const maskedMiddle = '*'.repeat(name.length - 2);
+    return `${firstChar}${maskedMiddle}${lastChar}`;
+  };
+
   if (loading) {
     return (
       <div className="mt-6 p-4 bg-gray-50 rounded-lg">
@@ -112,7 +120,7 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
                     />
                   ))}
                 </div>
-                <span className="text-sm font-medium">{review.author_name}</span>
+                <span className="text-sm font-medium">{maskName(review.author_name)}</span>
               </div>
               <span className="text-xs text-gray-500">{formatDate(review.created_at)}</span>
             </div>

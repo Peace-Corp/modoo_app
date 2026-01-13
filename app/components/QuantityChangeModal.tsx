@@ -28,12 +28,14 @@ export default function QuantityChangeModal({
   isSaving = false,
   discountRates
 }: QuantityChangeModalProps) {
-  // Initialize quantities from existing cart items (keyed by sizeId)
+  // Initialize quantities from existing cart items (keyed by size)
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     items.forEach(item => {
-      if (item.size_id) {
-        initial[item.size_id] = item.quantity;
+      // size_id and size_name are the same now (both just the size string)
+      const size = item.size_id || item.size_name;
+      if (size) {
+        initial[size] = item.quantity;
       }
     });
     return initial;
@@ -101,14 +103,15 @@ export default function QuantityChangeModal({
     }
 
     // Create updates array for all size options
-    const updates = sizeOptions.map(sizeOption => {
-      const existingItem = items.find(item => item.size_id === sizeOption.id);
-      const newQuantity = quantities[sizeOption.id] || 0;
+    // SizeOption is now just a string (e.g., "S", "M", "L")
+    const updates = sizeOptions.map(size => {
+      const existingItem = items.find(item => (item.size_id || item.size_name) === size);
+      const newQuantity = quantities[size] || 0;
       const currentQuantity = existingItem?.quantity || 0;
 
       return {
         itemId: existingItem?.id,
-        sizeId: sizeOption.id,
+        sizeId: size,
         quantity: newQuantity,
         currentQuantity
       };
@@ -122,8 +125,9 @@ export default function QuantityChangeModal({
     // Reset quantities to original values
     const resetQuantities: Record<string, number> = {};
     items.forEach(item => {
-      if (item.size_id) {
-        resetQuantities[item.size_id] = item.quantity;
+      const size = item.size_id || item.size_name;
+      if (size) {
+        resetQuantities[size] = item.quantity;
       }
     });
     setQuantities(resetQuantities);
@@ -172,11 +176,11 @@ export default function QuantityChangeModal({
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-700 mb-3">사이즈 및 수량</h3>
             <div className="space-y-3">
-              {sizeOptions.map((sizeOption) => {
-                const quantity = quantities[sizeOption.id] || 0;
+              {sizeOptions.map((size) => {
+                const quantity = quantities[size] || 0;
                 return (
                   <div
-                    key={sizeOption.id}
+                    key={size}
                     className={`flex items-center justify-between p-4 border rounded-lg transition ${
                       quantity > 0
                         ? 'border-black bg-gray-50'
@@ -184,14 +188,14 @@ export default function QuantityChangeModal({
                     }`}
                   >
                     <div className="flex-1">
-                      <span className="font-medium">{sizeOption.name}</span>
+                      <span className="font-medium">{size}</span>
                       <p className="text-xs text-gray-500 mt-0.5">
                         {productColorName}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => handleQuantityChange(sizeOption.id, -1)}
+                        onClick={() => handleQuantityChange(size, -1)}
                         disabled={quantity === 0 || isSaving}
                         className="p-1 hover:bg-gray-200 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                       >
@@ -201,12 +205,12 @@ export default function QuantityChangeModal({
                         type="number"
                         min="0"
                         value={quantity}
-                        onChange={(e) => handleManualQuantityChange(sizeOption.id, e.target.value)}
+                        onChange={(e) => handleManualQuantityChange(size, e.target.value)}
                         disabled={isSaving}
                         className="min-w-12 w-12 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-black transition disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
                       <button
-                        onClick={() => handleQuantityChange(sizeOption.id, 1)}
+                        onClick={() => handleQuantityChange(size, 1)}
                         disabled={isSaving}
                         className="p-1 hover:bg-gray-200 rounded transition disabled:opacity-30"
                       >

@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         total_amount: fullOrderAmount, // Full order value for record-keeping
         payment_method: 'toss',
         payment_key: null, // Will be set by payment confirmation
-        payment_status: 'pending',
+        payment_status: 'complete',
         order_status: 'pending',
         order_category: 'cobuy', // Mark as CoBuy order
         cobuy_session_id: sessionId, // Bidirectional relationship with cobuy_sessions

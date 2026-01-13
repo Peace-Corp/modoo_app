@@ -225,8 +225,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           productTitle: product.title,
           productColor: productColor,
           productColorName: colorName,
-          sizeId: item.sizeId,
-          sizeName: item.sizeName,
+          size: item.size,
           quantity: item.quantity,
           pricePerItem: pricePerItem,
           canvasState: canvasState,
@@ -249,8 +248,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           productTitle: product.title,
           productColor: productColor,
           productColorName: colorName,
-          sizeId: item.sizeId,
-          sizeName: item.sizeName,
+          size: item.size,
           quantity: item.quantity,
           pricePerItem: pricePerItem,
           canvasState: canvasState,
@@ -356,6 +354,8 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           ...item,
           manufacturer_colors: item.manufacturer_colors as unknown as ProductColor['manufacturer_colors'],
         })) as ProductColor[];
+        // Sort by color_code ascending
+        colors.sort((a, b) => (a.manufacturer_colors?.color_code || '').localeCompare(b.manufacturer_colors?.color_code || ''));
         setProductColors(colors);
       }
     };

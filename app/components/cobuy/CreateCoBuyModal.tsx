@@ -178,7 +178,7 @@ export default function CreateCoBuyModal({
         label: '사이즈',
         required: true,
         fixed: true,
-        options: design.product.size_options?.map(size => size.label) || [],
+        options: design.product.size_options || [],
       };
 
       setCustomFields([sizeField]);
