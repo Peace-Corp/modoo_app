@@ -14,7 +14,7 @@ const getActiveProducts = cache(async (): Promise<Product[]> => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('*')
+    .select('*, manufacturers(name)')
     .eq('is_active', true)
     .order('created_at', { ascending: false });
 
@@ -23,7 +23,10 @@ const getActiveProducts = cache(async (): Promise<Product[]> => {
     return [];
   }
 
-  return (data ?? []) as Product[];
+  return (data ?? []).map(product => ({
+    ...product,
+    manufacturer_name: product.manufacturers?.name ?? null,
+  })) as Product[];
 });
 
 const getCategoryItems = cache(() =>
