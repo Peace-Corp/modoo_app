@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  exportAndUploadTextFromCanvasState,
   extractImageUrlsFromCanvasState,
   type TextSvgExports,
-} from '@/lib/server-svg-export';
+} from '@/lib/canvas-svg-export';
 import { FontMetadata } from '@/lib/fontUtils';
 
 // Type definitions for request body
@@ -277,23 +276,15 @@ export async function POST(request: NextRequest) {
             group => group.design_id === item.design_id
           );
 
+          // Use pre-generated SVGs from client-side export (generated during design save)
           let svgUrls: TextSvgExports = {};
-          const hasPreGeneratedSvgs = correspondingGroup?.text_svg_exports &&
+          if (correspondingGroup?.text_svg_exports &&
             typeof correspondingGroup.text_svg_exports === 'object' &&
-            Object.keys(correspondingGroup.text_svg_exports).length > 0;
-
-          if (hasPreGeneratedSvgs) {
-            // Use pre-generated SVGs from client-side export (uses Fabric.js toSVG())
+            Object.keys(correspondingGroup.text_svg_exports).length > 0) {
             console.log(`Using pre-generated client-side SVG exports for item ${item.id}`);
-            svgUrls = correspondingGroup!.text_svg_exports as TextSvgExports;
+            svgUrls = correspondingGroup.text_svg_exports as TextSvgExports;
           } else {
-            // Fallback: Generate SVGs server-side from canvas state JSON
-            console.log(`No pre-generated SVGs found for item ${item.id}, generating server-side`);
-            svgUrls = await exportAndUploadTextFromCanvasState(
-              supabase,
-              canvasStateMap,
-              item.id
-            );
+            console.log(`No pre-generated SVGs found for item ${item.id}`);
           }
 
           // Extract image URLs from canvas state

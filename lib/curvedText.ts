@@ -115,20 +115,33 @@ export class CurvedText extends fabric.FabricObject {
 
     // Check cache first
     if (fontCache.has(fontKey)) {
+      console.log(`[CurvedText] Using cached font for "${this.fontFamily}"`);
       this._loadedFont = fontCache.get(fontKey)!;
       return;
     }
 
     // Determine font URL
     let url = this.fontUrl;
+    const hasCustomUrl = !!url;
     if (!url) {
       url = systemFontUrls[this.fontFamily] || systemFontUrls['Arial'];
     }
 
-    try {
-      this._fontLoadPromise = opentype.load(url).then((font) => {
+    console.log(`[CurvedText] Loading font for "${this.fontFamily}":`, {
+      fontUrl: this.fontUrl || '(none)',
+      usingUrl: url,
+      isCustomFont: hasCustomUrl,
+      isSystemFont: !hasCustomUrl && this.fontFamily in systemFontUrls,
+      isFallbackToArial: !hasCustomUrl && !(this.fontFamily in systemFontUrls),
+    });
+
+    // Create a promise that handles both success and error
+    this._fontLoadPromise = (async () => {
+      try {
+        const font = await opentype.load(url);
         this._loadedFont = font;
         fontCache.set(fontKey, font);
+        console.log(`[CurvedText] Font loaded successfully for "${this.fontFamily}"`);
         // Only recalculate bounds if not restoring from saved state
         // Saved state already has correct dimensions
         if (!this._fromSavedState) {
@@ -137,12 +150,13 @@ export class CurvedText extends fabric.FabricObject {
         this.dirty = true;
         this.setCoords();
         this.canvas?.requestRenderAll();
-      });
-      await this._fontLoadPromise;
-    } catch (error) {
-      console.warn(`Failed to load font ${this.fontFamily}, using fallback rendering:`, error);
-      this._loadedFont = null;
-    }
+      } catch (error) {
+        console.error(`[CurvedText] Failed to load font "${this.fontFamily}" from ${url}:`, error);
+        this._loadedFont = null;
+      }
+    })();
+
+    await this._fontLoadPromise;
   }
 
   /**
@@ -954,6 +968,63 @@ export class CurvedText extends fabric.FabricObject {
   }
 
   /**
+   * Convert CurvedText to a fabric.Path object
+   * This creates an SVG path that preserves the curved text appearance
+   * without requiring font files for rendering
+   */
+  toPath(): fabric.Path | null {
+    const pathData = this._generateSVGPathData();
+    if (!pathData) {
+      return null;
+    }
+
+    const path = new fabric.Path(pathData, {
+      left: this.left,
+      top: this.top,
+      originX: this.originX,
+      originY: this.originY,
+      fill: this.fill,
+      stroke: this.stroke || undefined,
+      strokeWidth: this.strokeWidth || 0,
+      opacity: this.opacity,
+      angle: this.angle,
+      scaleX: this.scaleX,
+      scaleY: this.scaleY,
+      // Store original text data for reference
+      data: {
+        originalType: 'CurvedText',
+        originalText: this.text,
+        fontFamily: this.fontFamily,
+        fontSize: this.fontSize,
+        curveIntensity: this.curveIntensity,
+        // Preserve any existing data
+        // @ts-expect-error - Accessing data property
+        ...this.data,
+      },
+    });
+
+    return path;
+  }
+
+  /**
+   * Check if the font is loaded and path data can be generated
+   */
+  canGeneratePath(): boolean {
+    return this._loadedFont !== null && this.curveIntensity !== 0;
+  }
+
+  /**
+   * Wait for font to load then convert to path
+   */
+  async toPathAsync(): Promise<fabric.Path | null> {
+    // Wait for font to load if pending
+    if (this._fontLoadPromise) {
+      await this._fontLoadPromise;
+    }
+    return this.toPath();
+  }
+
+  /**
    * Deserialize from object (required for fabric.js to restore saved objects)
    */
   static fromObject(object: Record<string, unknown>): Promise<CurvedText> {
@@ -1083,4 +1154,102 @@ export function setupCurvedTextEditing(canvas: fabric.Canvas): void {
       e.target.enterEditing();
     }
   });
+}
+
+/**
+ * Convert a CurvedText object to a Path on the canvas
+ * Replaces the CurvedText with an equivalent Path object
+ * @returns The new Path object, or null if conversion failed
+ */
+export function convertCurvedTextToPath(curvedText: CurvedText): fabric.Path | null {
+  const canvas = curvedText.canvas;
+  const path = curvedText.toPath();
+
+  if (!path) {
+    return null;
+  }
+
+  if (canvas) {
+    // Get the index of the original object to maintain layer order
+    const objects = canvas.getObjects();
+    const index = objects.indexOf(curvedText);
+
+    canvas.remove(curvedText);
+
+    if (index >= 0) {
+      // Insert at the same position
+      canvas.insertAt(index, path);
+    } else {
+      canvas.add(path);
+    }
+
+    canvas.requestRenderAll();
+  }
+
+  return path;
+}
+
+/**
+ * Convert all CurvedText objects in a canvas to Path objects
+ * This is useful before saving to ensure curved text is preserved as paths
+ * @returns Array of converted Path objects
+ */
+export async function convertAllCurvedTextToPaths(canvas: fabric.Canvas): Promise<fabric.Path[]> {
+  const objects = canvas.getObjects();
+  const curvedTextObjects = objects.filter(isCurvedText) as CurvedText[];
+  const paths: fabric.Path[] = [];
+
+  for (const curvedText of curvedTextObjects) {
+    // Wait for font to load if needed
+    const path = await curvedText.toPathAsync();
+    if (path) {
+      // Get the index to maintain layer order
+      const currentObjects = canvas.getObjects();
+      const index = currentObjects.indexOf(curvedText);
+
+      canvas.remove(curvedText);
+
+      if (index >= 0) {
+        canvas.insertAt(index, path);
+      } else {
+        canvas.add(path);
+      }
+
+      paths.push(path);
+    }
+  }
+
+  canvas.requestRenderAll();
+  return paths;
+}
+
+/**
+ * Get serialized canvas state with curved text converted to paths
+ * This does not modify the canvas, just returns modified JSON
+ */
+export async function getCanvasStateWithPathsForCurvedText(
+  canvas: fabric.Canvas
+): Promise<Record<string, unknown>> {
+  const objects = canvas.getObjects();
+  const serializedObjects: Record<string, unknown>[] = [];
+
+  for (const obj of objects) {
+    if (isCurvedText(obj)) {
+      // Wait for font and convert to path data
+      const path = await obj.toPathAsync();
+      if (path) {
+        serializedObjects.push(path.toObject() as unknown as Record<string, unknown>);
+      } else {
+        // Fallback to original object if path conversion fails
+        serializedObjects.push(obj.toObject());
+      }
+    } else {
+      serializedObjects.push(obj.toObject() as unknown as Record<string, unknown>);
+    }
+  }
+
+  return {
+    version: fabric.version,
+    objects: serializedObjects,
+  };
 }

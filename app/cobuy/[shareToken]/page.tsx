@@ -466,7 +466,7 @@ export default function CoBuySharePage() {
           )}
         </header>
 
-        <div className='flex flex-col md:flex-row'>
+        <div className='flex flex-col '>
           {/* Design Previewer */}
           <section className="rounded-md shadow-sm bg-gray-100">
             <CoBuyDesignViewer
