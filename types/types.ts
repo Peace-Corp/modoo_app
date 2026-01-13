@@ -58,14 +58,18 @@ export interface CartItem {
 export interface ProductColor {
   id: string;
   product_id: string;
-  color_id: string;
-  name: string;
-  hex: string;
-  label?: string;
+  manufacturer_color_id: string;
   is_active: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
+  // Joined from manufacturer_colors
+  manufacturer_colors: {
+    id: string;
+    name: string;
+    hex: string;
+    color_code: string;
+  };
 }
 
 // Discount tier for quantity-based pricing

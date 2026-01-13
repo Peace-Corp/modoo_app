@@ -203,14 +203,17 @@ export default function DesignsPage() {
           product_colors (
             id,
             product_id,
-            color_id,
-            name,
-            hex,
-            label,
+            manufacturer_color_id,
             is_active,
             sort_order,
             created_at,
-            updated_at
+            updated_at,
+            manufacturer_colors (
+              id,
+              name,
+              hex,
+              color_code
+            )
           )
         `)
         .eq('id', design.product.id)
@@ -223,7 +226,14 @@ export default function DesignsPage() {
       // Set product data and open modal
       setSelectedDesign(design);
       setProductSizeOptions(product.size_options || []);
-      setProductColors(Array.isArray(product.product_colors) ? product.product_colors : []);
+      // Transform product_colors to match ProductColor type
+      const colors = Array.isArray(product.product_colors)
+        ? product.product_colors.map((item: { manufacturer_colors: unknown } & Omit<ProductColor, 'manufacturer_colors'>) => ({
+            ...item,
+            manufacturer_colors: item.manufacturer_colors as ProductColor['manufacturer_colors'],
+          }))
+        : [];
+      setProductColors(colors);
       setProductDiscountRates(product.discount_rates || []);
       setIsQuantitySelectorOpen(true);
     } catch (error) {
@@ -246,7 +256,7 @@ export default function DesignsPage() {
     try {
       const colorSelections = selectedDesign.color_selections as { productColor?: string } | null;
       const productColor = colorSelections?.productColor || '#FFFFFF';
-      const colorName = productColors.find(c => c.hex === productColor)?.name || '색상';
+      const colorName = productColors.find(c => c.manufacturer_colors.hex === productColor)?.manufacturer_colors.name || '색상';
 
       // Fetch the full design data including canvas state
       const supabase = createClient();

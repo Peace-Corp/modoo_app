@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/app/components/Header';
 import { createClient } from '@/lib/supabase-client';
@@ -31,13 +31,6 @@ export default function CreateMyReviewPage() {
   const [existingReviewId, setExistingReviewId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const defaultAuthorName = useMemo(() => {
-    if (user?.name?.trim()) return user.name.trim();
-    if (user?.email) return user.email.split('@')[0];
-    return '';
-  }, [user?.email, user?.name]);
-
-  const [authorName, setAuthorName] = useState('');
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -51,10 +44,6 @@ export default function CreateMyReviewPage() {
   useEffect(() => {
     uploadedImagesRef.current = uploadedImages;
   }, [uploadedImages]);
-
-  useEffect(() => {
-    setAuthorName(defaultAuthorName);
-  }, [defaultAuthorName]);
 
   useEffect(() => {
     const fetchProductAndCheckExisting = async () => {
@@ -206,10 +195,6 @@ export default function CreateMyReviewPage() {
       setError('상품이 선택되지 않았습니다.');
       return;
     }
-    if (!authorName.trim()) {
-      setError('작성자 이름을 입력해주세요.');
-      return;
-    }
     if (!title.trim()) {
       setError('리뷰 제목을 입력해주세요.');
       return;
@@ -247,7 +232,6 @@ export default function CreateMyReviewPage() {
           rating,
           title: title.trim(),
           content: content.trim(),
-          author_name: authorName.trim(),
           is_verified_purchase: Boolean(orderId),
           review_image_urls: uploadedImagesRef.current.map((img) => img.url),
         });
@@ -359,16 +343,6 @@ export default function CreateMyReviewPage() {
               </div>
               <span className="text-sm text-gray-600">{rating} / 5</span>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">작성자</label>
-            <input
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="이름"
-            />
           </div>
 
           <div>

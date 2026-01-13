@@ -209,7 +209,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       const canvasState = saveAllCanvasState();
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
       const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
-      const colorName = productColors.find(c => c.hex === productColor)?.name || '색상';
+      const colorName = productColors.find(c => c.manufacturer_colors.hex === productColor)?.manufacturer_colors.name || '색상';
 
       // Get custom fonts from store
       const customFonts = useFontStore.getState().customFonts;
@@ -320,13 +320,27 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   //   }
   // };
 
-  // Fetch product colors from database
+  // Fetch product colors from database (joined with manufacturer_colors)
   useEffect(() => {
     const fetchColors = async () => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('product_colors')
-        .select('*')
+        .select(`
+          id,
+          product_id,
+          manufacturer_color_id,
+          is_active,
+          sort_order,
+          created_at,
+          updated_at,
+          manufacturer_colors (
+            id,
+            name,
+            hex,
+            color_code
+          )
+        `)
         .eq('product_id', product.id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
@@ -337,7 +351,12 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
       }
 
       if (data && data.length > 0) {
-        setProductColors(data as ProductColor[]);
+        // Transform data to match ProductColor type (Supabase returns single FK as object, not array)
+        const colors = data.map((item) => ({
+          ...item,
+          manufacturer_colors: item.manufacturer_colors as unknown as ProductColor['manufacturer_colors'],
+        })) as ProductColor[];
+        setProductColors(colors);
       }
     };
 
@@ -512,16 +531,16 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
                     {productColors.map((color) => (
                       <button
                         key={color.id}
-                        onClick={() => handleColorChange(color.hex)}
+                        onClick={() => handleColorChange(color.manufacturer_colors.hex)}
                         className="shrink-0 flex flex-col items-center gap-2"
                       >
                         <div
                           className={`w-12 h-12 rounded-full border-2 ${
-                            productColor === color.hex ? 'border-black' : 'border-gray-300'
+                            productColor === color.manufacturer_colors.hex ? 'border-black' : 'border-gray-300'
                           }`}
-                          style={{ backgroundColor: color.hex }}
+                          style={{ backgroundColor: color.manufacturer_colors.hex }}
                         ></div>
-                        <span className="text-xs">{color.name}</span>
+                        <span className="text-xs">{color.manufacturer_colors.name}</span>
                       </button>
                     ))}
                   </div>
