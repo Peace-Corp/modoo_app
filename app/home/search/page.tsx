@@ -41,15 +41,19 @@ export default function SearchPage() {
 
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, manufacturers(name)')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching products:', error);
       } else {
-        setProducts(data as Product[] || []);
-        setFilteredProducts(data as Product[] || []);
+        const productsWithManufacturer = (data ?? []).map(product => ({
+          ...product,
+          manufacturer_name: product.manufacturers?.name ?? null,
+        })) as Product[];
+        setProducts(productsWithManufacturer);
+        setFilteredProducts(productsWithManufacturer);
       }
       setIsLoading(false);
     }

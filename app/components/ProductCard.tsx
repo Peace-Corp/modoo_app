@@ -158,9 +158,9 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
         {/* Product Details */}
         <div className="p-2 lg:p-3">
-          {/* Category */}
-          {product.category && (
-            <p className="text-black text-[10px] lg:text-xs font-bold capitalize mb-0.5">{product.category}</p>
+          {/* Manufacturer */}
+          {product.manufacturer_name && (
+            <p className="text-black text-[10px] lg:text-xs font-bold mb-0.5">{product.manufacturer_name}</p>
           )}
           {/* Product Name */}
           <p className="text-xs lg:text-sm text-gray-900 line-clamp-2 mb-1 lg:mb-1.5">{product.title}</p>

@@ -708,3 +708,55 @@ export async function updateParticipantPickupStatus(
     return null;
   }
 }
+
+/**
+ * Update delivery settings for a CoBuy session
+ * Only allowed before 'order_complete' status
+ * @param sessionId The session ID
+ * @param deliverySettings The updated delivery settings
+ * @returns The updated session or null if failed
+ */
+export async function updateDeliverySettings(
+  sessionId: string,
+  deliverySettings: CoBuyDeliverySettings
+): Promise<CoBuySession | null> {
+  const supabase = createClient();
+
+  try {
+    // First check that the session is not past order_complete
+    const { data: session, error: fetchError } = await supabase
+      .from('cobuy_sessions')
+      .select('status')
+      .eq('id', sessionId)
+      .single();
+
+    if (fetchError || !session) {
+      throw fetchError || new Error('Session not found');
+    }
+
+    const blockedStatuses: CoBuyStatus[] = ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering', 'delivery_complete', 'cancelled'];
+    if (blockedStatuses.includes(session.status)) {
+      throw new Error('Cannot update delivery settings after order is complete');
+    }
+
+    const { data: updatedSession, error } = await supabase
+      .from('cobuy_sessions')
+      .update({
+        delivery_settings: deliverySettings,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating delivery settings:', error);
+      throw error;
+    }
+
+    return updatedSession;
+  } catch (error) {
+    console.error('Failed to update delivery settings:', error);
+    return null;
+  }
+}

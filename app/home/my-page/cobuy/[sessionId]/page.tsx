@@ -10,12 +10,14 @@ import {
   getCoBuySession,
   getParticipants,
   requestCancellation,
-  updateParticipantPickupStatus
+  updateParticipantPickupStatus,
+  updateDeliverySettings
 } from '@/lib/cobuyService';
-import { CoBuyParticipant, CoBuySession } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check } from 'lucide-react';
+import { CoBuyParticipant, CoBuySession, CoBuyDeliverySettings } from '@/types/types';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check, Pencil } from 'lucide-react';
 import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 import CoBuyOrderModal from '@/app/components/cobuy/CoBuyOrderModal';
+import DeliverySettingsEditModal from '@/app/components/cobuy/DeliverySettingsEditModal';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -35,11 +37,6 @@ const paymentLabels: Record<CoBuyParticipant['payment_status'], { label: string;
   refunded: { label: '환불', color: 'bg-gray-100 text-gray-800' },
 };
 
-const pickupStatusLabels: Record<CoBuyParticipant['pickup_status'], { label: string; color: string }> = {
-  pending: { label: '미수령', color: 'bg-orange-100 text-orange-800' },
-  picked_up: { label: '수령', color: 'bg-green-100 text-green-800' },
-};
-
 export default function CoBuyDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -55,6 +52,20 @@ export default function CoBuyDetailPage() {
   const [expandedParticipants, setExpandedParticipants] = useState<Set<string>>(new Set());
   const [updatingPickupStatus, setUpdatingPickupStatus] = useState<Set<string>>(new Set());
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isDeliverySettingsModalOpen, setIsDeliverySettingsModalOpen] = useState(false);
+
+  // Check if editing is allowed (before order_complete)
+  const canEditDeliverySettings = session && !['order_complete', 'manufacturing', 'manufacture_complete', 'delivering', 'delivery_complete', 'cancelled'].includes(session.status);
+
+  const handleSaveDeliverySettings = async (settings: CoBuyDeliverySettings) => {
+    if (!session) return;
+    const updated = await updateDeliverySettings(session.id, settings);
+    if (updated) {
+      setSession(updated);
+    } else {
+      throw new Error('Failed to update delivery settings');
+    }
+  };
 
   const toggleParticipantExpand = (participantId: string) => {
     setExpandedParticipants((prev) => {
@@ -556,6 +567,64 @@ export default function CoBuyDetailPage() {
           </div>
         </section>
 
+        {/* Delivery Settings Section */}
+        {session.delivery_settings && (
+          <section className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">수령/배송 장소</h2>
+              {canEditDeliverySettings && (
+                <button
+                  onClick={() => setIsDeliverySettingsModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Pencil className="w-4 h-4" />
+                  수정
+                </button>
+              )}
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* 배송받을 장소 */}
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck className="w-4 h-4 text-blue-600" />
+                  <p className="text-sm font-medium text-gray-700">배송받을 장소</p>
+                </div>
+                {session.delivery_settings.deliveryAddress ? (
+                  <div className="text-sm text-gray-600 space-y-0.5">
+                    <p>({session.delivery_settings.deliveryAddress.postalCode}) {session.delivery_settings.deliveryAddress.roadAddress}</p>
+                    {session.delivery_settings.deliveryAddress.addressDetail && (
+                      <p>{session.delivery_settings.deliveryAddress.addressDetail}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">미설정</p>
+                )}
+              </div>
+
+              {/* 배부 장소 */}
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <MapPin className="w-4 h-4 text-green-600" />
+                  <p className="text-sm font-medium text-gray-700">배부 장소</p>
+                </div>
+                {session.delivery_settings.pickupAddress ? (
+                  <div className="text-sm text-gray-600 space-y-0.5">
+                    <p>({session.delivery_settings.pickupAddress.postalCode}) {session.delivery_settings.pickupAddress.roadAddress}</p>
+                    {session.delivery_settings.pickupAddress.addressDetail && (
+                      <p>{session.delivery_settings.pickupAddress.addressDetail}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">미설정</p>
+                )}
+              </div>
+            </div>
+            {!canEditDeliverySettings && (
+              <p className="text-xs text-gray-400 mt-3">주문 완료 후에는 수정할 수 없습니다.</p>
+            )}
+          </section>
+        )}
+
         {/* Progress Bar Section */}
         <section className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">진행 상태</h2>
@@ -831,6 +900,16 @@ export default function CoBuyDetailPage() {
           participants={participants}
           onOrderCreated={handleOrderCreated}
           onSessionUpdated={handleSessionUpdated}
+        />
+      )}
+
+      {/* Delivery Settings Edit Modal */}
+      {session && (
+        <DeliverySettingsEditModal
+          isOpen={isDeliverySettingsModalOpen}
+          onClose={() => setIsDeliverySettingsModalOpen(false)}
+          deliverySettings={session.delivery_settings}
+          onSave={handleSaveDeliverySettings}
         />
       )}
     </div>
