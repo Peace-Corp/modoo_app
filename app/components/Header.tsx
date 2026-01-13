@@ -72,7 +72,9 @@ export default function Header({
                   </Link>
                 </div>
               ) : (
-                <CartButton />
+                <div className="hidden lg:flex items-center justify-end gap-4 text-gray-600 lg:w-48">
+                  <CartButton />
+                </div>
               )}
             </div>
           </div>

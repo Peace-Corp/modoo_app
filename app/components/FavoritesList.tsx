@@ -36,7 +36,8 @@ export default function FavoritesList() {
               category,
               is_active,
               size_options,
-              thumbnail_image_link
+              thumbnail_image_link,
+              manufacturers (name)
             )
           `)
           .eq('user_id', user.id)
@@ -49,7 +50,10 @@ export default function FavoritesList() {
 
         // Transform the data to Product[] format
         const products = data
-          ?.map((item: any) => item.products)
+          ?.map((item: any) => ({
+            ...item.products,
+            manufacturer_name: item.products?.manufacturers?.name ?? null,
+          }))
           .filter((product: any) => product && product.is_active) as Product[];
 
         setFavoriteProducts(products || []);
