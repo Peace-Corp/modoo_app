@@ -277,12 +277,11 @@ export default function CartPage() {
           const { createClient } = await import('@/lib/supabase-client');
           const supabase = createClient();
 
-          // Get the size name from size options
-          const sizeOption = productSizeOptions[referenceItem.product_id]?.find(
-            (s) => s.id === update.sizeId
-          );
+          // Verify size option exists
+          const sizeOptions = productSizeOptions[referenceItem.product_id] || [];
+          const sizeExists = sizeOptions.includes(update.sizeId);
 
-          if (!sizeOption) {
+          if (!sizeExists) {
             console.error('Size option not found:', update.sizeId);
             continue;
           }
@@ -293,6 +292,7 @@ export default function CartPage() {
             throw new Error('User must be authenticated');
           }
 
+          // size_id and size_name are the same value now (just the size string)
           const newCartItem = {
             user_id: user.id,
             product_id: referenceItem.product_id,
@@ -301,7 +301,7 @@ export default function CartPage() {
             product_color: referenceItem.product_color,
             product_color_name: referenceItem.product_color_name,
             size_id: update.sizeId,
-            size_name: sizeOption.name,
+            size_name: update.sizeId,
             quantity: update.quantity,
             price_per_item: referenceItem.price_per_item,
             thumbnail_url: referenceItem.thumbnail_url,

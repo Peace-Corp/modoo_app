@@ -6,6 +6,8 @@ import { ProductSide, ProductLayer } from '@/types/types';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import ScaleBox from './ScaleBox';
 import { formatMm, calculateObjectDimensionsMm, updateObjectDimensionsData } from '@/lib/canvasUtils';
+// Import CurvedText to register the class with fabric.js for deserialization
+import '@/lib/curvedText';
 
 
 interface SingleSideCanvasProps {

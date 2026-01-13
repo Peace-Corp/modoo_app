@@ -50,14 +50,14 @@ export default function CartButton() {
 
         if (data) {
           // Transform database cart items to match CartItemData interface
+          // size_id and size_name are the same value now (just the size string)
           const cartItems = data.map((item) => ({
             id: item.id,
             productId: item.product_id || '',
             productTitle: item.product_title,
             productColor: item.product_color,
             productColorName: item.product_color_name,
-            sizeId: item.size_id,
-            sizeName: item.size_name,
+            size: item.size_id || item.size_name, // Use either (they're the same)
             quantity: item.quantity,
             pricePerItem: Number(item.price_per_item),
             canvasState: {}, // Canvas state is stored in saved_designs, not cart_items

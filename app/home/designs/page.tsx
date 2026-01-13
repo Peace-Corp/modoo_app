@@ -11,8 +11,9 @@ import QuantitySelectorModal from '@/app/components/QuantitySelectorModal';
 import CreateCoBuyModal from '@/app/components/cobuy/CreateCoBuyModal';
 import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
+import { deleteDesign } from '@/lib/designService';
 import { SizeOption, CartItem, ProductColor, DiscountTier } from '@/types/types';
-import { ShoppingCart, Search, Users } from 'lucide-react';
+import { ShoppingCart, Search, Users, Trash2 } from 'lucide-react';
 import Header from '@/app/components/Header';
 
 type TabType = 'designs' | 'favorites';
@@ -70,6 +71,9 @@ export default function DesignsPage() {
   // CoBuy modal state
   const [isCreateCoBuyModalOpen, setIsCreateCoBuyModalOpen] = useState(false);
   const [selectedDesignForCoBuy, setSelectedDesignForCoBuy] = useState<SavedDesign | null>(null);
+
+  // Delete state
+  const [deletingDesignId, setDeletingDesignId] = useState<string | null>(null);
 
   // Fetch designs from database
   useEffect(() => {
@@ -155,6 +159,36 @@ export default function DesignsPage() {
     setIsCreateCoBuyModalOpen(true);
   };
 
+  // Handle delete button click
+  const handleDeleteClick = async (design: SavedDesign, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening the edit modal
+
+    const confirmDelete = window.confirm(
+      `"${design.title || design.product.title}" 디자인을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingDesignId(design.id);
+
+      // Use deleteDesign from designService to delete the design and all associated files
+      const success = await deleteDesign(design.id);
+
+      if (!success) {
+        throw new Error('Failed to delete design');
+      }
+
+      // Remove from local state
+      setDesigns((prev) => prev.filter((d) => d.id !== design.id));
+    } catch (err) {
+      console.error('Error deleting design:', err);
+      alert('디자인 삭제에 실패했습니다.');
+    } finally {
+      setDeletingDesignId(null);
+    }
+  };
+
   // Handle add to cart button click
   const handleAddToCartClick = async (design: SavedDesign, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening the edit modal
@@ -169,14 +203,17 @@ export default function DesignsPage() {
           product_colors (
             id,
             product_id,
-            color_id,
-            name,
-            hex,
-            label,
+            manufacturer_color_id,
             is_active,
             sort_order,
             created_at,
-            updated_at
+            updated_at,
+            manufacturer_colors (
+              id,
+              name,
+              hex,
+              color_code
+            )
           )
         `)
         .eq('id', design.product.id)
@@ -189,7 +226,14 @@ export default function DesignsPage() {
       // Set product data and open modal
       setSelectedDesign(design);
       setProductSizeOptions(product.size_options || []);
-      setProductColors(Array.isArray(product.product_colors) ? product.product_colors : []);
+      // Transform product_colors to match ProductColor type
+      const colors = Array.isArray(product.product_colors)
+        ? product.product_colors.map((item: { manufacturer_colors: unknown } & Omit<ProductColor, 'manufacturer_colors'>) => ({
+            ...item,
+            manufacturer_colors: item.manufacturer_colors as ProductColor['manufacturer_colors'],
+          }))
+        : [];
+      setProductColors(colors);
       setProductDiscountRates(product.discount_rates || []);
       setIsQuantitySelectorOpen(true);
     } catch (error) {
@@ -212,7 +256,7 @@ export default function DesignsPage() {
     try {
       const colorSelections = selectedDesign.color_selections as { productColor?: string } | null;
       const productColor = colorSelections?.productColor || '#FFFFFF';
-      const colorName = productColors.find(c => c.hex === productColor)?.name || '색상';
+      const colorName = productColors.find(c => c.manufacturer_colors.hex === productColor)?.manufacturer_colors.name || '색상';
 
       // Fetch the full design data including canvas state
       const supabase = createClient();
@@ -234,8 +278,7 @@ export default function DesignsPage() {
           productTitle: selectedDesign.product.title,
           productColor: productColor,
           productColorName: colorName,
-          sizeId: item.sizeId,
-          sizeName: item.sizeName,
+          size: item.size,
           quantity: item.quantity,
           pricePerItem: selectedDesign.price_per_item, // Use base price for now
           canvasState: fullDesign.canvas_state,
@@ -252,8 +295,7 @@ export default function DesignsPage() {
             productTitle: selectedDesign.product.title,
             productColor: productColor,
             productColorName: colorName,
-            sizeId: item.sizeId,
-            sizeName: item.sizeName,
+            size: item.size,
             quantity: item.quantity,
             pricePerItem: selectedDesign.price_per_item,
             canvasState: fullDesign.canvas_state,
@@ -374,23 +416,39 @@ export default function DesignsPage() {
                     className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {/* Thumbnail - Clickable to edit */}
-                    <button
-                      onClick={() => handleDesignClick(design.id)}
-                      className="w-full aspect-square bg-gray-100 relative"
-                    >
-                      {design.preview_url ? (
-                        <Image
-                          src={design.preview_url}
-                          alt={design.title || design.product.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-gray-400">No Image</span>
-                        </div>
-                      )}
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => handleDesignClick(design.id)}
+                        className="w-full aspect-square bg-gray-100 relative"
+                      >
+                        {design.preview_url ? (
+                          <Image
+                            src={design.preview_url}
+                            alt={design.title || design.product.title}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-gray-400">No Image</span>
+                          </div>
+                        )}
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => handleDeleteClick(design, e)}
+                        disabled={deletingDesignId === design.id}
+                        className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-500 hover:text-white text-gray-600 rounded-full shadow-sm transition-colors disabled:opacity-50"
+                        title="삭제"
+                      >
+                        {deletingDesignId === design.id ? (
+                          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
 
                     {/* Info */}
                     <div className="p-3 flex flex-col gap-2">

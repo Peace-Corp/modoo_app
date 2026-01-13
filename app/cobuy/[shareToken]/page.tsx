@@ -182,7 +182,7 @@ export default function CoBuySharePage() {
   }, [design]);
 
   const sizeOptions = useMemo(() => {
-    return product?.size_options?.map((size) => size.label) || [];
+    return product?.size_options || [];
   }, [product]);
 
   const pricingTiers = useMemo(() => {
@@ -343,58 +343,120 @@ export default function CoBuySharePage() {
             <span>가격: {formatPrice(design.price_per_item)}</span>
           </div>
 
-          {/* Progress Bar - Quantity Based */}
-          {pricingTiers.length > 0 && (
-            <div className="space-y-2 px-5">
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="group relative flex items-center gap-1" ref={discountInfoRef}>
-                  <span>할인 적용 진행률</span>
-                  <button
-                    type="button"
-                    aria-label="할인 정보"
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    onClick={() => setIsDiscountInfoOpen((prev) => !prev)}
-                  >
-                    <Info className="h-4 w-4" />
-                  </button>
-                  <div
-                    role="tooltip"
-                    className={[
-                      "absolute left-0 top-7 z-10 w-64 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm",
-                      isDiscountInfoOpen
-                        ? "visible opacity-100"
-                        : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
-                      "transition-opacity duration-150",
-                    ].join(' ')}
-                  >
-                    <p className="mb-2">총 주문 수량에 따라 단가가 달라집니다:</p>
-                    <div className="space-y-1">
-                      {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => (
-                        <div key={idx} className="flex justify-between">
-                          <span>{tier.minQuantity}벌 이상</span>
-                          <span className="font-medium">₩{tier.pricePerItem.toLocaleString()}</span>
-                        </div>
-                      ))}
+          {/* Progress Bar - Quantity Based with Checkpoints */}
+          {pricingTiers.length > 0 && (() => {
+            const sortedTiers = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity);
+            const maxQuantity = sortedTiers[sortedTiers.length - 1]?.minQuantity || 100;
+
+            return (
+              <div className="space-y-3 px-5">
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <div className="group relative flex items-center gap-1" ref={discountInfoRef}>
+                    <span>할인 적용 진행률</span>
+                    <button
+                      type="button"
+                      aria-label="할인 정보"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      onClick={() => setIsDiscountInfoOpen((prev) => !prev)}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                    <div
+                      role="tooltip"
+                      className={[
+                        "absolute left-0 top-7 z-10 w-64 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm",
+                        isDiscountInfoOpen
+                          ? "visible opacity-100"
+                          : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+                        "transition-opacity duration-150",
+                      ].join(' ')}
+                    >
+                      <p className="mb-2">총 주문 수량에 따라 단가가 달라집니다:</p>
+                      <div className="space-y-1">
+                        {sortedTiers.map((tier, idx) => (
+                          <div key={idx} className="flex justify-between">
+                            <span>{tier.minQuantity}벌 이상</span>
+                            <span className="font-medium">₩{tier.pricePerItem.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
+                  <span>
+                    현재 {getProgressInfo.currentQuantity}벌
+                  </span>
                 </div>
-                <span>
-                  {getProgressInfo.currentQuantity}벌 / {getProgressInfo.targetQuantity}벌 ({getProgressInfo.progressPercent}%)
-                </span>
+
+                {/* Checkpoint Progress Bar */}
+                <div className="relative pt-1 pb-6 h-15">
+                  {/* Background line */}
+                  <div className="absolute left-0 right-0 top-4 h-1 bg-gray-200 rounded-full" />
+
+                  {/* Progress line */}
+                  <div
+                    className="absolute left-0 top-4 h-1 bg-blue-500 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, (currentTotalQuantity / maxQuantity) * 100)}%`,
+                    }}
+                  />
+
+                  {/* Checkpoints */}
+                  <div className="relative flex justify-between">
+                    {sortedTiers.map((tier, index) => {
+                      const isReached = currentTotalQuantity >= tier.minQuantity;
+                      const isCurrent = currentTotalQuantity >= tier.minQuantity &&
+                        (index === sortedTiers.length - 1 || currentTotalQuantity < sortedTiers[index + 1].minQuantity);
+                      const position = (tier.minQuantity / maxQuantity) * 100;
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex flex-col items-center"
+                          style={{
+                            position: 'absolute',
+                            left: `${position}%`,
+                            transform: 'translateX(-50%)',
+                          }}
+                        >
+                          {/* Checkpoint circle */}
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                              isReached
+                                ? 'bg-blue-500 border-blue-500'
+                                : 'bg-white border-gray-300'
+                            } ${isCurrent ? 'ring-2 ring-blue-200' : ''}`}
+                          />
+                          {/* Label */}
+                          <div className="mt-2 text-center">
+                            <span
+                              className={`text-xs font-medium block ${
+                                isReached ? 'text-blue-600' : 'text-gray-400'
+                              }`}
+                            >
+                              {tier.minQuantity}벌
+                            </span>
+                            <span
+                              className={`text-xs block ${
+                                isReached ? 'text-blue-500' : 'text-gray-400'
+                              }`}
+                            >
+                              ₩{tier.pricePerItem.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {getProgressInfo.nextTierQuantity && (
+                  <p className="text-xs text-blue-600">
+                    💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인! <span className='text-gray-400'>(차액은 캐시백으로 환불됩니다.)</span>
+                  </p>
+                )}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                <div
-                  className="h-full rounded-full bg-blue-500 transition-[width] duration-300"
-                  style={{ width: `${getProgressInfo.progressPercent}%` }}
-                />
-              </div>
-              {getProgressInfo.nextTierQuantity && (
-                <p className="text-xs text-blue-600">
-                  💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인! <span className='text-gray-400'>(차액은 캐시백으로 환불됩니다.)</span>
-                </p>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* Participant Count (when no pricing tiers) */}
           {pricingTiers.length === 0 && (
@@ -404,7 +466,7 @@ export default function CoBuySharePage() {
           )}
         </header>
 
-        <div className='flex flex-col md:flex-row'>
+        <div className='flex flex-col '>
           {/* Design Previewer */}
           <section className="rounded-md shadow-sm bg-gray-100">
             <CoBuyDesignViewer

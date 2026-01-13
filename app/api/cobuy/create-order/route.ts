@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  exportAndUploadTextFromCanvasState,
   extractImageUrlsFromCanvasState,
   type TextSvgExports,
-} from '@/lib/server-svg-export';
+} from '@/lib/canvas-svg-export';
 import { FontMetadata } from '@/lib/fontUtils';
 
 interface OrderData {
@@ -191,7 +190,7 @@ export async function POST(request: NextRequest) {
         total_amount: fullOrderAmount, // Full order value for record-keeping
         payment_method: 'toss',
         payment_key: null, // Will be set by payment confirmation
-        payment_status: 'pending',
+        payment_status: 'complete',
         order_status: 'pending',
         order_category: 'cobuy', // Mark as CoBuy order
         cobuy_session_id: sessionId, // Bidirectional relationship with cobuy_sessions
@@ -262,24 +261,15 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const canvasStateMap = orderItem.canvas_state as Record<string, any>;
 
-        // Check if the design already has pre-generated SVG exports (from client-side)
+        // Use pre-generated SVGs from client-side export (generated during design save)
         let svgUrls: TextSvgExports = {};
-        const hasPreGeneratedSvgs = designSnapshot.text_svg_exports &&
+        if (designSnapshot.text_svg_exports &&
           typeof designSnapshot.text_svg_exports === 'object' &&
-          Object.keys(designSnapshot.text_svg_exports).length > 0;
-
-        if (hasPreGeneratedSvgs) {
-          // Use pre-generated SVGs from client-side export (uses Fabric.js toSVG())
+          Object.keys(designSnapshot.text_svg_exports).length > 0) {
           console.log('Using pre-generated client-side SVG exports');
           svgUrls = designSnapshot.text_svg_exports as TextSvgExports;
         } else {
-          // Fallback: Generate SVGs server-side from canvas state JSON
-          console.log('No pre-generated SVGs found, generating server-side');
-          svgUrls = await exportAndUploadTextFromCanvasState(
-            supabase,
-            canvasStateMap,
-            orderItem.id
-          );
+          console.log('No pre-generated SVGs found');
         }
 
         const imageUrls = extractImageUrlsFromCanvasState(canvasStateMap);

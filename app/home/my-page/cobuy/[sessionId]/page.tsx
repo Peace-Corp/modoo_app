@@ -15,6 +15,7 @@ import {
 import { CoBuyParticipant, CoBuySession } from '@/types/types';
 import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check } from 'lucide-react';
 import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
+import CoBuyOrderModal from '@/app/components/cobuy/CoBuyOrderModal';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -53,6 +54,7 @@ export default function CoBuyDetailPage() {
   const [copied, setCopied] = useState(false);
   const [expandedParticipants, setExpandedParticipants] = useState<Set<string>>(new Set());
   const [updatingPickupStatus, setUpdatingPickupStatus] = useState<Set<string>>(new Set());
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   const toggleParticipantExpand = (participantId: string) => {
     setExpandedParticipants((prev) => {
@@ -418,16 +420,16 @@ export default function CoBuyDetailPage() {
 
   const handleCreateOrders = () => {
     if (!session) return;
+    setIsOrderModalOpen(true);
+  };
 
-    const completedParticipants = participants.filter(p => p.payment_status === 'completed');
+  const handleOrderCreated = () => {
+    // Refresh the session data after order creation
+    fetchSessionData();
+  };
 
-    if (completedParticipants.length === 0) {
-      alert('결제가 완료된 참여자가 없습니다.');
-      return;
-    }
-
-    // Redirect to checkout page
-    router.push(`/cobuy/checkout/${session.id}`);
+  const handleSessionUpdated = (updatedSession: CoBuySession) => {
+    setSession(updatedSession);
   };
 
   if (!isAuthenticated) {
@@ -535,14 +537,14 @@ export default function CoBuyDetailPage() {
                   </button>
                   <button
                     onClick={handleCancelSession}
-                    disabled={isUpdating || session.status === 'cancelled'}
+                    disabled={isUpdating || session.status === 'cancelled' || ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering'].includes(session.status)}
                     className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     취소 요청
                   </button>
                   <button
                     onClick={handleCreateOrders}
-                    disabled={session.status === 'cancelled'}
+                    disabled={session.status === 'cancelled' || ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering'].includes(session.status)}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <PackageCheck className="w-4 h-4" />
@@ -819,6 +821,18 @@ export default function CoBuyDetailPage() {
           )}
         </section>
       </div>
+
+      {/* Order Modal */}
+      {session && (
+        <CoBuyOrderModal
+          isOpen={isOrderModalOpen}
+          onClose={() => setIsOrderModalOpen(false)}
+          session={session}
+          participants={participants}
+          onOrderCreated={handleOrderCreated}
+          onSessionUpdated={handleSessionUpdated}
+        />
+      )}
     </div>
   );
 }

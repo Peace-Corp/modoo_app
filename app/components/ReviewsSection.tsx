@@ -13,6 +13,7 @@ interface Review {
   is_verified_purchase: boolean;
   helpful_count: number;
   created_at: string;
+  review_image_urls?: string[];
 }
 
 interface ReviewsSectionProps {
@@ -24,6 +25,7 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState(0);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -53,6 +55,14 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const maskName = (name: string) => {
+    if (name.length <= 2) return name;
+    const firstChar = name[0];
+    const lastChar = name[name.length - 1];
+    const maskedMiddle = '*'.repeat(name.length - 2);
+    return `${firstChar}${maskedMiddle}${lastChar}`;
   };
 
   if (loading) {
@@ -110,12 +120,7 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
                     />
                   ))}
                 </div>
-                <span className="text-sm font-medium">{review.author_name}</span>
-                {review.is_verified_purchase && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                    구매확인
-                  </span>
-                )}
+                <span className="text-sm font-medium">{maskName(review.author_name)}</span>
               </div>
               <span className="text-xs text-gray-500">{formatDate(review.created_at)}</span>
             </div>
@@ -126,6 +131,21 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
             {/* Review Content */}
             <p className="text-sm text-gray-700 mb-2">{review.content}</p>
 
+            {/* Review Images */}
+            {review.review_image_urls && review.review_image_urls.length > 0 && (
+              <div className="flex gap-2 mb-2 overflow-x-auto">
+                {review.review_image_urls.map((url, idx) => (
+                  <img
+                    key={idx}
+                    src={url}
+                    alt={`리뷰 이미지 ${idx + 1}`}
+                    className="w-16 h-16 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setSelectedImage(url)}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Helpful Count */}
             {review.helpful_count > 0 && (
               <p className="text-xs text-gray-500">도움이 됨 {review.helpful_count}</p>
@@ -133,6 +153,30 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
           </div>
         ))}
       </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-10 right-0 text-white text-2xl font-bold hover:text-gray-300"
+              aria-label="닫기"
+            >
+              ✕
+            </button>
+            <img
+              src={selectedImage}
+              alt="리뷰 이미지"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

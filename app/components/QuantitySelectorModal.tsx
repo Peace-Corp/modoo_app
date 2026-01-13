@@ -177,14 +177,11 @@ export default function QuantitySelectorModal({
     }
 
     // Convert quantities to CartItem array
-    const selectedItems: CartItem[] = Object.entries(quantities).map(([sizeId, quantity]) => {
-      const size = sizeOptions.find(s => s.id === sizeId);
-      return {
-        sizeId,
-        sizeName: size?.name || sizeId,
-        quantity
-      };
-    });
+    // SizeOption is now just a string (e.g., "S", "M", "L")
+    const selectedItems: CartItem[] = Object.entries(quantities).map(([size, quantity]) => ({
+      size,
+      quantity
+    }));
 
     await onConfirm(designName, selectedItems);
     setShowSuccess(true);
@@ -261,20 +258,20 @@ export default function QuantitySelectorModal({
                 <h3 className="text-sm font-medium text-gray-700 mb-3">사이즈 및 수량</h3>
                 <div className="space-y-3">
                   {sizeOptions.map((size) => {
-                    const quantity = quantities[size.id] || 0;
+                    const quantity = quantities[size] || 0;
                     return (
                       <div
-                        key={size.id}
+                        key={size}
                         className={`flex items-center justify-between p-4 border rounded-lg transition ${
                           quantity > 0
                             ? 'border-black bg-gray-50'
                             : 'border-gray-300 bg-white'
                         }`}
                       >
-                        <span className="font-medium">{size.name}</span>
+                        <span className="font-medium">{size}</span>
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => handleQuantityChange(size.id, -1)}
+                            onClick={() => handleQuantityChange(size, -1)}
                             disabled={quantity === 0 || isSaving}
                             className="p-1 hover:bg-gray-200 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                           >
@@ -284,12 +281,12 @@ export default function QuantitySelectorModal({
                             type="number"
                             min="0"
                             value={quantity}
-                            onChange={(e) => handleManualQuantityChange(size.id, e.target.value)}
+                            onChange={(e) => handleManualQuantityChange(size, e.target.value)}
                             disabled={isSaving}
                             className="min-w-12 w-12 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-black transition disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
                           <button
-                            onClick={() => handleQuantityChange(size.id, 1)}
+                            onClick={() => handleQuantityChange(size, 1)}
                             disabled={isSaving}
                             className="p-1 hover:bg-gray-200 rounded transition disabled:opacity-30"
                           >

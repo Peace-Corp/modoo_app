@@ -1,8 +1,11 @@
 import { createClient } from './supabase-client';
-import { extractImageUrlsFromCanvasState, type TextSvgExports } from './server-svg-export';
 import * as fabric from 'fabric';
-import { extractTextObjectsToSVG } from './canvas-svg-export';
-import { uploadSVGToStorage } from './supabase-storage';
+import {
+  extractTextObjectsToSVGAsync,
+  extractImageUrlsFromCanvasState,
+  type TextSvgExports,
+} from './canvas-svg-export';
+import { uploadSVGToStorage, uploadDataUrlToStorage } from './supabase-storage';
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
 import { FontMetadata, deleteFonts } from './fontUtils';
 
@@ -59,32 +62,58 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
     const textSvgExports: TextSvgExports = {};
     if (data.canvasMap) {
       console.log('Exporting text objects to SVG using Fabric.js toSVG()...');
+      console.log('Canvas map sides:', Object.keys(data.canvasMap));
 
       for (const [sideId, canvas] of Object.entries(data.canvasMap)) {
         try {
-          const { objectSvgs } = extractTextObjectsToSVG(canvas);
+          console.log(`Processing side ${sideId}, canvas exists:`, !!canvas);
+          console.log(`Canvas objects count:`, canvas?.getObjects?.()?.length ?? 'N/A');
+
+          // Wait for fonts to load before extracting (ensures curved text becomes paths)
+          const { objectSvgs, textObjects } = await extractTextObjectsToSVGAsync(canvas);
+          console.log(`Side ${sideId}: Found ${textObjects.length} text objects, ${objectSvgs.length} SVGs generated`);
 
           if (objectSvgs.length > 0) {
             const sideObjectUrls: Record<string, string> = {};
+            const sidePngUrls: Record<string, string> = {};
 
             // Generate a unique design ID for filenames (will use actual ID after insert)
             const tempDesignId = `temp-${Date.now()}`;
 
             for (const objectSvg of objectSvgs) {
-              const fileName = `design-${tempDesignId}-${sideId}-${objectSvg.objectId}.svg`;
-
+              // Upload SVG
+              const svgFileName = `design-${tempDesignId}-${sideId}-${objectSvg.objectId}.svg`;
               const uploadResult = await uploadSVGToStorage(
                 supabase,
                 objectSvg.svg,
                 STORAGE_BUCKETS.TEXT_EXPORTS,
                 STORAGE_FOLDERS.SVG,
-                fileName
+                svgFileName
               );
 
               if (uploadResult.success && uploadResult.url) {
                 sideObjectUrls[objectSvg.objectId] = uploadResult.url;
               } else {
                 console.error(`Failed to upload SVG for ${sideId}/${objectSvg.objectId}:`, uploadResult.error);
+              }
+
+              // Upload PNG (300 DPI, transparent background)
+              if (objectSvg.pngDataUrl) {
+                const pngFileName = `design-${tempDesignId}-${sideId}-${objectSvg.objectId}.png`;
+                const pngUploadResult = await uploadDataUrlToStorage(
+                  supabase,
+                  objectSvg.pngDataUrl,
+                  STORAGE_BUCKETS.TEXT_EXPORTS,
+                  STORAGE_FOLDERS.SVG, // Using same folder for now
+                  pngFileName
+                );
+
+                if (pngUploadResult.success && pngUploadResult.url) {
+                  sidePngUrls[objectSvg.objectId] = pngUploadResult.url;
+                  console.log(`Uploaded 300 DPI PNG for ${sideId}/${objectSvg.objectId}: ${objectSvg.pngWidth}x${objectSvg.pngHeight}`);
+                } else {
+                  console.error(`Failed to upload PNG for ${sideId}/${objectSvg.objectId}:`, pngUploadResult.error);
+                }
               }
             }
 
@@ -95,6 +124,15 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
               // Type assertion needed due to index signature in TextSvgExports
               const objectsMap = textSvgExports.__objects as Record<string, Record<string, string>>;
               objectsMap[sideId] = sideObjectUrls;
+            }
+
+            // Store PNG URLs separately under __pngs
+            if (Object.keys(sidePngUrls).length > 0) {
+              if (!textSvgExports.__pngs) {
+                (textSvgExports as Record<string, unknown>).__pngs = {};
+              }
+              const pngsMap = (textSvgExports as Record<string, unknown>).__pngs as Record<string, Record<string, string>>;
+              pngsMap[sideId] = sidePngUrls;
             }
           }
         } catch (error) {
@@ -119,8 +157,13 @@ export async function saveDesign(data: SaveDesignData): Promise<SavedDesign | nu
     };
 
     // Add text SVG exports if available
+    console.log('textSvgExports keys:', Object.keys(textSvgExports));
+    console.log('textSvgExports content:', JSON.stringify(textSvgExports, null, 2));
     if (Object.keys(textSvgExports).length > 0) {
       designData.text_svg_exports = textSvgExports;
+      console.log('Added text_svg_exports to designData');
+    } else {
+      console.log('No text_svg_exports to add (empty object)');
     }
 
     // Insert into saved_designs table
@@ -237,28 +280,30 @@ export async function updateDesign(
       updateData.custom_fonts = data.customFonts;
     }
 
-    // Export text objects to SVG if canvas instances are provided
+    // Export text objects to SVG and PNG if canvas instances are provided
     if (data.canvasMap) {
-      console.log('Exporting text objects to SVG for update using Fabric.js toSVG()...');
+      console.log('Exporting text objects to SVG/PNG for update...');
 
       const textSvgExports: TextSvgExports = {};
 
       for (const [sideId, canvas] of Object.entries(data.canvasMap)) {
         try {
-          const { objectSvgs } = extractTextObjectsToSVG(canvas);
+          // Wait for fonts to load before extracting (ensures curved text becomes paths)
+          const { objectSvgs } = await extractTextObjectsToSVGAsync(canvas);
 
           if (objectSvgs.length > 0) {
             const sideObjectUrls: Record<string, string> = {};
+            const sidePngUrls: Record<string, string> = {};
 
             for (const objectSvg of objectSvgs) {
-              const fileName = `design-${designId}-${sideId}-${objectSvg.objectId}.svg`;
-
+              // Upload SVG
+              const svgFileName = `design-${designId}-${sideId}-${objectSvg.objectId}.svg`;
               const uploadResult = await uploadSVGToStorage(
                 supabase,
                 objectSvg.svg,
                 STORAGE_BUCKETS.TEXT_EXPORTS,
                 STORAGE_FOLDERS.SVG,
-                fileName
+                svgFileName
               );
 
               if (uploadResult.success && uploadResult.url) {
@@ -266,23 +311,50 @@ export async function updateDesign(
               } else {
                 console.error(`Failed to upload SVG for ${sideId}/${objectSvg.objectId}:`, uploadResult.error);
               }
+
+              // Upload PNG (300 DPI, transparent background)
+              if (objectSvg.pngDataUrl) {
+                const pngFileName = `design-${designId}-${sideId}-${objectSvg.objectId}.png`;
+                const pngUploadResult = await uploadDataUrlToStorage(
+                  supabase,
+                  objectSvg.pngDataUrl,
+                  STORAGE_BUCKETS.TEXT_EXPORTS,
+                  STORAGE_FOLDERS.SVG,
+                  pngFileName
+                );
+
+                if (pngUploadResult.success && pngUploadResult.url) {
+                  sidePngUrls[objectSvg.objectId] = pngUploadResult.url;
+                  console.log(`Uploaded 300 DPI PNG for ${sideId}/${objectSvg.objectId}: ${objectSvg.pngWidth}x${objectSvg.pngHeight}`);
+                } else {
+                  console.error(`Failed to upload PNG for ${sideId}/${objectSvg.objectId}:`, pngUploadResult.error);
+                }
+              }
             }
 
             if (Object.keys(sideObjectUrls).length > 0) {
               if (!textSvgExports.__objects) {
                 textSvgExports.__objects = {};
               }
-              // Type assertion needed due to index signature in TextSvgExports
               const objectsMap = textSvgExports.__objects as Record<string, Record<string, string>>;
               objectsMap[sideId] = sideObjectUrls;
             }
+
+            // Store PNG URLs under __pngs
+            if (Object.keys(sidePngUrls).length > 0) {
+              if (!textSvgExports.__pngs) {
+                textSvgExports.__pngs = {};
+              }
+              const pngsMap = textSvgExports.__pngs as Record<string, Record<string, string>>;
+              pngsMap[sideId] = sidePngUrls;
+            }
           }
         } catch (error) {
-          console.error(`Error exporting SVG for side ${sideId}:`, error);
+          console.error(`Error exporting SVG/PNG for side ${sideId}:`, error);
         }
       }
 
-      // Add text SVG exports if available
+      // Add text SVG/PNG exports if available
       if (Object.keys(textSvgExports).length > 0) {
         updateData.text_svg_exports = textSvgExports;
       }
@@ -308,7 +380,24 @@ export async function updateDesign(
 }
 
 /**
- * Delete a design and its associated font files
+ * Extract storage path from a Supabase storage URL
+ * @param url The full storage URL
+ * @param bucket The bucket name to extract path from
+ * @returns The storage path or null if not found
+ */
+function extractStoragePath(url: string, bucket: string): string | null {
+  try {
+    // Match pattern: /storage/v1/object/public/{bucket}/{path}
+    const regex = new RegExp(`/storage/v1/object/public/${bucket}/(.+)$`);
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete a design and its associated files (fonts, images, SVGs)
  * @param designId The ID of the design to delete
  * @returns true if successful, false otherwise
  */
@@ -316,10 +405,10 @@ export async function deleteDesign(designId: string): Promise<boolean> {
   const supabase = createClient();
 
   try {
-    // First, fetch the design to get custom fonts
+    // First, fetch the full design to get all associated files
     const { data: design, error: fetchError } = await supabase
       .from('saved_designs')
-      .select('custom_fonts')
+      .select('custom_fonts, image_urls, text_svg_exports')
       .eq('id', designId)
       .single();
 
@@ -328,10 +417,68 @@ export async function deleteDesign(designId: string): Promise<boolean> {
       throw fetchError;
     }
 
-    // Check if the design has custom fonts
+    // 1. Delete images from user-designs bucket
+    const imageUrls = design?.image_urls as Record<string, Array<{ url: string; path?: string }>> | null;
+    if (imageUrls) {
+      const imagePaths: string[] = [];
+
+      for (const sideImages of Object.values(imageUrls)) {
+        for (const image of sideImages) {
+          // Use the path property if available, otherwise extract from URL
+          if (image.path) {
+            imagePaths.push(image.path);
+          } else if (image.url) {
+            const extractedPath = extractStoragePath(image.url, STORAGE_BUCKETS.USER_DESIGNS);
+            if (extractedPath) {
+              imagePaths.push(extractedPath);
+            }
+          }
+        }
+      }
+
+      if (imagePaths.length > 0) {
+        console.log(`Deleting ${imagePaths.length} image files...`);
+        const { error: imageDeleteError } = await supabase.storage
+          .from(STORAGE_BUCKETS.USER_DESIGNS)
+          .remove(imagePaths);
+
+        if (imageDeleteError) {
+          console.warn('Error deleting images:', imageDeleteError);
+        }
+      }
+    }
+
+    // 2. Delete SVG exports from text-exports bucket
+    const textSvgExports = design?.text_svg_exports as TextSvgExports | null;
+    if (textSvgExports?.__objects) {
+      const svgPaths: string[] = [];
+
+      for (const sideObjects of Object.values(textSvgExports.__objects)) {
+        if (typeof sideObjects === 'object' && sideObjects !== null) {
+          for (const svgUrl of Object.values(sideObjects as Record<string, string>)) {
+            const extractedPath = extractStoragePath(svgUrl, STORAGE_BUCKETS.TEXT_EXPORTS);
+            if (extractedPath) {
+              svgPaths.push(extractedPath);
+            }
+          }
+        }
+      }
+
+      if (svgPaths.length > 0) {
+        console.log(`Deleting ${svgPaths.length} SVG files...`);
+        const { error: svgDeleteError } = await supabase.storage
+          .from(STORAGE_BUCKETS.TEXT_EXPORTS)
+          .remove(svgPaths);
+
+        if (svgDeleteError) {
+          console.warn('Error deleting SVGs:', svgDeleteError);
+        }
+      }
+    }
+
+    // 3. Delete custom fonts (only if not used elsewhere)
     const customFonts = (design?.custom_fonts as FontMetadata[]) || [];
 
-    // Check if any of these fonts are used in orders (we should NOT delete them if they are)
     if (customFonts.length > 0) {
       const fontPaths = customFonts.map(f => f.path);
 
@@ -369,7 +516,7 @@ export async function deleteDesign(designId: string): Promise<boolean> {
       }
     }
 
-    // Delete the design record
+    // 4. Delete the design record
     const { error: deleteError } = await supabase
       .from('saved_designs')
       .delete()

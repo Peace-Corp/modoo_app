@@ -19,11 +19,17 @@ import {
   CaseSensitive,
   Upload,
   AlertTriangle,
-  X,
+  Waves,
+  Pencil,
 } from 'lucide-react';
 import { useFontStore } from '@/store/useFontStore';
 import { uploadFont, isValidFontFile } from '@/lib/fontUtils';
 import { createClient } from '@/lib/supabase-client';
+import {
+  CurvedText,
+  isCurvedText,
+  convertToCurvedText,
+} from '@/lib/curvedText';
 
 interface TextStylePanelProps {
   selectedObject: fabric.IText | fabric.Text;
@@ -31,7 +37,7 @@ interface TextStylePanelProps {
 }
 
 const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'font' | 'colors' | 'spacing'>('font');
+  const [activeTab, setActiveTab] = useState<'font' | 'colors' | 'spacing' | 'warp'>('font');
   const [fontFamily, setFontFamily] = useState<string>('Arial');
   const [fontSize, setFontSize] = useState<number>(30);
   const [fillColor, setFillColor] = useState<string>('#333333');
@@ -52,6 +58,13 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const [uploadedFontName, setUploadedFontName] = useState<string>('');
   const fontDropdownRef = useRef<HTMLDivElement | null>(null);
   const fontFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Curve state
+  const [curveIntensity, setCurveIntensity] = useState<number>(0);
+
+  // Text edit modal state
+  const [showTextEditModal, setShowTextEditModal] = useState(false);
+  const [editingText, setEditingText] = useState('');
 
   // Get custom fonts from store
   const { customFonts, addFont, loadAllFonts } = useFontStore();
@@ -87,6 +100,15 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
       setCharSpacing((selectedObject.charSpacing as number) || 0);
       setTextBackgroundColor((selectedObject.textBackgroundColor as string) || '');
       setOpacity((selectedObject.opacity as number) || 1);
+
+      // Initialize curve state if object is a CurvedText
+      // UI uses 0-100 (0=straight, 100=max curve), internal uses negative for upward curve
+      if (isCurvedText(selectedObject)) {
+        const internalValue = (selectedObject as CurvedText).curveIntensity || 0;
+        setCurveIntensity(Math.abs(internalValue)); // Convert internal to UI value
+      } else {
+        setCurveIntensity(0);
+      }
     }
   }, [selectedObject]);
 
@@ -126,28 +148,59 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   const handleFontFamilyChange = (value: string) => {
     setFontFamily(value);
-    updateTextProperty('fontFamily', value);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      // Use setFont for CurvedText to properly reload font and update bounds
+      (selectedObject as CurvedText).setFont(value);
+    } else {
+      updateTextProperty('fontFamily', value);
+    }
   };
 
   const handleFontSizeChange = (value: number) => {
     setFontSize(value);
-    updateTextProperty('fontSize', value);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      // Use setFontSize for CurvedText to update bounds
+      (selectedObject as CurvedText).setFontSize(value);
+    } else {
+      updateTextProperty('fontSize', value);
+    }
   };
 
   const handleFillColorChange = (value: string) => {
     setFillColor(value);
-    updateTextProperty('fill', value);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      const curved = selectedObject as CurvedText;
+      curved.fill = value;
+      curved.dirty = true;
+      curved.canvas?.requestRenderAll();
+    } else {
+      updateTextProperty('fill', value);
+    }
   };
 
   const handleStrokeColorChange = (value: string) => {
     setStrokeColor(value);
-    updateTextProperty('stroke', value);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      const curved = selectedObject as CurvedText;
+      curved.stroke = value;
+      curved.dirty = true;
+      curved.canvas?.requestRenderAll();
+    } else {
+      updateTextProperty('stroke', value);
+    }
   };
 
   const handleStrokeWidthChange = (value: number) => {
     setStrokeWidth(value);
-    updateTextProperty('strokeWidth', value);
-    updateTextProperty('paintFirst', 'stroke');
+    if (selectedObject && isCurvedText(selectedObject)) {
+      const curved = selectedObject as CurvedText;
+      curved.strokeWidth = value;
+      curved.dirty = true;
+      curved.canvas?.requestRenderAll();
+    } else {
+      updateTextProperty('strokeWidth', value);
+      updateTextProperty('paintFirst', 'stroke');
+    }
   };
 
   const handleTextAlignChange = (value: string) => {
@@ -158,13 +211,25 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const toggleBold = () => {
     const newWeight = fontWeight === 'bold' ? 'normal' : 'bold';
     setFontWeight(newWeight);
-    updateTextProperty('fontWeight', newWeight);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      const curved = selectedObject as CurvedText;
+      curved.fontWeight = newWeight;
+      curved.updateBounds();
+    } else {
+      updateTextProperty('fontWeight', newWeight);
+    }
   };
 
   const toggleItalic = () => {
     const newStyle = fontStyle === 'italic' ? 'normal' : 'italic';
     setFontStyle(newStyle);
-    updateTextProperty('fontStyle', newStyle);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      const curved = selectedObject as CurvedText;
+      curved.fontStyle = newStyle;
+      curved.updateBounds();
+    } else {
+      updateTextProperty('fontStyle', newStyle);
+    }
   };
 
   const toggleUnderline = () => {
@@ -186,7 +251,12 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   const handleCharSpacingChange = (value: number) => {
     setCharSpacing(value);
-    updateTextProperty('charSpacing', value);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      // Use setCharSpacing for CurvedText to update bounds
+      (selectedObject as CurvedText).setCharSpacing(value);
+    } else {
+      updateTextProperty('charSpacing', value);
+    }
   };
 
   const handleTextBackgroundColorChange = (value: string) => {
@@ -196,7 +266,14 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   const handleOpacityChange = (value: number) => {
     setOpacity(value);
-    updateTextProperty('opacity', value);
+    if (selectedObject && isCurvedText(selectedObject)) {
+      const curved = selectedObject as CurvedText;
+      curved.opacity = value;
+      curved.dirty = true;
+      curved.canvas?.requestRenderAll();
+    } else {
+      updateTextProperty('opacity', value);
+    }
   };
 
   // Handle font file upload
@@ -248,6 +325,65 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     fontFileInputRef.current?.click();
   };
 
+  // Handle live curve intensity change
+  // UI uses 0-100 (0=straight, 100=max curve), internal uses negative for upward curve
+  const handleCurveIntensityChange = (intensity: number) => {
+    setCurveIntensity(intensity);
+
+    if (!selectedObject) return;
+
+    // Convert UI value (0-100) to internal value (0 to -100)
+    const internalIntensity = -intensity;
+
+    if (isCurvedText(selectedObject)) {
+      // Already a CurvedText, just update the curve
+      (selectedObject as CurvedText).setCurve(internalIntensity);
+    } else if (intensity > 0) {
+      // Convert regular text to CurvedText instantly when intensity > 0
+      try {
+        convertToCurvedText(selectedObject, internalIntensity);
+      } catch (error) {
+        console.error('Error converting to curved text:', error);
+      }
+    }
+  };
+
+  // Open text edit modal - works for both regular text and CurvedText
+  const handleOpenTextEdit = () => {
+    if (!selectedObject) return;
+
+    if (isCurvedText(selectedObject)) {
+      setEditingText((selectedObject as CurvedText).text);
+    } else {
+      // Regular IText/Text object
+      setEditingText(selectedObject.text || '');
+    }
+    setShowTextEditModal(true);
+  };
+
+  // Save edited text - works for both regular text and CurvedText
+  const handleSaveText = () => {
+    if (!selectedObject) {
+      setShowTextEditModal(false);
+      return;
+    }
+
+    if (isCurvedText(selectedObject)) {
+      (selectedObject as CurvedText).setText(editingText);
+    } else {
+      // Regular IText/Text object
+      selectedObject.set('text', editingText);
+      selectedObject.canvas?.renderAll();
+    }
+    setShowTextEditModal(false);
+  };
+
+  // Cancel text editing
+  const handleCancelTextEdit = () => {
+    setShowTextEditModal(false);
+    setEditingText('');
+  };
+
   return (
     <>
     {/* Copyright Notice Modal */}
@@ -278,6 +414,43 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
             >
               확인
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Text Edit Modal */}
+    {showTextEditModal && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Pencil className="size-5 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">텍스트 편집</h3>
+            </div>
+            <textarea
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              placeholder="텍스트를 입력하세요"
+              className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-black focus:border-transparent outline-none"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleCancelTextEdit}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveText}
+                className="flex-1 py-3 bg-black text-white font-medium rounded-lg hover:bg-gray-800 transition"
+              >
+                저장
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -322,6 +495,24 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
               }`}
             >
               간격
+            </button>
+            <button
+              onClick={() => setActiveTab('warp')}
+              className={`flex-1 py-2 px-4 text-sm font-medium ${
+                activeTab === 'warp'
+                  ? 'bg-black text-white rounded-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              변형
+            </button>
+            {/* Persistent Edit Button */}
+            <button
+              onClick={handleOpenTextEdit}
+              className="ml-2 p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center"
+              title="텍스트 편집"
+            >
+              <Pencil className="size-4" />
             </button>
           </div>
         </div>
@@ -713,6 +904,79 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                   className="w-full"
                 />
               </div>
+            </>
+          )}
+
+          {/* Warp Tab */}
+          {activeTab === 'warp' && (
+            <>
+              {/* Curve Intensity Slider */}
+              <div className="space-y-4">
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Waves className="size-4" />
+                  곡선 변형
+                </label>
+
+                {/* Preset buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleCurveIntensityChange(0)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                      curveIntensity === 0
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    직선
+                  </button>
+                  <button
+                    onClick={() => handleCurveIntensityChange(30)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                      curveIntensity === 30
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    ⌒ 30%
+                  </button>
+                  <button
+                    onClick={() => handleCurveIntensityChange(100)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
+                      curveIntensity === 100
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    ⌒ 100%
+                  </button>
+                </div>
+
+                {/* Slider */}
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={curveIntensity}
+                    onChange={(e) => handleCurveIntensityChange(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">강도: {curveIntensity}%</span>
+                    <button
+                      onClick={() => handleCurveIntensityChange(0)}
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                    >
+                      초기화
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info text */}
+              <p className="text-xs text-gray-500 text-center pt-2">
+                변형이 실시간으로 적용됩니다.
+              </p>
             </>
           )}
         </div>

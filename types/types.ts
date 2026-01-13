@@ -43,29 +43,29 @@ export interface ProductConfig {
   sides: ProductSide[];
 }
 
-export interface SizeOption {
-  id: string;
-  name: string;
-  label: string;
-}
+// Size option is now just a simple string (e.g., "S", "M", "L", "XL")
+export type SizeOption = string;
 
 export interface CartItem {
-  sizeId: string;
-  sizeName: string;
+  size: string;
   quantity: number;
 }
 
 export interface ProductColor {
   id: string;
   product_id: string;
-  color_id: string;
-  name: string;
-  hex: string;
-  label?: string;
+  manufacturer_color_id: string;
   is_active: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
+  // Joined from manufacturer_colors
+  manufacturer_colors: {
+    id: string;
+    name: string;
+    hex: string;
+    color_code: string;
+  };
 }
 
 // Discount tier for quantity-based pricing
@@ -271,6 +271,29 @@ export interface SavedDesignScreenshot {
   image_urls: Record<string, unknown>;
 }
 
+// Design Template - Admin-managed pre-made designs for products
+export interface DesignTemplate {
+  id: string;
+  product_id: string;
+  title: string;
+  description: string | null;
+  canvas_state: Record<string, string>; // sideId -> JSON string of canvas objects
+  preview_url: string | null;
+  layer_colors: Record<string, Record<string, string>>; // sideId -> layerId -> hex color
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Lightweight type for template picker display
+export interface TemplatePickerItem {
+  id: string;
+  title: string;
+  description: string | null;
+  preview_url: string | null;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -341,11 +364,21 @@ export interface CoBuyDeliveryInfo {
   memo?: string; // 배송 요청사항
 }
 
+// Address information for CoBuy delivery settings
+export interface CoBuyAddressInfo {
+  roadAddress: string; // 도로명 주소
+  jibunAddress?: string; // 지번 주소
+  postalCode: string; // 우편번호
+  addressDetail?: string; // 상세주소
+}
+
 // Delivery settings configured by session creator
 export interface CoBuyDeliverySettings {
   enabled: boolean; // Whether delivery option is available
   deliveryFee: number; // Extra fee for delivery (0 if free)
-  pickupLocation?: string; // Optional pickup location description
+  pickupLocation?: string; // Optional pickup location description (legacy, for display)
+  deliveryAddress?: CoBuyAddressInfo; // 배송받을 장소 - where organizer receives products
+  pickupAddress?: CoBuyAddressInfo; // 배부 장소 - where participants pick up orders
 }
 
 export type CoBuyStatus =

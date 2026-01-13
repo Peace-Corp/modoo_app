@@ -9,6 +9,7 @@ import {
 } from '@/lib/canvas-svg-export';
 import { createClient } from '@/lib/supabase-client';
 import { calculateTotalBoundingBoxMm } from '@/lib/canvasUtils';
+import { isCurvedText, CurvedText } from '@/lib/curvedText';
 
 
 interface CanvasState {
@@ -60,6 +61,10 @@ interface CanvasState {
   restoreAllCanvasState: (savedState: Record<string, string>) => Promise<void>;
   saveCanvasState: (id: string) => string | null;
   restoreCanvasState: (id: string, json: string) => Promise<void>;
+
+  // Save with curved text converted to SVG paths (for production export)
+  saveAllCanvasStateWithPaths: () => Promise<Record<string, string>>;
+  saveCanvasStateWithPaths: (id: string) => Promise<string | null>;
 
   // Color extraction methods
   getCanvasColors: (sensitivity?: number) => Promise<{ colors: string[]; count: number }>;
@@ -487,6 +492,129 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         resolve();
       }
     });
+  },
+
+  // Save state of all canvases with curved text converted to SVG paths
+  // This is useful for production export where fonts may not be available
+  saveAllCanvasStateWithPaths: async () => {
+    const { canvasMap, layerColors } = get();
+    const savedState: Record<string, string> = {};
+
+    for (const [id, canvas] of Object.entries(canvasMap)) {
+      // Save user-added objects (exclude background product image, guides, and snap lines)
+      const userObjects = canvas.getObjects().filter(obj => {
+        if (obj.excludeFromExport) return false;
+        // @ts-expect-error - Checking custom data property
+        if (obj.data?.id === 'background-product-image') return false;
+        return true;
+      });
+
+      // Calculate total bounding box for all user objects
+      // @ts-expect-error - Custom property
+      const scaledImageWidth = canvas.scaledImageWidth;
+      // @ts-expect-error - Custom property
+      const realWorldProductWidth = canvas.realWorldProductWidth || 500;
+      const totalBoundingBox = scaledImageWidth
+        ? calculateTotalBoundingBoxMm(canvas, scaledImageWidth, realWorldProductWidth)
+        : null;
+
+      // Convert objects, converting CurvedText to Path
+      const serializedObjects = await Promise.all(
+        userObjects.map(async (obj) => {
+          if (isCurvedText(obj)) {
+            const curvedText = obj as CurvedText;
+            // Wait for font to load and convert to path
+            const path = await curvedText.toPathAsync();
+            if (path) {
+              // Path.toObject() includes data by default
+              const pathJson = path.toObject();
+              return pathJson;
+            }
+            // Fallback to original object if conversion fails
+            return curvedText.toObject(['data']);
+          }
+
+          // Regular object serialization
+          const json = obj.toObject(['data']);
+          if (obj.type === 'image') {
+            const imgObj = obj as fabric.FabricImage;
+            json.src = imgObj.getSrc();
+          }
+          return json;
+        })
+      );
+
+      const canvasData = {
+        version: canvas.toJSON().version,
+        objects: serializedObjects,
+        layerColors: layerColors[id] || {},
+        totalBoundingBoxMm: totalBoundingBox
+      };
+
+      savedState[id] = JSON.stringify(canvasData);
+    }
+
+    return savedState;
+  },
+
+  // Save state of a specific canvas with curved text converted to SVG paths
+  saveCanvasStateWithPaths: async (id: string) => {
+    const { canvasMap, layerColors } = get();
+    const canvas = canvasMap[id];
+
+    if (!canvas) return null;
+
+    // Save user-added objects (exclude background product image, guides, and snap lines)
+    const userObjects = canvas.getObjects().filter(obj => {
+      if (obj.excludeFromExport) return false;
+      // @ts-expect-error - Checking custom data property
+      if (obj.data?.id === 'background-product-image') return false;
+      return true;
+    });
+
+    // Calculate total bounding box for all user objects
+    // @ts-expect-error - Custom property
+    const scaledImageWidth = canvas.scaledImageWidth;
+    // @ts-expect-error - Custom property
+    const realWorldProductWidth = canvas.realWorldProductWidth || 500;
+    const totalBoundingBox = scaledImageWidth
+      ? calculateTotalBoundingBoxMm(canvas, scaledImageWidth, realWorldProductWidth)
+      : null;
+
+    // Convert objects, converting CurvedText to Path
+    const serializedObjects = await Promise.all(
+      userObjects.map(async (obj) => {
+        if (isCurvedText(obj)) {
+          const curvedText = obj as CurvedText;
+          // Wait for font to load and convert to path
+          const path = await curvedText.toPathAsync();
+          if (path) {
+            // Path.toObject() includes data by default
+            const pathJson = path.toObject();
+            return pathJson;
+          }
+          // Fallback to original object if conversion fails
+          return curvedText.toObject(['data']);
+        }
+
+        // Regular object serialization
+        const json = obj.toObject(['data']);
+        if (obj.type === 'image') {
+          const imgObj = obj as fabric.FabricImage;
+          json.src = imgObj.getSrc();
+        }
+        return json;
+      })
+    );
+
+    const canvasData = {
+      version: canvas.toJSON().version,
+      objects: serializedObjects,
+      layerColors: layerColors[id] || {},
+      totalBoundingBoxMm: totalBoundingBox
+    };
+
+    return JSON.stringify(canvasData);
   },
 
   // Get all colors used in canvas objects (excluding background images)
