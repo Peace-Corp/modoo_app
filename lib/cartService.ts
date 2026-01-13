@@ -11,6 +11,7 @@ export interface CartItemData {
   product_title: string;
   product_color: string;
   product_color_name: string;
+  product_color_code?: string;
   // size_id and size_name are the same value now (just the size string like "S", "M", "L")
   size_id: string;
   size_name: string;
@@ -26,6 +27,7 @@ export interface AddToCartParams {
   productTitle: string;
   productColor: string;
   productColorName: string;
+  productColorCode?: string;
   size: string; // Size option (e.g., "S", "M", "L", "XL")
   quantity: number;
   pricePerItem: number;
@@ -90,6 +92,7 @@ export async function addToCartDB(params: AddToCartParams): Promise<CartItemData
       product_title: params.productTitle,
       product_color: params.productColor,
       product_color_name: params.productColorName,
+      product_color_code: params.productColorCode,
       size_id: params.size,
       size_name: params.size,
       quantity: params.quantity,

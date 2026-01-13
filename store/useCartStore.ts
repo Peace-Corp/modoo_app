@@ -7,6 +7,7 @@ export interface CartItemData {
   productTitle: string;
   productColor: string;
   productColorName: string;
+  productColorCode?: string;
   size: string; // Size option (e.g., "S", "M", "L", "XL")
   quantity: number;
   pricePerItem: number; // Base price + design costs

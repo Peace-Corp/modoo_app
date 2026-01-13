@@ -203,7 +203,9 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
       const canvasState = saveAllCanvasState();
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
       const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
-      const colorName = productColors.find(c => c.manufacturer_colors.hex === productColor)?.manufacturer_colors.name || '색상';
+      const selectedColor = productColors.find(c => c.manufacturer_colors.hex === productColor);
+      const colorName = selectedColor?.manufacturer_colors.name || '색상';
+      const colorCode = selectedColor?.manufacturer_colors.color_code;
 
       // Save design once and reuse for all cart items
       let sharedDesignId: string | undefined;
@@ -216,6 +218,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
           productTitle: product.title,
           productColor: productColor,
           productColorName: colorName,
+          productColorCode: colorCode,
           size: item.size,
           quantity: item.quantity,
           pricePerItem: pricePerItem,
@@ -237,6 +240,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
           productTitle: product.title,
           productColor: productColor,
           productColorName: colorName,
+          productColorCode: colorCode,
           size: item.size,
           quantity: item.quantity,
           pricePerItem: pricePerItem,

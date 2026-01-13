@@ -33,6 +33,7 @@ interface CartItem {
   product_title: string;
   product_color: string;
   product_color_name: string;
+  product_color_code?: string;
   size_id: string;
   size_name: string;
   quantity: number;
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
         color_id: string;
         color_name: string;
         color_hex: string;
+        color_code?: string;
         quantity: number;
       }>;
     }>();
@@ -213,6 +215,7 @@ export async function POST(request: NextRequest) {
           color_id: item.product_color,
           color_name: item.product_color_name,
           color_hex: item.product_color,
+          color_code: item.product_color_code,
           quantity: item.quantity,
         });
       } else {
@@ -238,6 +241,7 @@ export async function POST(request: NextRequest) {
             color_id: item.product_color,
             color_name: item.product_color_name,
             color_hex: item.product_color,
+            color_code: item.product_color_code,
             quantity: item.quantity,
           }],
         });
