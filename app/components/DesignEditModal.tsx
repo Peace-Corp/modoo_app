@@ -1,31 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Save } from 'lucide-react';
 import ProductDesigner from './canvas/ProductDesigner';
 import EditButton from './canvas/EditButton';
 import PricingInfo from './canvas/PricingInfo';
+import ColorInfo from './canvas/ColorInfo';
 import ObjectPreviewPanel from './canvas/ObjectPreviewPanel';
 import LayerColorSelector from './canvas/LayerColorSelector';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { useFontStore } from '@/store/useFontStore';
-import { ProductConfig } from '@/types/types';
+import { ProductConfig, ProductColor } from '@/types/types';
 import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
 import { createClient } from '@/lib/supabase-client';
-import { calculateAllSidesPricing } from '@/app/utils/canvasPricing';
+import { calculateAllSidesPricing, type PricingSummary } from '@/app/utils/canvasPricing';
 import { FontMetadata } from '@/lib/fontUtils';
-
-// Mock color list with hex codes
-const mockColors = [
-  { id: 'white', name: '화이트', hex: '#FFFFFF' },
-  { id: 'mix-gray', name: '믹스그레이', hex: '#9CA3AF' },
-  { id: 'black', name: '블랙', hex: '#000000' },
-  { id: 'navy', name: '네이비', hex: '#1E3A8A' },
-  { id: 'red', name: '레드', hex: '#EF4444' },
-  { id: 'pink', name: '핑크', hex: '#F9A8D4' },
-  { id: 'green', name: '그린', hex: '#22C55E' },
-  { id: 'yellow', name: '옐로우', hex: '#FACC15' },
-];
 
 interface DesignEditModalProps {
   isOpen: boolean;
@@ -60,11 +49,21 @@ export default function DesignEditModal({
   const [productConfig, setProductConfig] = useState<ProductConfig | null>(null);
   const [basePrice, setBasePrice] = useState<number>(0);
   const [hasRestoredDesign, setHasRestoredDesign] = useState(false);
+  const [productColors, setProductColors] = useState<ProductColor[]>([]);
+  const [pricingData, setPricingData] = useState<PricingSummary>({
+    totalAdditionalPrice: 0,
+    sidePricing: [],
+    totalObjectCount: 0
+  });
 
-  // Calculate pricing data
-  const pricingData = useMemo(() => {
-    if (!productConfig) return { totalAdditionalPrice: 0, sidePricing: [] };
-    return calculateAllSidesPricing(canvasMap, productConfig.sides);
+  // Calculate pricing data asynchronously
+  useEffect(() => {
+    const calculatePricing = async () => {
+      if (!productConfig) return;
+      const pricing = await calculateAllSidesPricing(canvasMap, productConfig.sides);
+      setPricingData(pricing);
+    };
+    calculatePricing();
   }, [canvasMap, productConfig, canvasVersion]);
 
   const handleColorChange = (color: string) => {
@@ -305,6 +304,74 @@ export default function DesignEditModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productConfig, isOpen, cartItemId, designId, hasRestoredDesign]);
 
+  // Fetch product colors from database
+  useEffect(() => {
+    const fetchColors = async () => {
+      if (!productConfig) return;
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('product_colors')
+        .select(`
+          id,
+          product_id,
+          manufacturer_color_id,
+          is_active,
+          sort_order,
+          created_at,
+          updated_at,
+          manufacturer_colors (
+            id,
+            name,
+            hex,
+            color_code
+          )
+        `)
+        .eq('product_id', productConfig.productId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (error) {
+        console.error('Failed to fetch product colors:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const colors = data.map((item) => ({
+          ...item,
+          manufacturer_colors: item.manufacturer_colors as unknown as ProductColor['manufacturer_colors'],
+        })) as ProductColor[];
+        colors.sort((a, b) => (a.manufacturer_colors?.color_code || '').localeCompare(b.manufacturer_colors?.color_code || ''));
+        setProductColors(colors);
+      }
+    };
+
+    fetchColors();
+  }, [productConfig]);
+
+  // Scroll to top and prevent scrolling when entering edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = '0';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
+  }, [isEditMode]);
+
   // Handle close - exit edit mode and reset
   const handleClose = useCallback(() => {
     console.log('Closing modal, cleaning up...');
@@ -337,8 +404,9 @@ export default function DesignEditModal({
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
       const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
 
-      // Get color name from mockColors
-      const colorName = mockColors.find(c => c.hex === productColor)?.name || '색상';
+      // Get color name from productColors
+      const selectedColor = productColors.find(c => c.manufacturer_colors.hex === productColor);
+      const colorName = selectedColor?.manufacturer_colors.name || '색상';
 
       // Recalculate pricing based on updated design
       const pricing = productConfig
@@ -467,7 +535,7 @@ export default function DesignEditModal({
     } finally {
       setIsSaving(false);
     }
-  }, [cartItemId, designId, saveAllCanvasState, canvasMap, productColor, onSaveComplete, handleClose, productConfig, basePrice]);
+  }, [cartItemId, designId, saveAllCanvasState, canvasMap, productColor, productColors, onSaveComplete, handleClose, productConfig, basePrice]);
 
   if (!isOpen) return null;
 
@@ -524,33 +592,35 @@ export default function DesignEditModal({
                   </div>
                 ) : (
                   /* Legacy Horizontal Color Selector (for products without layers) */
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium mb-3">제품 색상</h3>
-                    <div className="overflow-x-auto scrollbar-hide">
+                  productColors.length > 0 && (
+                    <div className="mb-4 overflow-x-auto scrollbar-hide">
                       <div className="flex gap-3 pb-2">
-                        {mockColors.map((color) => (
+                        {productColors.map((color) => (
                           <button
                             key={color.id}
-                            onClick={() => handleColorChange(color.hex)}
+                            onClick={() => handleColorChange(color.manufacturer_colors.hex)}
                             className="shrink-0 flex flex-col items-center gap-2"
                           >
                             <div
                               className={`w-12 h-12 rounded-full border-2 ${
-                                productColor === color.hex ? 'border-black' : 'border-gray-300'
+                                productColor === color.manufacturer_colors.hex ? 'border-black' : 'border-gray-300'
                               }`}
-                              style={{ backgroundColor: color.hex }}
+                              style={{ backgroundColor: color.manufacturer_colors.hex }}
                             ></div>
-                            <span className="text-xs">{color.name}</span>
+                            <span className="text-xs">{color.manufacturer_colors.name}</span>
                           </button>
                         ))}
                       </div>
                     </div>
-                  </div>
+                  )
                 );
               })()}
 
               {/* Dynamic Pricing Info */}
               <PricingInfo basePrice={basePrice} sides={productConfig.sides} />
+
+              {/* Color Information */}
+              <ColorInfo className="mt-4" />
 
               {/* Object Preview Panel */}
               <ObjectPreviewPanel sides={productConfig.sides} />

@@ -355,10 +355,8 @@ async function generateCurvedTextPathSVG(
   const angle = curvedText.angle || 0;
   const scaleX = curvedText.scaleX || 1;
   const scaleY = curvedText.scaleY || 1;
-  const fontUrl = curvedText.fontUrl || undefined;
-
-  // Load font
-  const font = await loadFont(fontFamily, fontUrl);
+  // Load font (try system font URLs)
+  const font = await loadFont(fontFamily);
 
   if (!font) {
     console.warn(
@@ -606,31 +604,15 @@ async function waitForCurvedTextFonts(canvas: fabric.Canvas): Promise<void> {
 
   console.log(`[SVG Export] Found ${curvedTextObjects.length} CurvedText objects`);
 
-  // Wait for all CurvedText objects to have their fonts loaded
-  // Use Promise.allSettled to not fail if one font fails to load
+  // Pre-load fonts for CurvedText objects
   await Promise.allSettled(
     curvedTextObjects.map(async (curvedText) => {
       try {
-        console.log(`[SVG Export] CurvedText: text="${curvedText.text}", fontFamily="${curvedText.fontFamily}", fontUrl="${curvedText.fontUrl}", curveIntensity=${curvedText.curveIntensity}`);
-
-        // Access the private _fontLoadPromise via type assertion
-        // @ts-expect-error - Accessing private property for font loading
-        if (curvedText._fontLoadPromise) {
-          // @ts-expect-error - Accessing private property for font loading
-          await curvedText._fontLoadPromise;
-        }
-
-        // Check if font is loaded
-        // @ts-expect-error - Accessing private property
-        const fontLoaded = curvedText._loadedFont !== null;
-        console.log(`[SVG Export] CurvedText font loaded: ${fontLoaded}`);
-
-        // Check if path data can be generated
-        const canGenerate = curvedText.canGeneratePath();
-        console.log(`[SVG Export] CurvedText canGeneratePath: ${canGenerate}`);
+        console.log(`[SVG Export] CurvedText: text="${curvedText.text}", fontFamily="${curvedText.fontFamily}", curveIntensity=${curvedText.curveIntensity}`);
+        // Pre-load font for SVG path conversion
+        await loadFont(curvedText.fontFamily);
       } catch (error) {
-        // Font loading failed - this is ok, the CurvedText will use fallback rendering
-        console.warn('[SVG Export] Font loading failed for CurvedText, will use fallback:', error);
+        console.warn('[SVG Export] Font loading failed for CurvedText:', error);
       }
     })
   );
