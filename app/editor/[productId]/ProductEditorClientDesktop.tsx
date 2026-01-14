@@ -48,6 +48,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const searchParams = useSearchParams();
   const cartItemId = searchParams.get('cartItemId');
   const descriptionImageUrl = product.description_image ?? null;
+  const sizingChartImageUrl = product.sizing_chart_image ?? null;
 
   const {
     setEditMode,
@@ -428,8 +429,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         {/* Editor Container */}
         <div className="grid gap-2 grid-cols-2 min-h-[calc(100vh-4rem)]">
           {/* Left Side */}
-          <div className="flex flex-col gap-2">
-            <div className="rounded-md bg-white p-6 shadow-sm border border-gray-200">
+          <div className="flex flex-col gap-2 h-[calc(100vh-4rem)]">
+            <div className="rounded-md bg-white p-6 shadow-sm border border-gray-200 h-full">
               <ProductDesigner config={productConfig} layout="desktop" />
             </div>
           </div>
@@ -491,33 +492,49 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
               </div>
             </div>
 
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">1개당</span>
-                <span className="text-gray-900 font-semibold">{formattedPrice}원</span>
+            {/* Fixed bottom pricing section */}
+            <div className="mt-auto pt-4 border-t border-gray-200">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">기본가</span>
+                  <span className="text-gray-700">{formattedPrice}원</span>
+                </div>
+                {pricingData.totalAdditionalPrice > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">디자인 추가비용</span>
+                    <span className="text-gray-700">+{pricingData.totalAdditionalPrice.toLocaleString('ko-KR')}원</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">배송비</span>
+                  <span className="text-gray-700">3,000원</span>
+                </div>
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-900 font-semibold">총가격</span>
+                    <span className="text-lg text-gray-900 font-bold">{pricePerItem.toLocaleString('ko-KR')}원</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">배송비</span>
-                <span className="text-gray-700">3,000원</span>
+
+              <div className="mt-4">
+                {/* Purchase Button */}
+                <button
+                  onClick={handlePurchaseClick}
+                  disabled={isSaving}
+                  className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+                >
+                  {isSaving ? '처리 중...' : '구매하기'}
+                </button>
               </div>
             </div>
-
-	            <div className="mt-5">
-	              {/* Purchase Button */}
-	              <button
-	                onClick={handlePurchaseClick}
-	                disabled={isSaving}
-	                className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-	              >
-	                {isSaving ? '처리 중...' : '구매하기'}
-	              </button>
-	            </div>
-	          </aside>
+          </aside>
 	        </div>
 
         <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm border border-gray-200">
           <ReviewsSection productId={product.id} limit={10} />
           <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
+          <DescriptionImageSection title="사이즈 차트" imageUrl={sizingChartImageUrl} />
         </div>
       </div>
 

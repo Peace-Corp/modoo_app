@@ -146,13 +146,28 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     }
   };
 
-  const handleFontFamilyChange = (value: string) => {
+  const handleFontFamilyChange = (value: string, fontUrl?: string) => {
     setFontFamily(value);
+
+    // Find font URL from customFonts if not provided
+    let url = fontUrl;
+    if (!url) {
+      const customFont = customFonts.find(f => f.fontFamily === value);
+      if (customFont) {
+        url = customFont.url;
+      }
+    }
+
     if (selectedObject && isCurvedText(selectedObject)) {
-      // Use setFont for CurvedText to properly reload font and update bounds
+      // Use setFont for CurvedText to update bounds
       (selectedObject as CurvedText).setFont(value);
-    } else {
+    } else if (selectedObject) {
       updateTextProperty('fontFamily', value);
+      // Store fontUrl in data for SVG export path conversion
+      if (url) {
+        const existingData = (selectedObject as any).data || {};
+        (selectedObject as any).data = { ...existingData, fontUrl: url };
+      }
     }
   };
 

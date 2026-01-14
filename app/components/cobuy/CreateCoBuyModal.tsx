@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
-import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin, Search, Package } from 'lucide-react';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin, Search, Package, Globe, Lock } from 'lucide-react';
 import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
@@ -35,7 +35,7 @@ interface CreateCoBuyModalProps {
   design: SavedDesign | null;
 }
 
-type Step = 'confirm' | 'basic-info' | 'custom-fields' | 'review' | 'success';
+type Step = 'confirm' | 'basic-info' | 'schedule' | 'pricing' | 'delivery' | 'custom-fields' | 'review' | 'success';
 
 export default function CreateCoBuyModal({
   isOpen,
@@ -63,6 +63,7 @@ export default function CreateCoBuyModal({
     deliveryAddress: undefined,
     pickupAddress: undefined,
   });
+  const [isPublic, setIsPublic] = useState(false);
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
 
   // Pricing tier handlers
@@ -156,6 +157,7 @@ export default function CreateCoBuyModal({
         setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
         setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '', deliveryAddress: undefined, pickupAddress: undefined });
+        setIsPublic(false);
         setCreatedSession(null);
       }, 300); // Wait for modal close animation
     }
@@ -202,6 +204,9 @@ export default function CreateCoBuyModal({
         alert('제목을 입력해주세요.');
         return;
       }
+      setCurrentStep('schedule');
+    } else if (currentStep === 'schedule') {
+      // Validate schedule
       if (!startDate || !endDate) {
         alert('시작일과 종료일을 선택해주세요.');
         return;
@@ -214,6 +219,16 @@ export default function CreateCoBuyModal({
         alert('수령 희망일을 선택해주세요.');
         return;
       }
+      setCurrentStep('pricing');
+    } else if (currentStep === 'pricing') {
+      // Validate pricing (at least one tier)
+      if (pricingTiers.length === 0) {
+        alert('최소 하나의 가격 구간을 설정해주세요.');
+        return;
+      }
+      setCurrentStep('delivery');
+    } else if (currentStep === 'delivery') {
+      // Validate delivery settings
       if (!deliverySettings.deliveryAddress?.roadAddress) {
         alert('배송받을 장소를 입력해주세요.');
         return;
@@ -236,8 +251,14 @@ export default function CreateCoBuyModal({
   const handleBack = () => {
     if (currentStep === 'basic-info') {
       setCurrentStep('confirm');
-    } else if (currentStep === 'custom-fields') {
+    } else if (currentStep === 'schedule') {
       setCurrentStep('basic-info');
+    } else if (currentStep === 'pricing') {
+      setCurrentStep('schedule');
+    } else if (currentStep === 'delivery') {
+      setCurrentStep('pricing');
+    } else if (currentStep === 'custom-fields') {
+      setCurrentStep('delivery');
     } else if (currentStep === 'review') {
       setCurrentStep('custom-fields');
     }
@@ -259,6 +280,7 @@ export default function CreateCoBuyModal({
         pricingTiers,
         customFields,
         deliverySettings,
+        isPublic,
       });
 
       if (!result) {
@@ -374,9 +396,14 @@ export default function CreateCoBuyModal({
             </div>
           )}
 
-          {/* Step 2: Basic Info */}
+          {/* Step 2: Basic Info - Title & Description */}
           {currentStep === 'basic-info' && (
             <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">1/5 단계</p>
+                <h3 className="text-lg font-semibold">기본 정보</h3>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium mb-2">
                   제목 <span className="text-red-500">*</span>
@@ -401,6 +428,62 @@ export default function CreateCoBuyModal({
                   rows={4}
                   maxLength={500}
                 />
+              </div>
+
+              {/* Public/Private Toggle */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {isPublic ? (
+                        <Globe className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-gray-500" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        {isPublic ? '공개 공동구매' : '비공개 공동구매'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isPublic
+                        ? '누구나 공동구매 목록에서 발견할 수 있습니다'
+                        : '링크를 가진 사람만 참여할 수 있습니다'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Schedule - Dates */}
+          {currentStep === 'schedule' && (
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">2/5 단계</p>
+                <h3 className="text-lg font-semibold">일정 설정</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -442,6 +525,33 @@ export default function CreateCoBuyModal({
                 <p className="text-xs text-gray-500 mt-1">
                   참여자에게 물품 수령 예정 시기를 안내합니다 (종료일 이후 가능)
                 </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Pricing - Tiers & Quantity */}
+          {currentStep === 'pricing' && (
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">3/5 단계</p>
+                <h3 className="text-lg font-semibold">가격 설정</h3>
               </div>
 
               {/* Pricing Tiers Editor */}
@@ -542,6 +652,43 @@ export default function CreateCoBuyModal({
                     비워두면 수량 제한 없음
                   </p>
                 </div>
+              </div>
+
+              {/* Pricing Strategy Tips */}
+              <div className="bg-gray-50 rounded-lg p-4 text-sm">
+                <p className="font-medium text-gray-900 mb-2">💡 가격 설정 팁</p>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• <strong>가격 고정:</strong> 최소/최대 수량을 같게 설정하면 단가가 확정됩니다</li>
+                  <li>• <strong>단가 할인:</strong> 최대 수량을 비워두고 참여자를 더 모아 단가를 낮출 수 있습니다</li>
+                  <li>• <strong>차액 환불:</strong> 임시 가격으로 결제 후, 최종 단가 확정 시 차액을 환불합니다</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Delivery - Addresses */}
+          {currentStep === 'delivery' && (
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">4/5 단계</p>
+                <h3 className="text-lg font-semibold">배송 설정</h3>
               </div>
 
               {/* Load Daum Postcode Script */}
@@ -701,16 +848,6 @@ export default function CreateCoBuyModal({
                 </div>
               </div>
 
-              {/* Pricing Strategy Tips */}
-              <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                <p className="font-medium text-gray-900 mb-2">💡 가격 설정 팁</p>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• <strong>가격 고정:</strong> 최소/최대 수량을 같게 설정하면 단가가 확정됩니다</li>
-                  <li>• <strong>단가 할인:</strong> 최대 수량을 비워두고 참여자를 더 모아 단가를 낮출 수 있습니다</li>
-                  <li>• <strong>차액 환불:</strong> 임시 가격으로 결제 후, 최종 단가 확정 시 차액을 환불합니다</li>
-                </ul>
-              </div>
-
               <div className="flex gap-3">
                 <button
                   onClick={handleBack}
@@ -730,9 +867,14 @@ export default function CreateCoBuyModal({
             </div>
           )}
 
-          {/* Step 3: Custom Fields */}
+          {/* Step 6: Custom Fields */}
           {currentStep === 'custom-fields' && (
             <div className="space-y-4 overflow-auto">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">5/5 단계</p>
+                <h3 className="text-lg font-semibold">참여자 정보 수집</h3>
+              </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <div>
@@ -813,7 +955,7 @@ export default function CreateCoBuyModal({
             </div>
           )}
 
-          {/* Step 4: Review */}
+          {/* Step 7: Review */}
           {currentStep === 'review' && (
             <div className="space-y-6">
               <div className="bg-gray-50 rounded-lg p-6 space-y-4">
@@ -830,6 +972,23 @@ export default function CreateCoBuyModal({
                     <p className="text-sm">{description}</p>
                   </div>
                 )}
+
+                <div>
+                  <p className="text-sm text-gray-500">공개 설정</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {isPublic ? (
+                      <>
+                        <Globe className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-600">공개 공동구매</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">비공개 공동구매</span>
+                      </>
+                    )}
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

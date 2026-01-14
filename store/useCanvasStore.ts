@@ -9,7 +9,6 @@ import {
 } from '@/lib/canvas-svg-export';
 import { createClient } from '@/lib/supabase-client';
 import { calculateTotalBoundingBoxMm } from '@/lib/canvasUtils';
-import { isCurvedText, CurvedText } from '@/lib/curvedText';
 
 
 interface CanvasState {
@@ -518,31 +517,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ? calculateTotalBoundingBoxMm(canvas, scaledImageWidth, realWorldProductWidth)
         : null;
 
-      // Convert objects, converting CurvedText to Path
-      const serializedObjects = await Promise.all(
-        userObjects.map(async (obj) => {
-          if (isCurvedText(obj)) {
-            const curvedText = obj as CurvedText;
-            // Wait for font to load and convert to path
-            const path = await curvedText.toPathAsync();
-            if (path) {
-              // Path.toObject() includes data by default
-              const pathJson = path.toObject();
-              return pathJson;
-            }
-            // Fallback to original object if conversion fails
-            return curvedText.toObject(['data']);
-          }
-
-          // Regular object serialization
-          const json = obj.toObject(['data']);
-          if (obj.type === 'image') {
-            const imgObj = obj as fabric.FabricImage;
-            json.src = imgObj.getSrc();
-          }
-          return json;
-        })
-      );
+      // Convert objects
+      const serializedObjects = userObjects.map((obj) => {
+        // Regular object serialization (CurvedText handles its own SVG in toSVG)
+        const json = obj.toObject(['data']);
+        if (obj.type === 'image') {
+          const imgObj = obj as fabric.FabricImage;
+          json.src = imgObj.getSrc();
+        }
+        return json;
+      });
 
       const canvasData = {
         version: canvas.toJSON().version,
@@ -581,31 +565,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ? calculateTotalBoundingBoxMm(canvas, scaledImageWidth, realWorldProductWidth)
       : null;
 
-    // Convert objects, converting CurvedText to Path
-    const serializedObjects = await Promise.all(
-      userObjects.map(async (obj) => {
-        if (isCurvedText(obj)) {
-          const curvedText = obj as CurvedText;
-          // Wait for font to load and convert to path
-          const path = await curvedText.toPathAsync();
-          if (path) {
-            // Path.toObject() includes data by default
-            const pathJson = path.toObject();
-            return pathJson;
-          }
-          // Fallback to original object if conversion fails
-          return curvedText.toObject(['data']);
-        }
-
-        // Regular object serialization
-        const json = obj.toObject(['data']);
-        if (obj.type === 'image') {
-          const imgObj = obj as fabric.FabricImage;
-          json.src = imgObj.getSrc();
-        }
-        return json;
-      })
-    );
+    // Convert objects (CurvedText handles its own SVG in toSVG)
+    const serializedObjects = userObjects.map((obj) => {
+      const json = obj.toObject(['data']);
+      if (obj.type === 'image') {
+        const imgObj = obj as fabric.FabricImage;
+        json.src = imgObj.getSrc();
+      }
+      return json;
+    });
 
     const canvasData = {
       version: canvas.toJSON().version,

@@ -18,6 +18,7 @@ export interface CreateCoBuySessionData {
   pricingTiers?: CoBuyPricingTier[]; // Quantity-based pricing
   customFields: CoBuyCustomField[];
   deliverySettings?: CoBuyDeliverySettings | null; // Delivery configuration
+  isPublic?: boolean; // Whether the session is publicly discoverable
 }
 
 export interface UpdateCoBuySessionData {
@@ -114,6 +115,7 @@ export async function createCoBuySession(
       pricing_tiers: data.pricingTiers || [],
       custom_fields: data.customFields,
       delivery_settings: data.deliverySettings ?? null,
+      is_public: data.isPublic ?? false,
       status: 'gathering' as const,
       current_participant_count: 0,
       current_total_quantity: 0,

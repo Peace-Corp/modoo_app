@@ -239,6 +239,11 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           // Regular image file - upload as usual
           console.log('Uploading image to Supabase...');
 
+          // Show loading modal for upload
+          setLoadingMessage('이미지 업로드 중...');
+          setLoadingSubmessage('이미지를 저장하고 있습니다. 잠시만 기다려주세요.');
+          setIsLoadingModalOpen(true);
+
           originalFileUploadResult = await uploadFileToStorage(
             supabase,
             file,
@@ -247,6 +252,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           );
 
           if (!originalFileUploadResult.success || !originalFileUploadResult.url) {
+            setIsLoadingModalOpen(false);
             console.error('Failed to upload image:', originalFileUploadResult.error);
             alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
             return;
@@ -255,6 +261,10 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           // Use the original image URL for display
           displayUrl = originalFileUploadResult.url;
           console.log('Image uploaded successfully:', displayUrl);
+
+          // Update loading message for image loading phase
+          setLoadingMessage('이미지 불러오는 중...');
+          setLoadingSubmessage('캔버스에 이미지를 추가하고 있습니다.');
         }
 
         // Load image from display URL

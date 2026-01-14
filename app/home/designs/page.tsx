@@ -13,8 +13,9 @@ import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
 import { deleteDesign } from '@/lib/designService';
 import { SizeOption, CartItem, ProductColor, DiscountTier } from '@/types/types';
-import { ShoppingCart, Search, Users, Trash2 } from 'lucide-react';
+import { ShoppingCart, Search, Users, Trash2, Plus } from 'lucide-react';
 import Header from '@/app/components/Header';
+import ProductSelectionForDesignModal from '@/app/components/ProductSelectionForDesignModal';
 
 type TabType = 'designs' | 'favorites';
 
@@ -74,6 +75,9 @@ export default function DesignsPage() {
 
   // Delete state
   const [deletingDesignId, setDeletingDesignId] = useState<string | null>(null);
+
+  // Product selection modal state
+  const [isProductSelectionModalOpen, setIsProductSelectionModalOpen] = useState(false);
 
   // Fetch designs from database
   useEffect(() => {
@@ -355,19 +359,28 @@ export default function DesignsPage() {
       {/* Tab Content */}
       {activeTab === 'designs' ? (
         <div className="p-4">
-          {/* Search Field */}
-          {isAuthenticated && !isLoading && !error && designs.length > 0 && (
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="디자인 이름으로 검색"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                />
-              </div>
+          {/* Create Design Button & Search Field */}
+          {isAuthenticated && !isLoading && !error && (
+            <div className="mb-4 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setIsProductSelectionModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors sm:shrink-0"
+              >
+                <Plus className="w-5 h-5" />
+                <span>디자인 만들기</span>
+              </button>
+              {designs.length > 0 && (
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="디자인 이름으로 검색"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -530,6 +543,12 @@ export default function DesignsPage() {
         isOpen={isCreateCoBuyModalOpen}
         onClose={() => setIsCreateCoBuyModalOpen(false)}
         design={selectedDesignForCoBuy}
+      />
+
+      {/* Product Selection Modal for Creating New Design */}
+      <ProductSelectionForDesignModal
+        isOpen={isProductSelectionModalOpen}
+        onClose={() => setIsProductSelectionModalOpen(false)}
       />
     </div>
   );
