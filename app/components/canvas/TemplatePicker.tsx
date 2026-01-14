@@ -96,23 +96,18 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ productId, isOpen, onCl
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/30 z-40"
+        className="fixed inset-0 bg-black/50 z-40"
         onClick={onClose}
       />
 
-      {/* Bottom Sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-        <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl h-[50vh] flex flex-col">
-          {/* Handle bar */}
-          <div className="shrink-0 py-3 w-10 mx-auto">
-            <hr className="border-2 border-black/20 rounded-full" />
-          </div>
-
+      {/* Center Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
           {/* Header */}
-          <div className="shrink-0 px-4 pb-3 flex items-center justify-between border-b border-gray-100">
+          <div className="shrink-0 px-6 py-4 flex items-center justify-between border-b border-gray-200">
             <div className="flex items-center gap-2">
               <LayoutTemplate className="size-5" />
-              <h2 className="text-lg font-semibold">템플릿</h2>
+              <h2 className="text-lg font-semibold">템플릿 선택</h2>
             </div>
             <button
               onClick={onClose}
@@ -123,13 +118,13 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ productId, isOpen, onCl
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-6">
             {isLoading ? (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-64 flex items-center justify-center">
                 <Loader2 className="size-8 animate-spin text-gray-400" />
               </div>
             ) : error ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500">
+              <div className="h-64 flex flex-col items-center justify-center text-gray-500">
                 <p className="text-sm">{error}</p>
                 <button
                   onClick={fetchTemplates}
@@ -139,12 +134,12 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ productId, isOpen, onCl
                 </button>
               </div>
             ) : templates.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500">
+              <div className="h-64 flex flex-col items-center justify-center text-gray-500">
                 <LayoutTemplate className="size-12 text-gray-300 mb-2" />
                 <p className="text-sm">사용 가능한 템플릿이 없습니다.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-4">
                 {templates.map((template) => (
                   <TemplateCard
                     key={template.id}
@@ -158,11 +153,17 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ productId, isOpen, onCl
           </div>
 
           {/* Footer with Apply button */}
-          <div className="shrink-0 p-4 border-t border-gray-100">
+          <div className="shrink-0 px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition"
+            >
+              취소
+            </button>
             <button
               onClick={handleApplyTemplate}
               disabled={!selectedTemplateId || isApplying}
-              className={`w-full py-3 rounded-lg font-semibold transition ${
+              className={`px-6 py-2.5 rounded-lg font-medium transition ${
                 selectedTemplateId && !isApplying
                   ? 'bg-black text-white hover:bg-gray-800'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'

@@ -146,13 +146,28 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     }
   };
 
-  const handleFontFamilyChange = (value: string) => {
+  const handleFontFamilyChange = (value: string, fontUrl?: string) => {
     setFontFamily(value);
+
+    // Find font URL from customFonts if not provided
+    let url = fontUrl;
+    if (!url) {
+      const customFont = customFonts.find(f => f.fontFamily === value);
+      if (customFont) {
+        url = customFont.url;
+      }
+    }
+
     if (selectedObject && isCurvedText(selectedObject)) {
       // Use setFont for CurvedText to properly reload font and update bounds
-      (selectedObject as CurvedText).setFont(value);
-    } else {
+      (selectedObject as CurvedText).setFont(value, url);
+    } else if (selectedObject) {
       updateTextProperty('fontFamily', value);
+      // Store fontUrl in data for SVG export path conversion
+      if (url) {
+        const existingData = (selectedObject as any).data || {};
+        (selectedObject as any).data = { ...existingData, fontUrl: url };
+      }
     }
   };
 
@@ -341,7 +356,13 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
     } else if (intensity > 0) {
       // Convert regular text to CurvedText instantly when intensity > 0
       try {
-        convertToCurvedText(selectedObject, internalIntensity);
+        // Get fontUrl from object data or find from customFonts
+        const currentFontFamily = selectedObject.fontFamily || 'Arial';
+        const fontUrlFromData = (selectedObject as any).data?.fontUrl;
+        const customFont = customFonts.find(f => f.fontFamily === currentFontFamily);
+        const fontUrl = fontUrlFromData || customFont?.url;
+
+        convertToCurvedText(selectedObject, internalIntensity, fontUrl);
       } catch (error) {
         console.error('Error converting to curved text:', error);
       }
