@@ -386,13 +386,7 @@ export default function OrderDetailPage() {
         {/* Actions */}
         <div className="flex gap-3">
           <button
-            onClick={() => router.push('/home/my-page/orders')}
-            className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-          >
-            주문 내역
-          </button>
-          <button
-            onClick={() => router.push('/inquiries/create')}
+            onClick={() => router.push('/inquiries/new')}
             className="flex-1 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
           >
             문의하기
