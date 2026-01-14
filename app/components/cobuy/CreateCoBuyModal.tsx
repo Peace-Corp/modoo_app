@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
-import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin, Search, Package } from 'lucide-react';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin, Search, Package, Globe, Lock } from 'lucide-react';
 import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
@@ -63,6 +63,7 @@ export default function CreateCoBuyModal({
     deliveryAddress: undefined,
     pickupAddress: undefined,
   });
+  const [isPublic, setIsPublic] = useState(false);
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
 
   // Pricing tier handlers
@@ -156,6 +157,7 @@ export default function CreateCoBuyModal({
         setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
         setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '', deliveryAddress: undefined, pickupAddress: undefined });
+        setIsPublic(false);
         setCreatedSession(null);
       }, 300); // Wait for modal close animation
     }
@@ -278,6 +280,7 @@ export default function CreateCoBuyModal({
         pricingTiers,
         customFields,
         deliverySettings,
+        isPublic,
       });
 
       if (!result) {
@@ -425,6 +428,35 @@ export default function CreateCoBuyModal({
                   rows={4}
                   maxLength={500}
                 />
+              </div>
+
+              {/* Public/Private Toggle */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {isPublic ? (
+                        <Globe className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-gray-500" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        {isPublic ? '공개 공동구매' : '비공개 공동구매'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isPublic
+                        ? '누구나 공동구매 목록에서 발견할 수 있습니다'
+                        : '링크를 가진 사람만 참여할 수 있습니다'}
+                    </p>
+                  </div>
+                </label>
               </div>
 
               <div className="flex gap-3">
@@ -940,6 +972,23 @@ export default function CreateCoBuyModal({
                     <p className="text-sm">{description}</p>
                   </div>
                 )}
+
+                <div>
+                  <p className="text-sm text-gray-500">공개 설정</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {isPublic ? (
+                      <>
+                        <Globe className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-600">공개 공동구매</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">비공개 공동구매</span>
+                      </>
+                    )}
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

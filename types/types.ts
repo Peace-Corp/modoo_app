@@ -411,6 +411,7 @@ export interface CoBuySession {
   pricing_tiers: CoBuyPricingTier[]; // Quantity-based pricing tiers
   custom_fields: CoBuyCustomField[];
   delivery_settings: CoBuyDeliverySettings | null; // Delivery configuration
+  is_public: boolean; // Whether the session is publicly discoverable
   bulk_order_id: string | null;
   created_at: string;
   updated_at: string;

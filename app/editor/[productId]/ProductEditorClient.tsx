@@ -76,6 +76,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
   const [isRecallGuestDesignOpen, setIsRecallGuestDesignOpen] = useState(false);
   const [guestDesign, setGuestDesign] = useState<GuestDesign | null>(null);
   const descriptionImageUrl = product.description_image ?? null;
+  const sizingChartImageUrl = product.sizing_chart_image ?? null;
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -567,6 +568,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
           {/* Description Image Section */}
           <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
+
+          {/* Sizing Chart Section */}
+          <DescriptionImageSection title="사이즈 차트" imageUrl={sizingChartImageUrl} />
         </div>
       )}
 

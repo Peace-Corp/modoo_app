@@ -48,6 +48,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const searchParams = useSearchParams();
   const cartItemId = searchParams.get('cartItemId');
   const descriptionImageUrl = product.description_image ?? null;
+  const sizingChartImageUrl = product.sizing_chart_image ?? null;
 
   const {
     setEditMode,
@@ -533,6 +534,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm border border-gray-200">
           <ReviewsSection productId={product.id} limit={10} />
           <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
+          <DescriptionImageSection title="사이즈 차트" imageUrl={sizingChartImageUrl} />
         </div>
       </div>
 
