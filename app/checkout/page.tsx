@@ -671,7 +671,7 @@ export default function CheckoutPage() {
             </div>
           </button>
 
-          <button
+          {/* <button
             onClick={() => setPaymentMethod('paypal')}
             className={`w-full p-4 rounded-lg border-2 transition text-left ${
               paymentMethod === 'paypal'
@@ -697,7 +697,7 @@ export default function CheckoutPage() {
                 )}
               </div>
             </div>
-          </button>
+          </button> */}
         </div>
       </div>
 
