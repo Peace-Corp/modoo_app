@@ -72,6 +72,12 @@ export default function ReviewsPage() {
     return Math.round((count / reviews.length) * 100);
   };
 
+  const maskAuthorName = (name: string) => {
+    if (!name || name.length <= 1) return name;
+    if (name.length === 2) return name[0] + '*';
+    return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -149,7 +155,7 @@ export default function ReviewsPage() {
                           />
                         ))}
                       </div>
-                      <span className="font-medium">{review.author_name}</span>
+                      <span className="font-medium">{maskAuthorName(review.author_name)}</span>
                       {review.is_verified_purchase && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
                           구매확인

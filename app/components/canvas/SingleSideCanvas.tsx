@@ -1303,17 +1303,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
   return (
     <div className="relative" style={{ width, height }}>
-      {isLoading && (
-        <div
-          className="absolute inset-0 flex items-center justify-center bg-gray-100"
-          style={{ width, height }}
-        >
-          <div className="flex flex-col items-center gap-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            <p className="text-sm text-gray-600">Loading canvas...</p>
-          </div>
+      <div
+        className="absolute inset-0 flex items-center justify-center bg-gray-100 transition-opacity duration-300"
+        style={{ width, height, opacity: isLoading ? 1 : 0, pointerEvents: isLoading ? 'auto' : 'none' }}
+      >
+        <div className="flex flex-col items-center gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="text-sm text-gray-600">Loading canvas...</p>
         </div>
-      )}
+      </div>
       <canvas
         ref={canvasEl}
         style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.3s', touchAction: 'none' }}

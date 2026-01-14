@@ -7,9 +7,11 @@ import Link from "next/link";
 
 export default function Header({
   back = false,
+  backHref,
   showHomeNav = false,
 }: {
   back?: boolean;
+  backHref?: string;
   showHomeNav?: boolean;
 }) {
   const router = useRouter()
@@ -23,9 +25,15 @@ export default function Header({
               <div className="flex items-center lg:w-48">
                 {
                   back ? (
-                    <button className="" onClick={() => router.back()}>
-                      <ArrowLeft className="text-gray-700 size-6"/>
-                    </button>
+                    backHref ? (
+                      <Link href={backHref}>
+                        <ArrowLeft className="text-gray-700 size-6"/>
+                      </Link>
+                    ) : (
+                      <button className="" onClick={() => router.back()}>
+                        <ArrowLeft className="text-gray-700 size-6"/>
+                      </button>
+                    )
                   ) :
                     (showHomeNav ? (
                       <Link
