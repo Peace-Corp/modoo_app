@@ -156,14 +156,15 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
 
   return (
     <div className="bg-white p-4 mb-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center mb-3">
         <h3 className="text-sm font-bold text-gray-800">인쇄방법 설정</h3>
         <button
           onClick={() => setIsPricingModalOpen(true)}
-          className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+          className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors flex items-center gap-1"
           title="인쇄방법 가격 안내"
         >
           <HelpCircle className="size-4" />
+          <h3 className='text-gray-500 text-xs'>방법별 특징</h3>
         </button>
       </div>
 
