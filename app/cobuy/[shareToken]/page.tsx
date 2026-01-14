@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Info, Ruler, X } from 'lucide-react';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
+import Header from '@/app/components/Header';
 import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
 import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
@@ -329,7 +330,8 @@ export default function CoBuySharePage() {
 
   return (
     <div className="min-h-screen bg-white pb-16">
-      <div className="mx-auto pt-6 space-y-3">
+      <Header back backHref="/home" />
+      <div className="mx-auto pt-6 space-y-3 px-4">
         <header className="space-y-3">
           <p className="text-sm text-gray-500">공동구매 참여</p>
           <h1 className="text-2xl font-bold text-gray-900">{session.title}</h1>

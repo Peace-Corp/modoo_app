@@ -4,10 +4,12 @@ import ProductCard from "../components/ProductCard"
 import CategoryButton from "@/app/components/CategoryButton";
 import ProductionExamples from "@/app/components/ProductionExamples";
 import InquiryBoardSection from "@/app/components/InquiryBoardSection";
+import CoBuySessionCard from "@/app/components/CoBuySessionCard";
 import { createClient } from "@/lib/supabase";
-import { Product } from "@/types/types";
+import { Product, CoBuySessionWithDetails } from "@/types/types";
 import { CATEGORIES } from "@/lib/categories";
 import { cache } from "react";
+import Link from "next/link";
 
 const getActiveProducts = cache(async (): Promise<Product[]> => {
   const supabase = await createClient();
@@ -38,8 +40,38 @@ const getCategoryItems = cache(() =>
   }))
 );
 
+const getPublicCoBuySessions = cache(async (): Promise<CoBuySessionWithDetails[]> => {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('cobuy_sessions')
+    .select(`
+      *,
+      saved_design_screenshot:saved_design_screenshots (
+        id,
+        title,
+        preview_url
+      )
+    `)
+    .eq('is_public', true)
+    .eq('status', 'gathering')
+    .gte('end_date', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(4);
+
+  if (error) {
+    console.error('Error fetching public CoBuy sessions:', error);
+    return [];
+  }
+
+  return (data ?? []) as CoBuySessionWithDetails[];
+});
+
 export default async function HomePage() {
-  const products = await getActiveProducts();
+  const [products, cobuySessions] = await Promise.all([
+    getActiveProducts(),
+    getPublicCoBuySessions(),
+  ]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -79,6 +111,26 @@ export default async function HomePage() {
 
         {/* Production Examples Section */}
         <ProductionExamples />
+
+        {/* CoBuy Section */}
+        {cobuySessions.length > 0 && (
+          <section className="w-full">
+            <div className="flex items-center justify-between mb-3 lg:mb-4">
+              <h2 className="text-lg lg:text-xl font-bold text-gray-900">진행 중인 공동구매</h2>
+              <Link
+                href="/cobuy"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                전체보기
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
+              {cobuySessions.map((session) => (
+                <CoBuySessionCard key={session.id} session={session} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Inquiry Board Section */}
         <div id="reviews"></div>

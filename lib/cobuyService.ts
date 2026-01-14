@@ -250,6 +250,48 @@ export async function getCoBuySessionByToken(
 }
 
 /**
+ * Get public CoBuy sessions (where is_public is true and status is 'gathering')
+ * @param limit Optional limit for the number of sessions to return
+ * @returns Array of sessions with design screenshot details
+ */
+export async function getPublicCoBuySessions(limit?: number): Promise<CoBuySessionWithDetails[]> {
+  const supabase = createClient();
+
+  try {
+    let query = supabase
+      .from('cobuy_sessions')
+      .select(`
+        *,
+        saved_design_screenshot:saved_design_screenshots (
+          id,
+          title,
+          preview_url
+        )
+      `)
+      .eq('is_public', true)
+      .eq('status', 'gathering')
+      .gte('end_date', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: sessions, error } = await query;
+
+    if (error) {
+      console.error('Error fetching public CoBuy sessions:', error);
+      throw error;
+    }
+
+    return (sessions || []) as CoBuySessionWithDetails[];
+  } catch (error) {
+    console.error('Failed to fetch public CoBuy sessions:', error);
+    return [];
+  }
+}
+
+/**
  * Get all CoBuy sessions for the current user
  * @returns Array of sessions or empty array if failed
  */
