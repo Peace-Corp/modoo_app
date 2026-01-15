@@ -5,8 +5,8 @@ import NavigationListener from "./components/NavigationListener";
 import AuthInitializer from "./components/AuthInitializer";
 
 export const metadata: Metadata = {
-  title: "모두 | Modoo",
-  description: "An App for creating your own customized products",
+  title: "모두의 유니폼 | 단체족 의류 주문 제작",
+  description: "의류 주문 제작, 뮤료 견적, 대랸 주문, 단체복 제작",
 };
 
 export default function RootLayout({

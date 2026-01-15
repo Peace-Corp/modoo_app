@@ -531,11 +531,11 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
           </aside>
 	        </div>
 
-        <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm border border-gray-200">
           <ReviewsSection productId={product.id} limit={10} />
-          <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
+          <div className="w-full">
+            <DescriptionImageSection title="주문상세" imageUrl={descriptionImageUrl} />
+          </div>
           <DescriptionImageSection title="사이즈 차트" imageUrl={sizingChartImageUrl} />
-        </div>
       </div>
 
       <QuantitySelectorModal
