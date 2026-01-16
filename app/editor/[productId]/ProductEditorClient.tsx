@@ -28,6 +28,7 @@ import PurchaseOptionModal from "@/app/components/PurchaseOptionModal";
 import LoginPromptModal from "@/app/components/LoginPromptModal";
 import GuestDesignRecallModal from "@/app/components/GuestDesignRecallModal";
 import { getGuestDesign, removeGuestDesign, saveGuestDesign, type GuestDesign } from "@/lib/guestDesignStorage";
+import ShareProductButton from "@/app/components/ShareProductButton";
 
 type CoBuyDesign = {
   id: string;
@@ -508,7 +509,9 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
               <p className="text-black font-normal">{product.title}</p>
             </div>
             <div>
-              <Share />
+              <ShareProductButton
+                url={`${window.location.origin}/editor/${product.id}`}
+              />
             </div>
           </div>
           {/* Price and Delivery Section */}

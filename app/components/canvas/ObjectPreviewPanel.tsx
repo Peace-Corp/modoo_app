@@ -155,7 +155,7 @@ const ObjectPreviewPanel: React.FC<ObjectPreviewPanelProps> = ({ sides }) => {
   }
 
   return (
-    <div className="bg-white p-4 mb-4">
+    <div className="bg-white mb-4">
       <div className="flex items-center mb-3">
         <h3 className="text-sm font-bold text-gray-800">인쇄방법 설정</h3>
         <button

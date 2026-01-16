@@ -600,13 +600,13 @@ export default function CheckoutPage() {
           <h2 className="font-medium text-black mb-3">픽업 안내</h2>
           <div className="bg-gray-50 p-4 rounded-lg">
             <p className="text-sm text-gray-700 mb-2">
-              <strong>픽업 장소:</strong> 서울시 강남구 테헤란로 123
+              <strong>픽업 장소:</strong> 서울특별시 마포구 새터산 4길 2, b102호
             </p>
             <p className="text-sm text-gray-700 mb-2">
-              <strong>운영 시간:</strong> 평일 10:00 - 18:00
+              <strong>운영 시간:</strong> 평일 10:00 ~ 18:00 (점심시간 12:00 ~ 13:00)
             </p>
             <p className="text-sm text-gray-500">
-              주문 완료 후 영업일 기준 3-5일 후 픽업 가능합니다.
+              주문 완료 후 영업일 기준 3-5일 후 픽업 가능합니다. 주말/공휴일 휴무
             </p>
           </div>
         </div>
