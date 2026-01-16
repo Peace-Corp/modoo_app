@@ -95,6 +95,7 @@ export default function HeroBanner() {
                     src={banner.image_link}
                     alt={banner.title}
                     fill
+                    unoptimized
                     className="absolute inset-0 w-full h-full object-cover object-top"
                   />
                   {/* Debug: Show image URL */}
