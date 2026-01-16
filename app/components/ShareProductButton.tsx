@@ -12,10 +12,11 @@ export default function ShareProductButton({title = "모두의 유니폼", url}:
   const handleShare = async () => {
     if (navigator.share) {
       try {
+        const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
         await navigator.share({
           title: title || document.title,
           // text: text || 'Check out this link!',
-          url: url || window.location.href,
+          url: fullUrl || window.location.href,
         });
         console.log('Content shared successfully');
       } catch (error) {

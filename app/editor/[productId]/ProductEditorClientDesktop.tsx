@@ -444,7 +444,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                 <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
               </div>
               <ShareProductButton
-              url={`${window.location.origin}/editor/${product.id}`}
+              url={`/editor/${product.id}`}
               />
             </div>
 
