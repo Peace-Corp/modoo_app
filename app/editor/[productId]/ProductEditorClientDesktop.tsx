@@ -27,6 +27,7 @@ import PurchaseOptionModal from "@/app/components/PurchaseOptionModal";
 import LoginPromptModal from "@/app/components/LoginPromptModal";
 import GuestDesignRecallModal from "@/app/components/GuestDesignRecallModal";
 import { getGuestDesign, removeGuestDesign, saveGuestDesign, type GuestDesign } from "@/lib/guestDesignStorage";
+import ShareProductButton from "@/app/components/ShareProductButton";
 
 type CoBuyDesign = {
   id: string;
@@ -421,7 +422,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
   return (
     <div className="min-h-screen bg-white text-black">
-      <div className="w-full sticky top-0 bg-white/95 backdrop-blur z-40 border-b border-gray-200">
+      <div className="w-full sticky top-0 bg-white/95 backdrop-blur z-40">
         <Header back={true} />
       </div>
 
@@ -430,7 +431,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         <div className="grid gap-2 grid-cols-2 min-h-[calc(100vh-4rem)]">
           {/* Left Side */}
           <div className="flex flex-col gap-2 h-[calc(100vh-4rem)]">
-            <div className="rounded-md bg-white p-6 shadow-sm border border-gray-200 h-full">
+            <div className="rounded-md bg-white p-6 h-full">
               <ProductDesigner config={productConfig} layout="desktop" />
             </div>
           </div>
@@ -442,9 +443,13 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.category || '카테고리'}</p>
                 <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
               </div>
-              <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50" title="공유">
+              {/* <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50" title="공유">
                 <Share className="size-4" />
-              </button>
+              </button> */}
+              <ShareProductButton
+              // text={product.title}
+              url={`${window.location.origin}/editor/${product.id}`}
+              />
             </div>
 
             <div className="mt-4 rounded-md border border-gray-200 p-2 flex flex-col flex-1 min-h-0">
@@ -477,7 +482,6 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                                 }`}
                                 style={{ backgroundColor: color.manufacturer_colors.hex }}
                               ></div>
-                              <span className="text-xs text-gray-700">{color.manufacturer_colors.name}</span>
                             </button>
                           ))}
                         </div>
