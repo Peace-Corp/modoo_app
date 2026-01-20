@@ -6,7 +6,7 @@ import AuthInitializer from "./components/AuthInitializer";
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
-  title: "모두의 유니폼 | 단체족 의류 주문 제작",
+  title: "모두의 유니폼 | 단체복 의류 주문 제작",
   description: "의류 주문 제작, 뮤료 견적, 대랸 주문, 단체복 제작",
 };
 
