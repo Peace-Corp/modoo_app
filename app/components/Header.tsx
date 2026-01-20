@@ -41,7 +41,7 @@ export default function Header({
                         className="text-lg font-black tracking-[0.18em] text-gray-900"
                         aria-label="MODOO 홈"
                       >
-                        MODOO
+                        <img src="/icons/modoo_logo.png" alt="모두의 유니폼"  className="w-[80px]"/>
                       </Link>
                     ) : (
                       <button className="size-6">
@@ -58,7 +58,7 @@ export default function Header({
                   className="text-lg font-black tracking-[0.18em] text-gray-900"
                   aria-label="MODOO 홈"
                 >
-                  MODOO
+                  <img src="/icons/modoo_logo.png" alt="모두의 유니폼"  className="w-[80px]"/>
                 </Link>
               )}
 

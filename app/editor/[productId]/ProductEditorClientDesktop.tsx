@@ -428,27 +428,23 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
       <div className="">
         {/* Editor Container */}
-        <div className="grid gap-2 grid-cols-2 min-h-[calc(100vh-4rem)]">
+        <div className="grid gap-2 grid-cols-2 min-h-175">
           {/* Left Side */}
-          <div className="flex flex-col gap-2 h-[calc(100vh-4rem)]">
+          <div className="flex flex-col gap-2 h-full">
             <div className="rounded-md bg-white p-6 h-full">
               <ProductDesigner config={productConfig} layout="desktop" />
             </div>
           </div>
 
           {/* Right Side */}
-          <aside className="rounded-md bg-white p-4 border border-gray-200 h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+          <aside className="rounded-md bg-white p-4 border border-gray-200 h-full overflow-hidden flex flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.category || '카테고리'}</p>
                 <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
               </div>
-              {/* <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50" title="공유">
-                <Share className="size-4" />
-              </button> */}
               <ShareProductButton
-              // text={product.title}
-              url={`${window.location.origin}/editor/${product.id}`}
+              url={`/editor/${product.id}`}
               />
             </div>
 

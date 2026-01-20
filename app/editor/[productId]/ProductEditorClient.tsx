@@ -510,7 +510,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
             </div>
             <div>
               <ShareProductButton
-                url={`${window.location.origin}/editor/${product.id}`}
+                url={`/editor/${product.id}`}
               />
             </div>
           </div>
