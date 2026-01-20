@@ -100,38 +100,21 @@ export default function NoticeDetailPage() {
               {new Date(notice.created_at).toLocaleDateString('ko-KR')}
             </div>
 
-            {/* Image Swiper */}
+            {/* Image */}
             {notice.image_links && notice.image_links.length > 0 && (
-              <div className="mb-6">
-                <Swiper
-                  modules={[Pagination]}
-                  pagination={{ clickable: true }}
-                  spaceBetween={0}
-                  slidesPerView={1}
-                  className="rounded-lg overflow-hidden notice-swiper"
-                >
-                  {notice.image_links.map((imageUrl, index) => (
-                    <SwiperSlide key={index}>
-                      <div className="relative w-full aspect-video bg-gray-100">
-                        <Image
-                          src={imageUrl}
-                          alt={`${notice.title} - 이미지 ${index + 1}`}
-                          fill
-                          className="object-contain"
-                          sizes="(max-width: 768px) 100vw, 768px"
-                        />
-                      </div>
-                    </SwiperSlide>
-                  ))}
-                </Swiper>
-                <style jsx global>{`
-                  .notice-swiper .swiper-pagination-bullet {
-                    background: #9ca3af;
-                  }
-                  .notice-swiper .swiper-pagination-bullet-active {
-                    background: #000;
-                  }
-                `}</style>
+              <div className="mb-6 space-y-4">
+                {notice.image_links.map((image_link, idx) => (
+                  <div key={idx} className="relative w-full">
+                    <Image
+                      src={image_link}
+                      alt={`${notice.title} - 이미지 ${idx + 1}`}
+                      width={800}
+                      height={600}
+                      unoptimized
+                      className="object-contain w-full h-auto"
+                    />
+                  </div>
+                ))}
               </div>
             )}
 
