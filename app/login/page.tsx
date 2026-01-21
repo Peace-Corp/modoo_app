@@ -113,13 +113,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="max-w-md w-full">
+        {/* Back to Home Link */}
+        <div className="mb-6">
+          <Link href="/" className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+            ← 홈으로 돌아가기
+          </Link>
+        </div>
+
         {/* Logo/Brand Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-lg mb-4 shadow-lg">
-            <span className="text-6xl font-bold text-white">M</span>
-          </div>
-          <h1 className="text-sm text-gray-900">모두의 굿즈 플렛폼</h1>
-          <h1 className="text-3xl font-bold text-gray-900">모두굿즈</h1>
+        <div className="text-center mb-8 flex items-center justify-center">
+          <img src="/icons/modoo_logo.png" alt="MODOO Uniform" />
         </div>
 
         {/* Main Card */}
@@ -323,13 +326,6 @@ export default function LoginPage() {
                 </form>
               </div>
             </div>
-          </div>
-
-          {/* Back to Home Link */}
-          <div className="py-4 text-center border-t border-gray-100">
-            <Link href="/" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
-              ← 홈으로 돌아가기
-            </Link>
           </div>
         </div>
 
