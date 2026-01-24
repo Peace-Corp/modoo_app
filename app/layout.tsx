@@ -3,6 +3,8 @@ import "./globals.css";
 import Footer from "./components/Footer";
 import NavigationListener from "./components/NavigationListener";
 import AuthInitializer from "./components/AuthInitializer";
+import ChatBubble from "./components/chatbot/ChatBubble";
+import ChatWindow from "./components/chatbot/ChatWindow";
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
@@ -25,6 +27,10 @@ export default function RootLayout({
           <main>{children}</main>
           <Footer />
         </div>
+
+        {/* Chatbot */}
+        <ChatBubble />
+        <ChatWindow />
       </body>
     </html>
   );
