@@ -16,30 +16,18 @@ import { saveDesign } from "@/lib/designService";
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import ReviewsSection from "@/app/components/ReviewsSection";
 import DescriptionImageSection from "@/app/components/DescriptionImageSection";
 import { useAuthStore } from "@/store/useAuthStore";
 import SaveDesignModal from "@/app/components/SaveDesignModal";
-import CreateCoBuyModal from "@/app/components/cobuy/CreateCoBuyModal";
 import PurchaseOptionModal from "@/app/components/PurchaseOptionModal";
 import LoginPromptModal from "@/app/components/LoginPromptModal";
 import GuestDesignRecallModal from "@/app/components/GuestDesignRecallModal";
 import { getGuestDesign, removeGuestDesign, saveGuestDesign, type GuestDesign } from "@/lib/guestDesignStorage";
 import ShareProductButton from "@/app/components/ShareProductButton";
 
-type CoBuyDesign = {
-  id: string;
-  title: string | null;
-  preview_url: string | null;
-  price_per_item: number;
-  product: {
-    id: string;
-    title: string;
-    size_options?: Product["size_options"];
-  };
-};
 
 interface ProductEditorClientDesktopProps {
   product: Product;
@@ -47,6 +35,7 @@ interface ProductEditorClientDesktopProps {
 
 export default function ProductEditorClientDesktop({ product }: ProductEditorClientDesktopProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const cartItemId = searchParams.get('cartItemId');
   const descriptionImageUrl = product.description_image ?? null;
   const sizingChartImageUrl = product.sizing_chart_image ?? null;
@@ -69,8 +58,6 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const [isQuantitySelectorOpen, setIsQuantitySelectorOpen] = useState(false);
   const [isPurchaseOptionOpen, setIsPurchaseOptionOpen] = useState(false);
   const [isSaveDesignOpen, setIsSaveDesignOpen] = useState(false);
-  const [isCreateCoBuyOpen, setIsCreateCoBuyOpen] = useState(false);
-  const [coBuyDesign, setCoBuyDesign] = useState<CoBuyDesign | null>(null);
   const [, setIsLoadingCartItem] = useState(false);
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
@@ -164,22 +151,11 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         return;
       }
 
-      setCoBuyDesign({
-        id: savedDesign.id,
-        title: savedDesign.title,
-        preview_url: savedDesign.preview_url,
-        price_per_item: pricePerItem,
-        product: {
-          id: product.id,
-          title: product.title,
-          size_options: product.size_options,
-        },
-      });
-
       setIsSaveDesignOpen(false);
-      setIsCreateCoBuyOpen(true);
-
       removeGuestDesign(product.id);
+
+      // Navigate to the cobuy creation page
+      router.push(`/home/cobuy/create?designId=${savedDesign.id}`);
     } catch (error) {
       console.error('Save design failed:', error);
       alert('디자인 저장 중 오류가 발생했습니다.');
@@ -566,15 +542,6 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         isSaving={isSaving}
         defaultDesignName={product.title}
       />
-
-	      <CreateCoBuyModal
-	        isOpen={isCreateCoBuyOpen}
-	        onClose={() => {
-	          setIsCreateCoBuyOpen(false);
-	          setCoBuyDesign(null);
-	        }}
-	        design={coBuyDesign}
-	      />
 
 	      <LoginPromptModal
 	        isOpen={isLoginPromptOpen}
