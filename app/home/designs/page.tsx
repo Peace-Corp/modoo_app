@@ -8,6 +8,7 @@ import FavoritesList from '@/app/components/FavoritesList';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase-client';
 import QuantitySelectorModal from '@/app/components/QuantitySelectorModal';
+import CreateCoBuyModal from '@/app/components/cobuy/CreateCoBuyModal';
 import { addToCartDB } from '@/lib/cartService';
 import { useCartStore } from '@/store/useCartStore';
 import { deleteDesign } from '@/lib/designService';
@@ -67,6 +68,10 @@ export default function DesignsPage() {
   const [productColors, setProductColors] = useState<ProductColor[]>([]);
   const [productDiscountRates, setProductDiscountRates] = useState<DiscountTier[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // CoBuy modal state
+  const [isCreateCoBuyModalOpen, setIsCreateCoBuyModalOpen] = useState(false);
+  const [selectedDesignForCoBuy, setSelectedDesignForCoBuy] = useState<SavedDesign | null>(null);
 
   // Delete state
   const [deletingDesignId, setDeletingDesignId] = useState<string | null>(null);
@@ -154,7 +159,8 @@ export default function DesignsPage() {
   // Handle CoBuy button click
   const handleCoBuyClick = (design: SavedDesign, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening the edit modal
-    router.push(`/home/cobuy/create?designId=${design.id}`);
+    setSelectedDesignForCoBuy(design);
+    setIsCreateCoBuyModalOpen(true);
   };
 
   // Handle delete button click
@@ -530,6 +536,13 @@ export default function DesignsPage() {
         isSaving={isSaving}
         defaultDesignName={selectedDesign?.title || selectedDesign?.product.title || ''}
         discountRates={productDiscountRates}
+      />
+
+      {/* CoBuy Creation Modal */}
+      <CreateCoBuyModal
+        isOpen={isCreateCoBuyModalOpen}
+        onClose={() => setIsCreateCoBuyModalOpen(false)}
+        design={selectedDesignForCoBuy}
       />
 
       {/* Product Selection Modal for Creating New Design */}
