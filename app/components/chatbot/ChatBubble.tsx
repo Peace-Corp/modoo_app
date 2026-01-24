@@ -1,10 +1,17 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { MessageCircle, X } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 
 export default function ChatBubble() {
+  const pathname = usePathname();
   const { isOpen, openChat, closeChat } = useChatStore();
+
+  // Only show chat bubble on the home screen
+  if (pathname !== '/home') {
+    return null;
+  }
 
   const handleClick = () => {
     if (isOpen) {

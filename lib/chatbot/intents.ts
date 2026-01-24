@@ -121,6 +121,7 @@ export const NAVIGATION_ROUTES: Record<string, string> = {
   '문의': '/inquiries',
   'FAQ': '/inquiries?tab=faq',
   '고객센터': '/inquiries',
+  '공동 구매': '/cobuy/page',
   '공동구매': '/cobuy/page',
   '코바이': '/cobuy/page',
   '결제': '/checkout',
