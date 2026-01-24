@@ -594,12 +594,6 @@ export default function CreateCoBuyPage() {
                 <p className="text-xs md:text-sm text-gray-500 mt-1.5 md:mt-2">{description.length}/500자</p>
               </div>
 
-              <button
-                onClick={handleNext}
-                className="text-xs md:text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                건너뛰기 →
-              </button>
             </div>
           </div>
         )}
@@ -870,12 +864,6 @@ export default function CreateCoBuyPage() {
                 </ul>
               </div>
 
-              <button
-                onClick={handleNext}
-                className="text-xs md:text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                건너뛰기 (제한 없음) →
-              </button>
             </div>
           </div>
         )}
@@ -1091,23 +1079,9 @@ export default function CreateCoBuyPage() {
 
               {deliverySettings.enabled && (
                 <div className="p-3 md:p-4 bg-teal-50 rounded-xl border border-teal-200 animate-in slide-in-from-top-2 duration-200">
-                  <label className="block text-xs md:text-sm font-medium text-teal-800 mb-1.5 md:mb-2">
-                    배송비
-                  </label>
-                  <div className="flex items-center gap-1.5 md:gap-2">
-                    <span className="text-teal-600 text-sm md:text-base">₩</span>
-                    <input
-                      type="number"
-                      value={deliverySettings.deliveryFee}
-                      onChange={(e) => setDeliverySettings(prev => ({
-                        ...prev,
-                        deliveryFee: Math.max(0, parseInt(e.target.value) || 0)
-                      }))}
-                      className="w-28 md:w-32 px-2 md:px-3 py-1.5 md:py-2 text-sm md:text-base border-2 border-teal-200 rounded-lg text-right font-medium focus:outline-none focus:border-teal-500"
-                      min="0"
-                      step="500"
-                    />
-                    <span className="text-xs md:text-sm text-teal-600">원</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs md:text-sm font-medium text-teal-800">배송비</span>
+                    <span className="text-sm md:text-base font-semibold text-teal-700">₩4,000</span>
                   </div>
                 </div>
               )}
@@ -1354,14 +1328,6 @@ export default function CreateCoBuyPage() {
       <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
           <div className="flex items-center gap-3 md:gap-4">
-            {currentStep !== 'welcome' && currentStep !== 'success' && (
-              <button
-                onClick={handleBack}
-                className="p-1.5 md:p-2 -ml-1.5 md:-ml-2 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
-              </button>
-            )}
             <div>
               <h1 className="text-base md:text-lg font-bold text-gray-900">공동구매 만들기</h1>
               {currentStep !== 'welcome' && currentStep !== 'success' && (
@@ -1404,34 +1370,57 @@ export default function CreateCoBuyPage() {
       {/* Footer Navigation */}
       {currentStep !== 'welcome' && currentStep !== 'success' && (
         <footer className="shrink-0 border-t border-gray-200 bg-white p-3 md:p-4 safe-area-inset-bottom">
-          <div className="max-w-lg mx-auto flex gap-2 md:gap-3">
-            {currentStep !== 'review' ? (
+          <div className="max-w-lg mx-auto space-y-2 md:space-y-3">
+            {/* Skip Button - only for description and quantity steps */}
+            {(currentStep === 'description' || currentStep === 'quantity') && (
               <button
                 onClick={handleNext}
-                className="flex-1 py-3 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
+                className="w-full py-2.5 md:py-3 border-2 border-gray-200 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm md:text-base text-gray-500"
               >
-                <span>다음</span>
-                <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-            ) : (
-              <button
-                onClick={handleCreate}
-                disabled={isCreating}
-                className="flex-1 py-3 md:py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isCreating ? (
-                  <>
-                    <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>생성 중...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
-                    <span>공동구매 만들기</span>
-                  </>
-                )}
+                건너뛰기
               </button>
             )}
+
+            {/* Back and Next Buttons Row */}
+            <div className="flex gap-2 md:gap-3">
+              {/* Back Button */}
+              <button
+                onClick={handleBack}
+                className="py-3 md:py-4 px-5 md:px-6 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base text-gray-700"
+              >
+                <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+                <span>이전</span>
+              </button>
+
+              {/* Next / Create Button */}
+              {currentStep !== 'review' ? (
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleCreate}
+                  disabled={isCreating}
+                  className="flex-1 py-3 md:py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>생성 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+                      <span>공동구매 만들기</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </footer>
       )}
