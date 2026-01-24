@@ -1,13 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
-import {
-  X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Plus, Trash2,
-  Truck, MapPin, Search, Package, Globe, Lock, Calendar, Tag, FileText,
-  Sparkles, Gift, ChevronRight, Check, Copy
-} from 'lucide-react';
+import { X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Info, Plus, Trash2, Truck, MapPin, Search, Package, Globe, Lock } from 'lucide-react';
 import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
@@ -25,6 +21,7 @@ interface SavedDesign {
   };
 }
 
+// Default pricing tiers (can be customized per product later)
 const DEFAULT_PRICING_TIERS: CoBuyPricingTier[] = [
   { minQuantity: 10, pricePerItem: 25000 },
   { minQuantity: 30, pricePerItem: 22000 },
@@ -38,45 +35,16 @@ interface CreateCoBuyModalProps {
   design: SavedDesign | null;
 }
 
-type Step =
-  | 'welcome'
-  | 'title'
-  | 'description'
-  | 'visibility'
-  | 'schedule'
-  | 'pricing'
-  | 'quantity'
-  | 'delivery-address'
-  | 'pickup-address'
-  | 'delivery-option'
-  | 'custom-fields'
-  | 'review'
-  | 'success';
-
-const STEPS: { id: Step; label: string; icon: React.ReactNode; group: string }[] = [
-  { id: 'welcome', label: '시작', icon: <Sparkles className="w-4 h-4" />, group: '시작' },
-  { id: 'title', label: '제목', icon: <Tag className="w-4 h-4" />, group: '기본 정보' },
-  { id: 'description', label: '설명', icon: <FileText className="w-4 h-4" />, group: '기본 정보' },
-  { id: 'visibility', label: '공개 설정', icon: <Globe className="w-4 h-4" />, group: '기본 정보' },
-  { id: 'schedule', label: '일정', icon: <Calendar className="w-4 h-4" />, group: '일정' },
-  { id: 'pricing', label: '가격 구간', icon: <Tag className="w-4 h-4" />, group: '가격' },
-  { id: 'quantity', label: '수량 제한', icon: <Package className="w-4 h-4" />, group: '가격' },
-  { id: 'delivery-address', label: '배송 주소', icon: <Truck className="w-4 h-4" />, group: '배송' },
-  { id: 'pickup-address', label: '배부 장소', icon: <MapPin className="w-4 h-4" />, group: '배송' },
-  { id: 'delivery-option', label: '배송 옵션', icon: <Gift className="w-4 h-4" />, group: '배송' },
-  { id: 'custom-fields', label: '참여자 정보', icon: <Users className="w-4 h-4" />, group: '추가 정보' },
-  { id: 'review', label: '최종 확인', icon: <CheckCircle2 className="w-4 h-4" />, group: '완료' },
-];
+type Step = 'confirm' | 'basic-info' | 'schedule' | 'pricing' | 'delivery' | 'custom-fields' | 'review' | 'success';
 
 export default function CreateCoBuyModal({
   isOpen,
   onClose,
   design,
 }: CreateCoBuyModalProps) {
-  const [currentStep, setCurrentStep] = useState<Step>('welcome');
+  const [currentStep, setCurrentStep] = useState<Step>('confirm');
   const [isCreating, setIsCreating] = useState(false);
   const [createdSession, setCreatedSession] = useState<CoBuySession | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -98,13 +66,6 @@ export default function CreateCoBuyModal({
   const [isPublic, setIsPublic] = useState(false);
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
 
-  // Animation state
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
-
-  const currentStepIndex = STEPS.findIndex(s => s.id === currentStep);
-  const progress = currentStep === 'success' ? 100 : ((currentStepIndex) / STEPS.length) * 100;
-
   // Pricing tier handlers
   const addPricingTier = () => {
     const lastTier = pricingTiers[pricingTiers.length - 1];
@@ -116,6 +77,7 @@ export default function CreateCoBuyModal({
   const updatePricingTier = (index: number, field: 'minQuantity' | 'pricePerItem', value: number) => {
     const newTiers = [...pricingTiers];
     newTiers[index] = { ...newTiers[index], [field]: value };
+    // Sort by minQuantity
     newTiers.sort((a, b) => a.minQuantity - b.minQuantity);
     setPricingTiers(newTiers);
   };
@@ -132,6 +94,7 @@ export default function CreateCoBuyModal({
     }
   }, []);
 
+  // Handle Daum Postcode API address search for delivery address (배송받을 장소)
   const handleDeliveryAddressSearch = () => {
     if (!(window as any).daum?.Postcode) {
       alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
@@ -154,6 +117,7 @@ export default function CreateCoBuyModal({
     }).open();
   };
 
+  // Handle Daum Postcode API address search for pickup address (배부 장소)
   const handlePickupAddressSearch = () => {
     if (!(window as any).daum?.Postcode) {
       alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
@@ -171,6 +135,7 @@ export default function CreateCoBuyModal({
         setDeliverySettings(prev => ({
           ...prev,
           pickupAddress: addressInfo,
+          // Also update pickupLocation for backward compatibility
           pickupLocation: data.roadAddress || data.jibunAddress,
         }));
       }
@@ -181,7 +146,7 @@ export default function CreateCoBuyModal({
   useEffect(() => {
     if (!isOpen) {
       setTimeout(() => {
-        setCurrentStep('welcome');
+        setCurrentStep('confirm');
         setTitle('');
         setDescription('');
         setStartDate('');
@@ -194,8 +159,7 @@ export default function CreateCoBuyModal({
         setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '', deliveryAddress: undefined, pickupAddress: undefined });
         setIsPublic(false);
         setCreatedSession(null);
-        setLinkCopied(false);
-      }, 300);
+      }, 300); // Wait for modal close animation
     }
   }, [isOpen]);
 
@@ -209,6 +173,7 @@ export default function CreateCoBuyModal({
   // Add size dropdown field automatically when modal opens
   useEffect(() => {
     if (isOpen && design && customFields.length === 0) {
+      // Add fixed size dropdown field
       const sizeField: CoBuyCustomField = {
         id: 'size-dropdown-fixed',
         type: 'dropdown',
@@ -217,18 +182,10 @@ export default function CreateCoBuyModal({
         fixed: true,
         options: design.product.size_options || [],
       };
+
       setCustomFields([sizeField]);
     }
   }, [isOpen, design, customFields.length]);
-
-  const navigateToStep = useCallback((newStep: Step, direction: 'left' | 'right') => {
-    setSlideDirection(direction);
-    setIsAnimating(true);
-    setTimeout(() => {
-      setCurrentStep(newStep);
-      setIsAnimating(false);
-    }, 150);
-  }, []);
 
   if (!isOpen || !design) return null;
 
@@ -238,31 +195,18 @@ export default function CreateCoBuyModal({
     }
   };
 
-  const getNextStep = (): Step | null => {
-    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'pricing', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
-    const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      return steps[currentIndex + 1];
-    }
-    return null;
-  };
-
-  const getPrevStep = (): Step | null => {
-    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'pricing', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
-    const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex > 0) {
-      return steps[currentIndex - 1];
-    }
-    return null;
-  };
-
   const handleNext = () => {
-    // Validation for each step
-    if (currentStep === 'title' && !title.trim()) {
-      alert('제목을 입력해주세요.');
-      return;
-    }
-    if (currentStep === 'schedule') {
+    if (currentStep === 'confirm') {
+      setCurrentStep('basic-info');
+    } else if (currentStep === 'basic-info') {
+      // Validate basic info
+      if (!title.trim()) {
+        alert('제목을 입력해주세요.');
+        return;
+      }
+      setCurrentStep('schedule');
+    } else if (currentStep === 'schedule') {
+      // Validate schedule
       if (!startDate || !endDate) {
         alert('시작일과 종료일을 선택해주세요.');
         return;
@@ -275,34 +219,48 @@ export default function CreateCoBuyModal({
         alert('수령 희망일을 선택해주세요.');
         return;
       }
-    }
-    if (currentStep === 'pricing' && pricingTiers.length === 0) {
-      alert('최소 하나의 가격 구간을 설정해주세요.');
-      return;
-    }
-    if (currentStep === 'delivery-address' && !deliverySettings.deliveryAddress?.roadAddress) {
-      alert('배송받을 장소를 입력해주세요.');
-      return;
-    }
-    if (currentStep === 'pickup-address' && !deliverySettings.pickupAddress?.roadAddress) {
-      alert('배부 장소를 입력해주세요.');
-      return;
-    }
-    if (currentStep === 'custom-fields' && customFields.length > 10) {
-      alert('커스텀 필드는 최대 10개까지 추가할 수 있습니다.');
-      return;
-    }
-
-    const nextStep = getNextStep();
-    if (nextStep) {
-      navigateToStep(nextStep, 'right');
+      setCurrentStep('pricing');
+    } else if (currentStep === 'pricing') {
+      // Validate pricing (at least one tier)
+      if (pricingTiers.length === 0) {
+        alert('최소 하나의 가격 구간을 설정해주세요.');
+        return;
+      }
+      setCurrentStep('delivery');
+    } else if (currentStep === 'delivery') {
+      // Validate delivery settings
+      if (!deliverySettings.deliveryAddress?.roadAddress) {
+        alert('배송받을 장소를 입력해주세요.');
+        return;
+      }
+      if (!deliverySettings.pickupAddress?.roadAddress) {
+        alert('배부 장소를 입력해주세요.');
+        return;
+      }
+      setCurrentStep('custom-fields');
+    } else if (currentStep === 'custom-fields') {
+      // Validate custom fields (max 10)
+      if (customFields.length > 10) {
+        alert('커스텀 필드는 최대 10개까지 추가할 수 있습니다.');
+        return;
+      }
+      setCurrentStep('review');
     }
   };
 
   const handleBack = () => {
-    const prevStep = getPrevStep();
-    if (prevStep) {
-      navigateToStep(prevStep, 'left');
+    if (currentStep === 'basic-info') {
+      setCurrentStep('confirm');
+    } else if (currentStep === 'schedule') {
+      setCurrentStep('basic-info');
+    } else if (currentStep === 'pricing') {
+      setCurrentStep('schedule');
+    } else if (currentStep === 'delivery') {
+      setCurrentStep('pricing');
+    } else if (currentStep === 'custom-fields') {
+      setCurrentStep('delivery');
+    } else if (currentStep === 'review') {
+      setCurrentStep('custom-fields');
     }
   };
 
@@ -330,7 +288,7 @@ export default function CreateCoBuyModal({
       }
 
       setCreatedSession(result);
-      navigateToStep('success', 'right');
+      setCurrentStep('success');
     } catch (error) {
       console.error('Error creating CoBuy session:', error);
       alert('공동구매 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -355,14 +313,11 @@ export default function CreateCoBuyModal({
       }
 
       await navigator.clipboard.writeText(shareUrl);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
     } catch (error) {
       console.error('Share failed:', error);
       try {
         await navigator.clipboard.writeText(shareUrl);
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
+        alert('링크가 복사되었습니다.');
       } catch (clipboardError) {
         console.error('Clipboard write failed:', clipboardError);
         alert('공유에 실패했습니다. 다시 시도해주세요.');
@@ -370,371 +325,303 @@ export default function CreateCoBuyModal({
     }
   };
 
-  const renderStepContent = () => {
-    const animationClass = isAnimating
-      ? slideDirection === 'right' ? 'opacity-0 translate-x-4' : 'opacity-0 -translate-x-4'
-      : 'opacity-100 translate-x-0';
+  return (
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4 pb-25">
+      <div className="bg-white rounded-md max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">공동구매 만들기</h2>
+          <button
+            onClick={handleClose}
+            disabled={isCreating}
+            className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
-    return (
-      <div className={`transition-all duration-150 ease-out ${animationClass}`}>
-        {/* Welcome */}
-        {currentStep === 'welcome' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-8 shadow-lg shadow-blue-500/25">
-              <Users className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">공동구매를 시작해볼까요?</h1>
-            <p className="text-lg text-gray-600 mb-8 max-w-md leading-relaxed">
-              함께 구매하면 더 저렴해요!<br />
-              친구들과 함께 할 수 있는 공동구매 링크를 만들어보세요.
-            </p>
+        {/* Content */}
+        <div className="p-4">
+          {/* Success */}
+          {currentStep === 'success' && createdSession && (
+            <div className="text-center py-10">
+              <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-green-600" />
+              <h3 className="text-2xl font-bold mb-2">공동구매가 생성되었어요!</h3>
+              <p className="text-gray-600 mb-8">링크를 공유하고 참여 현황을 확인해보세요.</p>
 
-            {/* Design Preview Card */}
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 mb-8 w-full max-w-sm border border-gray-200">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">선택된 디자인</p>
-              <div className="flex items-center gap-4">
-                {design.preview_url && (
-                  <div className="w-16 h-16 rounded-xl bg-white border border-gray-200 overflow-hidden flex-shrink-0">
-                    <img src={design.preview_url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900">{design.title || design.product.title}</p>
-                  <p className="text-sm text-gray-500">기본가 ₩{design.price_per_item.toLocaleString()}</p>
-                </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span>공유하기</span>
+                </button>
+
+                <Link
+                  href={`/home/my-page/cobuy/${createdSession.id}`}
+                  onClick={() => onClose()}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>관리 페이지</span>
+                </Link>
               </div>
             </div>
+          )}
 
-            {/* What you'll set up */}
-            <div className="text-left w-full max-w-sm mb-8">
-              <p className="text-sm font-medium text-gray-700 mb-3">설정할 항목들</p>
-              <div className="space-y-2">
-                {[
-                  { icon: <Tag className="w-4 h-4" />, text: '공동구매 제목과 설명' },
-                  { icon: <Calendar className="w-4 h-4" />, text: '시작일, 종료일, 수령일' },
-                  { icon: <Package className="w-4 h-4" />, text: '수량별 가격 설정' },
-                  { icon: <MapPin className="w-4 h-4" />, text: '배송 및 수령 장소' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 text-gray-600">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                      {item.icon}
-                    </div>
-                    <span className="text-sm">{item.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={handleNext}
-              className="w-full max-w-sm py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
-            >
-              <span>시작하기</span>
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
-        {/* Title Step */}
-        {currentStep === 'title' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
-                <Tag className="w-6 h-6 text-blue-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">공동구매 제목을 정해주세요</h2>
-              <p className="text-gray-600">
-                참여자들이 쉽게 알아볼 수 있는 제목을 입력해주세요.
+          {/* Step 1: Confirmation */}
+          {currentStep === 'confirm' && (
+            <div className="text-center py-8">
+              <Users className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+              <h3 className="text-2xl font-bold mb-2">공동구매를 실행하시겠어요?</h3>
+              <p className="text-gray-600 mb-6">
+                이 디자인으로 공동구매 링크를 만들어 친구들과 공유할 수 있습니다.
               </p>
-            </div>
 
-            <div className="space-y-4">
+              {/* Design Preview */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <p className="text-sm text-gray-500 mb-2">선택된 디자인</p>
+                <p className="font-bold">{design.title || design.product.title}</p>
+                <p className="text-sm text-gray-600">₩{design.price_per_item.toLocaleString()}</p>
+              </div>
+
+              <button
+                onClick={handleNext}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <span>시작하기</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Basic Info - Title & Description */}
+          {currentStep === 'basic-info' && (
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">1/5 단계</p>
+                <h3 className="text-lg font-semibold">기본 정보</h3>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2">
                   제목 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="예: 24학번 과잠 공동구매"
-                  className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  placeholder="공동구매 제목을 입력하세요"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   maxLength={100}
-                  autoFocus
                 />
-                <p className="text-sm text-gray-500 mt-2">{title.length}/100자</p>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-800">
-                  <strong>💡 팁:</strong> 구체적인 제목이 참여율을 높여요!<br />
-                  예: &ldquo;컴공과 24학번 MT 단체티&rdquo; 처럼요.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Description Step */}
-        {currentStep === 'description' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-purple-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">설명을 추가해볼까요?</h2>
-              <p className="text-gray-600">
-                공동구매에 대한 추가 설명을 적어주세요. (선택사항)
-              </p>
-            </div>
-
-            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  설명 <span className="text-gray-400">(선택)</span>
-                </label>
+                <label className="block text-sm font-medium mb-2">설명 (선택)</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="예: 이번 MT 단체티입니다! 사이즈는 넉넉하게 주문해주세요."
-                  className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all resize-none"
-                  rows={5}
+                  placeholder="공동구매에 대한 설명을 입력하세요"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
                   maxLength={500}
                 />
-                <p className="text-sm text-gray-500 mt-2">{description.length}/500자</p>
               </div>
 
-              <button
-                onClick={handleNext}
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                건너뛰기 →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Visibility Step */}
-        {currentStep === 'visibility' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-4">
-                <Globe className="w-6 h-6 text-green-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">공개 범위를 선택해주세요</h2>
-              <p className="text-gray-600">
-                공동구매를 누구에게 공개할지 선택해주세요.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <button
-                onClick={() => setIsPublic(false)}
-                className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
-                  !isPublic
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    !isPublic ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <Lock className="w-5 h-5" />
-                  </div>
+              {/* Public/Private Toggle */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">비공개</span>
-                      {!isPublic && <Check className="w-5 h-5 text-blue-500" />}
+                      {isPublic ? (
+                        <Globe className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-gray-500" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        {isPublic ? '공개 공동구매' : '비공개 공동구매'}
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      링크를 가진 사람만 참여할 수 있어요.<br />
-                      친구나 동아리 멤버와 공유하기 좋아요.
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isPublic
+                        ? '누구나 공동구매 목록에서 발견할 수 있습니다'
+                        : '링크를 가진 사람만 참여할 수 있습니다'}
                     </p>
                   </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setIsPublic(true)}
-                className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
-                  isPublic
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    isPublic ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <Globe className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">공개</span>
-                      {isPublic && <Check className="w-5 h-5 text-blue-500" />}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      누구나 공동구매 목록에서 발견할 수 있어요.<br />
-                      더 많은 참여자를 모집할 수 있어요.
-                    </p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Schedule Step */}
-        {currentStep === 'schedule' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
-                <Calendar className="w-6 h-6 text-orange-600" />
+                </label>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">일정을 설정해주세요</h2>
-              <p className="text-gray-600">
-                공동구매 시작일, 종료일, 그리고 수령 예정일을 알려주세요.
-              </p>
-            </div>
 
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Schedule - Dates */}
+          {currentStep === 'schedule' && (
             <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">2/5 단계</p>
+                <h3 className="text-lg font-semibold">일정 설정</h3>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2">
                     시작일 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2">
                     종료일 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-sm font-medium mb-2">
                   수령 희망일 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
                   value={receiveByDate}
                   onChange={(e) => setReceiveByDate(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-sm text-gray-500 mt-2">
-                  참여자들에게 예상 수령 시기를 안내해요
+                <p className="text-xs text-gray-500 mt-1">
+                  참여자에게 물품 수령 예정 시기를 안내합니다 (종료일 이후 가능)
                 </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>📅 참고:</strong> 종료일 이후에는 더 이상 참여를 받지 않아요. 충분한 기간을 설정해주세요.
-                </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Pricing Step */}
-        {currentStep === 'pricing' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                <Tag className="w-6 h-6 text-emerald-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">수량별 가격을 설정해주세요</h2>
-              <p className="text-gray-600">
-                주문 수량에 따라 단가를 다르게 설정할 수 있어요.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-3">
-                {pricingTiers.map((tier, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex-1 flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={tier.minQuantity}
-                        onChange={(e) => updatePricingTier(idx, 'minQuantity', Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 px-3 py-2 border-2 border-gray-200 rounded-lg text-center font-medium focus:outline-none focus:border-emerald-500"
-                        min="1"
-                      />
-                      <span className="text-sm text-gray-600">벌 이상</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">₩</span>
-                      <input
-                        type="number"
-                        value={tier.pricePerItem}
-                        onChange={(e) => updatePricingTier(idx, 'pricePerItem', Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-28 px-3 py-2 border-2 border-gray-200 rounded-lg text-right font-medium focus:outline-none focus:border-emerald-500"
-                        min="0"
-                        step="1000"
-                      />
-                    </div>
-                    {pricingTiers.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removePricingTier(idx)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addPricingTier}
-                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                단가 구간 추가
-              </button>
-
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                <p className="text-sm text-emerald-800">
-                  <strong>💰 팁:</strong> 수량이 많을수록 단가를 낮게 설정하면 더 많은 참여를 유도할 수 있어요!
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quantity Limits Step */}
-        {currentStep === 'quantity' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-cyan-100 flex items-center justify-center mb-4">
-                <Package className="w-6 h-6 text-cyan-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">수량 제한을 설정할까요?</h2>
-              <p className="text-gray-600">
-                최소/최대 주문 수량을 설정할 수 있어요. (선택사항)
-              </p>
-            </div>
-
+          {/* Step 4: Pricing - Tiers & Quantity */}
+          {currentStep === 'pricing' && (
             <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">3/5 단계</p>
+                <h3 className="text-lg font-semibold">가격 설정</h3>
+              </div>
+
+              {/* Pricing Tiers Editor */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">수량별 단가 설정</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      주문 수량에 따른 단가를 설정하세요. 참여자들에게 이 정보가 표시됩니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-4">
+                  {pricingTiers.map((tier, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={tier.minQuantity}
+                          onChange={(e) => updatePricingTier(idx, 'minQuantity', Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-20 px-2 py-1.5 border rounded text-sm text-center"
+                          min="1"
+                        />
+                        <span className="text-sm text-gray-600">벌 이상</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">₩</span>
+                        <input
+                          type="number"
+                          value={tier.pricePerItem}
+                          onChange={(e) => updatePricingTier(idx, 'pricePerItem', Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-24 px-2 py-1.5 border rounded text-sm text-right"
+                          min="0"
+                          step="1000"
+                        />
+                      </div>
+                      {pricingTiers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePricingTier(idx)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addPricingTier}
+                  className="mt-3 w-full py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  단가 구간 추가
+                </button>
+
+                <p className="text-xs text-gray-500 mt-3">
+                  * 수량이 많을수록 단가가 낮아지도록 설정하는 것이 일반적입니다
+                </p>
+              </div>
+
+              {/* Quantity Settings */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    최소 수량
+                  <label className="block text-sm font-medium mb-2">
+                    최소 수량 (선택)
                   </label>
                   <input
                     type="number"
@@ -742,13 +629,16 @@ export default function CreateCoBuyModal({
                     onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                     placeholder="제한 없음"
                     min="1"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 transition-all"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">이 수량 이상이어야 공구 진행</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    공구 진행에 필요한 최소 수량
+                  </p>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    최대 수량
+                  <label className="block text-sm font-medium mb-2">
+                    최대 수량 (선택)
                   </label>
                   <input
                     type="number"
@@ -756,314 +646,287 @@ export default function CreateCoBuyModal({
                     onChange={(e) => setMaxQuantity(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                     placeholder="제한 없음"
                     min="1"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 transition-all"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">비워두면 제한 없음</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    비워두면 수량 제한 없음
+                  </p>
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                <p className="font-medium text-gray-900 text-sm">💡 수량 설정 예시</p>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-600">•</span>
-                    <span><strong>최소만 설정:</strong> 30벌 이상 모이면 진행</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-600">•</span>
-                    <span><strong>최대만 설정:</strong> 100벌까지만 받음</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-600">•</span>
-                    <span><strong>둘 다 같게:</strong> 딱 50벌만 (가격 확정)</span>
-                  </li>
+              {/* Pricing Strategy Tips */}
+              <div className="bg-gray-50 rounded-lg p-4 text-sm">
+                <p className="font-medium text-gray-900 mb-2">💡 가격 설정 팁</p>
+                <ul className="space-y-1 text-gray-600">
+                  <li>• <strong>가격 고정:</strong> 최소/최대 수량을 같게 설정하면 단가가 확정됩니다</li>
+                  <li>• <strong>단가 할인:</strong> 최대 수량을 비워두고 참여자를 더 모아 단가를 낮출 수 있습니다</li>
+                  <li>• <strong>차액 환불:</strong> 임시 가격으로 결제 후, 최종 단가 확정 시 차액을 환불합니다</li>
                 </ul>
               </div>
 
-              <button
-                onClick={handleNext}
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                건너뛰기 (제한 없음) →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Delivery Address Step */}
-        {currentStep === 'delivery-address' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            {/* Load Daum Postcode Script */}
-            {!isPostcodeScriptLoaded && (
-              <Script
-                src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
-                strategy="lazyOnload"
-                onLoad={() => setIsPostcodeScriptLoaded(true)}
-              />
-            )}
-
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4">
-                <Truck className="w-6 h-6 text-indigo-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">배송받을 주소를 알려주세요</h2>
-              <p className="text-gray-600">
-                공동구매 주최자로서 제품을 배송받을 주소예요.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={deliverySettings.deliveryAddress?.postalCode || ''}
-                  readOnly
-                  className="w-28 px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500"
-                  placeholder="우편번호"
-                />
+              <div className="flex gap-3">
                 <button
-                  type="button"
-                  onClick={handleDeliveryAddressSearch}
-                  className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium flex items-center justify-center gap-2"
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Search className="w-5 h-5" />
-                  주소 검색
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
-
-              {deliverySettings.deliveryAddress?.roadAddress && (
-                <div className="space-y-3 animate-in slide-in-from-top-2 duration-200">
-                  <input
-                    type="text"
-                    value={deliverySettings.deliveryAddress.roadAddress}
-                    readOnly
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50"
-                  />
-                  <input
-                    type="text"
-                    value={deliverySettings.deliveryAddress.addressDetail || ''}
-                    onChange={(e) => setDeliverySettings(prev => ({
-                      ...prev,
-                      deliveryAddress: prev.deliveryAddress ? {
-                        ...prev.deliveryAddress,
-                        addressDetail: e.target.value
-                      } : undefined
-                    }))}
-                    placeholder="상세주소 (동/호수, 건물명 등)"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                    maxLength={100}
-                  />
-                </div>
-              )}
-
-              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                <p className="text-sm text-indigo-800">
-                  <strong>📦 참고:</strong> 이 주소로 공장에서 제품을 배송받아요. 배송 후 참여자들에게 배부해주세요.
-                </p>
-              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Pickup Address Step */}
-        {currentStep === 'pickup-address' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center mb-4">
-                <MapPin className="w-6 h-6 text-pink-600" />
+          {/* Step 5: Delivery - Addresses */}
+          {currentStep === 'delivery' && (
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">4/5 단계</p>
+                <h3 className="text-lg font-semibold">배송 설정</h3>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">배부 장소를 알려주세요</h2>
-              <p className="text-gray-600">
-                참여자들이 물품을 수령할 장소예요.
-              </p>
-            </div>
 
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={deliverySettings.pickupAddress?.postalCode || ''}
-                  readOnly
-                  className="w-28 px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500"
-                  placeholder="우편번호"
+              {/* Load Daum Postcode Script */}
+              {!isPostcodeScriptLoaded && (
+                <Script
+                  src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+                  strategy="lazyOnload"
+                  onLoad={() => setIsPostcodeScriptLoaded(true)}
                 />
-                <button
-                  type="button"
-                  onClick={handlePickupAddressSearch}
-                  className="flex-1 px-4 py-3 bg-pink-600 text-white rounded-xl hover:bg-pink-700 transition font-medium flex items-center justify-center gap-2"
-                >
-                  <Search className="w-5 h-5" />
-                  주소 검색
-                </button>
-              </div>
-
-              {deliverySettings.pickupAddress?.roadAddress && (
-                <div className="space-y-3 animate-in slide-in-from-top-2 duration-200">
-                  <input
-                    type="text"
-                    value={deliverySettings.pickupAddress.roadAddress}
-                    readOnly
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50"
-                  />
-                  <input
-                    type="text"
-                    value={deliverySettings.pickupAddress.addressDetail || ''}
-                    onChange={(e) => setDeliverySettings(prev => ({
-                      ...prev,
-                      pickupAddress: prev.pickupAddress ? {
-                        ...prev.pickupAddress,
-                        addressDetail: e.target.value
-                      } : undefined,
-                      pickupLocation: prev.pickupAddress ?
-                        `${prev.pickupAddress.roadAddress} ${e.target.value}`.trim() : ''
-                    }))}
-                    placeholder="상세주소 (동/호수, 건물명 등)"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-500/10 transition-all"
-                    maxLength={100}
-                  />
-                </div>
               )}
 
-              <div className="bg-pink-50 border border-pink-200 rounded-xl p-4">
-                <p className="text-sm text-pink-800">
-                  <strong>📍 팁:</strong> 학교, 동아리방, 회사 등 참여자들이 쉽게 찾아올 수 있는 장소가 좋아요!
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Delivery Option Step */}
-        {currentStep === 'delivery-option' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center mb-4">
-                <Gift className="w-6 h-6 text-teal-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">개별 배송을 허용할까요?</h2>
-              <p className="text-gray-600">
-                참여자가 직접 수령하지 않고 배송을 선택할 수 있게 해요.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <button
-                onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: false }))}
-                className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
-                  !deliverySettings.enabled
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    !deliverySettings.enabled ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <MapPin className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">직접 수령만</span>
-                      {!deliverySettings.enabled && <Check className="w-5 h-5 text-blue-500" />}
-                    </div>
+              {/* Delivery Settings */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <MapPin className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">수령 및 배송 설정</p>
                     <p className="text-sm text-gray-600 mt-1">
-                      모든 참여자가 지정된 장소에서 수령해요.
+                      배송받을 장소와 배부 장소를 입력하고, 개별 배송 허용 여부를 설정하세요.
                     </p>
                   </div>
                 </div>
-              </button>
 
-              <button
-                onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: true }))}
-                className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
-                  deliverySettings.enabled
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    deliverySettings.enabled ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <Truck className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">개별 배송 허용</span>
-                      {deliverySettings.enabled && <Check className="w-5 h-5 text-blue-500" />}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      참여자가 배송비를 추가로 내고 배송받을 수 있어요.
+                <div className="space-y-4 mt-4">
+                  {/* 배송받을 장소 - Delivery Address (where organizer receives products) */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      <Package className="w-4 h-4 inline-block mr-1" />
+                      배송받을 장소 <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      제품을 배송받을 주소입니다 (공동구매 주최자가 받을 장소)
                     </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={deliverySettings.deliveryAddress?.postalCode || ''}
+                        readOnly
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                        placeholder="우편번호"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDeliveryAddressSearch}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center gap-1.5"
+                      >
+                        <Search className="w-4 h-4" />
+                        주소 검색
+                      </button>
+                    </div>
+                    {deliverySettings.deliveryAddress?.roadAddress && (
+                      <>
+                        <input
+                          type="text"
+                          value={deliverySettings.deliveryAddress.roadAddress}
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 mb-2"
+                          placeholder="도로명 주소"
+                        />
+                        <input
+                          type="text"
+                          value={deliverySettings.deliveryAddress.addressDetail || ''}
+                          onChange={(e) => setDeliverySettings(prev => ({
+                            ...prev,
+                            deliveryAddress: prev.deliveryAddress ? {
+                              ...prev.deliveryAddress,
+                              addressDetail: e.target.value
+                            } : undefined
+                          }))}
+                          placeholder="상세주소 (동/호수, 건물명 등)"
+                          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          maxLength={100}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* 배부 장소 - Pickup Address (where participants pick up orders) */}
+                  <div className="border-t pt-4">
+                    <label className="block text-sm font-medium mb-2">
+                      <MapPin className="w-4 h-4 inline-block mr-1" />
+                      배부 장소 <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      참여자들이 물품을 수령할 장소입니다
+                    </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={deliverySettings.pickupAddress?.postalCode || ''}
+                        readOnly
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+                        placeholder="우편번호"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickupAddressSearch}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center gap-1.5"
+                      >
+                        <Search className="w-4 h-4" />
+                        주소 검색
+                      </button>
+                    </div>
+                    {deliverySettings.pickupAddress?.roadAddress && (
+                      <>
+                        <input
+                          type="text"
+                          value={deliverySettings.pickupAddress.roadAddress}
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 mb-2"
+                          placeholder="도로명 주소"
+                        />
+                        <input
+                          type="text"
+                          value={deliverySettings.pickupAddress.addressDetail || ''}
+                          onChange={(e) => setDeliverySettings(prev => ({
+                            ...prev,
+                            pickupAddress: prev.pickupAddress ? {
+                              ...prev.pickupAddress,
+                              addressDetail: e.target.value
+                            } : undefined,
+                            // Also update pickupLocation for backward compatibility
+                            pickupLocation: prev.pickupAddress ?
+                              `${prev.pickupAddress.roadAddress} ${e.target.value}`.trim() : ''
+                          }))}
+                          placeholder="상세주소 (동/호수, 건물명 등)"
+                          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          maxLength={100}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Enable separate delivery toggle */}
+                  <div className="border-t pt-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={deliverySettings.enabled}
+                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, enabled: e.target.checked }))}
+                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-900">개별 배송 허용</span>
+                        <p className="text-xs text-gray-500">참여자가 직접 수령 대신 배송을 선택할 수 있습니다</p>
+                      </div>
+                    </label>
+
+                    {deliverySettings.enabled && (
+                      <div className="mt-3 pl-8 flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm text-gray-600">배송비:</span>
+                        <span className="text-sm font-medium">₩{deliverySettings.deliveryFee.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </button>
-
-              {deliverySettings.enabled && (
-                <div className="p-4 bg-teal-50 rounded-xl border border-teal-200 animate-in slide-in-from-top-2 duration-200">
-                  <label className="block text-sm font-medium text-teal-800 mb-2">
-                    배송비
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-teal-600">₩</span>
-                    <input
-                      type="number"
-                      value={deliverySettings.deliveryFee}
-                      onChange={(e) => setDeliverySettings(prev => ({
-                        ...prev,
-                        deliveryFee: Math.max(0, parseInt(e.target.value) || 0)
-                      }))}
-                      className="w-32 px-3 py-2 border-2 border-teal-200 rounded-lg text-right font-medium focus:outline-none focus:border-teal-500"
-                      min="0"
-                      step="500"
-                    />
-                    <span className="text-sm text-teal-600">원</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Custom Fields Step */}
-        {currentStep === 'custom-fields' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center mb-4">
-                <Users className="w-6 h-6 text-violet-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">참여자 정보를 수집해요</h2>
-              <p className="text-gray-600">
-                참여자에게 추가로 받고 싶은 정보가 있나요?
-              </p>
-            </div>
 
-            <div className="space-y-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Custom Fields */}
+          {currentStep === 'custom-fields' && (
+            <div className="space-y-4 overflow-auto">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-500">5/5 단계</p>
+                <h3 className="text-lg font-semibold">참여자 정보 수집</h3>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div>
+                    <p className="font-medium text-blue-900 mb-1">참여자 정보 수집</p>
+                    <p className="text-sm text-blue-700">
+                      참여자들에게 받고 싶은 정보를 추가하세요.
+                    </p>
+                    <p className='text-sm text-blue-700'>(eg. 이니셜, 학번, 이름).</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick Add Buttons */}
-              <div className="bg-violet-50 rounded-xl p-4 border border-violet-200">
-                <p className="text-sm font-medium text-violet-800 mb-3">빠른 추가</p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">자주 사용하는 항목 빠르게 추가</p>
                 <div className="flex flex-wrap gap-2">
-                  {['이니셜', '학번', '연락처'].map((label) => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        if (customFields.length >= 10) {
-                          alert('최대 10개까지만 추가할 수 있습니다.');
-                          return;
-                        }
-                        const newField: CoBuyCustomField = {
-                          id: `field-${Date.now()}`,
-                          type: 'text',
-                          label,
-                          required: false,
-                        };
-                        setCustomFields([...customFields, newField]);
-                      }}
-                      className="px-4 py-2 bg-white border border-violet-200 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors text-violet-700"
-                    >
-                      + {label}
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => {
+                      if (customFields.length >= 10) {
+                        alert('최대 10개까지만 추가할 수 있습니다.');
+                        return;
+                      }
+                      const newField: CoBuyCustomField = {
+                        id: `field-${Date.now()}`,
+                        type: 'text',
+                        label: '이니셜',
+                        required: false,
+                      };
+                      setCustomFields([...customFields, newField]);
+                    }}
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    + 이니셜
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (customFields.length >= 10) {
+                        alert('최대 10개까지만 추가할 수 있습니다.');
+                        return;
+                      }
+                      const newField: CoBuyCustomField = {
+                        id: `field-${Date.now()}`,
+                        type: 'text',
+                        label: '학번',
+                        required: false,
+                      };
+                      setCustomFields([...customFields, newField]);
+                    }}
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    + 학번
+                  </button>
                 </div>
               </div>
 
@@ -1073,279 +936,181 @@ export default function CreateCoBuyModal({
                 maxFields={10}
               />
 
-              <p className="text-sm text-gray-500">
-                * 사이즈 선택은 자동으로 추가되어 있어요
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Review Step */}
-        {currentStep === 'review' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mb-4">
-                <CheckCircle2 className="w-6 h-6 text-amber-600" />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>다음</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">모든 준비가 완료됐어요!</h2>
-              <p className="text-gray-600">
-                입력하신 정보를 확인해주세요.
-              </p>
             </div>
+          )}
 
-            <div className="space-y-4">
-              <div className="bg-gray-50 rounded-2xl p-5 space-y-4">
-                {/* Basic Info */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">기본 정보</p>
-                  <p className="font-semibold text-gray-900">{title}</p>
-                  {description && <p className="text-sm text-gray-600 mt-1">{description}</p>}
-                  <div className="flex items-center gap-2 mt-2">
+          {/* Step 7: Review */}
+          {currentStep === 'review' && (
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                <h3 className="font-bold text-lg mb-4">공동구매 정보 확인</h3>
+
+                <div>
+                  <p className="text-sm text-gray-500">제목</p>
+                  <p className="font-medium">{title}</p>
+                </div>
+
+                {description && (
+                  <div>
+                    <p className="text-sm text-gray-500">설명</p>
+                    <p className="text-sm">{description}</p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm text-gray-500">공개 설정</p>
+                  <div className="flex items-center gap-2 mt-1">
                     {isPublic ? (
                       <>
                         <Globe className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm text-blue-600">공개</span>
+                        <span className="text-sm font-medium text-blue-600">공개 공동구매</span>
                       </>
                     ) : (
                       <>
                         <Lock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">비공개</span>
+                        <span className="text-sm font-medium text-gray-600">비공개 공동구매</span>
                       </>
                     )}
                   </div>
                 </div>
 
-                {/* Schedule */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">일정</p>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-500">시작</p>
-                      <p className="font-medium">{new Date(startDate).toLocaleDateString('ko-KR')}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">종료</p>
-                      <p className="font-medium">{new Date(endDate).toLocaleDateString('ko-KR')}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-gray-500">수령 예정</p>
-                      <p className="font-medium">{new Date(receiveByDate).toLocaleDateString('ko-KR')}</p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">시작일</p>
+                    <p className="text-sm font-medium">
+                      {new Date(startDate).toLocaleString('ko-KR')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">종료일</p>
+                    <p className="text-sm font-medium">
+                      {new Date(endDate).toLocaleString('ko-KR')}
+                    </p>
                   </div>
                 </div>
 
-                {/* Pricing */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">가격 구간</p>
+                <div>
+                  <p className="text-sm text-gray-500">수령 희망일</p>
+                  <p className="text-sm font-medium">
+                    {new Date(receiveByDate).toLocaleString('ko-KR')}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">최소 수량</p>
+                    <p className="text-sm font-medium">
+                      {minQuantity === '' ? '제한 없음' : `${minQuantity}벌`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">최대 수량</p>
+                    <p className="text-sm font-medium">
+                      {maxQuantity === '' ? '제한 없음' : `${maxQuantity}벌`}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">수량별 단가</p>
                   <div className="flex flex-wrap gap-2">
                     {pricingTiers.map((tier, idx) => (
-                      <span key={idx} className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-medium">
+                      <span key={idx} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">
                         {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
                       </span>
                     ))}
                   </div>
-                  {(minQuantity || maxQuantity) && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      수량: {minQuantity || '제한없음'} ~ {maxQuantity || '제한없음'}
-                    </p>
-                  )}
                 </div>
 
-                {/* Delivery */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">배송/수령</p>
-                  {deliverySettings.deliveryAddress && (
-                    <p className="text-sm text-gray-600">
-                      📦 {deliverySettings.deliveryAddress.roadAddress} {deliverySettings.deliveryAddress.addressDetail}
-                    </p>
-                  )}
-                  {deliverySettings.pickupAddress && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      📍 {deliverySettings.pickupAddress.roadAddress} {deliverySettings.pickupAddress.addressDetail}
-                    </p>
-                  )}
-                  {deliverySettings.enabled && (
-                    <p className="text-sm text-emerald-600 mt-2">
-                      ✓ 개별 배송 가능 (₩{deliverySettings.deliveryFee.toLocaleString()})
-                    </p>
-                  )}
-                </div>
-
-                {/* Custom Fields */}
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    수집 정보 ({customFields.length}개)
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-sm text-gray-500 mb-2">수집할 정보 ({customFields.length}개)</p>
+                  <div className="space-y-2">
                     {customFields.map((field) => (
-                      <span key={field.id} className="bg-violet-100 text-violet-700 px-3 py-1 rounded-full text-sm">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </span>
+                      <div key={field.id} className="flex items-center gap-2 text-sm">
+                        <span className="font-medium">{field.label}</span>
+                        <span className="text-gray-500">({field.type})</span>
+                        {field.required && <span className="text-red-500">*</span>}
+                        {field.fixed && <span className="text-blue-500">(고정)</span>}
+                      </div>
                     ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">수령 및 배송</p>
+                  <div className="space-y-2">
+                    {deliverySettings.deliveryAddress && (
+                      <div>
+                        <p className="text-xs text-gray-400">배송받을 장소</p>
+                        <p className="text-sm text-gray-600">
+                          {deliverySettings.deliveryAddress.roadAddress}
+                          {deliverySettings.deliveryAddress.addressDetail && ` ${deliverySettings.deliveryAddress.addressDetail}`}
+                        </p>
+                      </div>
+                    )}
+                    {deliverySettings.pickupAddress && (
+                      <div>
+                        <p className="text-xs text-gray-400">배부 장소</p>
+                        <p className="text-sm text-gray-600">
+                          {deliverySettings.pickupAddress.roadAddress}
+                          {deliverySettings.pickupAddress.addressDetail && ` ${deliverySettings.pickupAddress.addressDetail}`}
+                        </p>
+                      </div>
+                    )}
+                    {deliverySettings.enabled ? (
+                      <p className="text-sm font-medium text-green-600">
+                        ✓ 개별 배송 허용 (배송비: ₩{deliverySettings.deliveryFee.toLocaleString()})
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">직접 수령만 가능</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-800">
-                  <strong>⚠️ 확인:</strong> 생성 후에도 일부 정보는 수정할 수 있어요.
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ 공동구매를 생성하면 링크가 생성됩니다. 링크를 공유하여 참여자를 모집하세요.
                 </p>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Success Step */}
-        {currentStep === 'success' && createdSession && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mb-8 shadow-lg shadow-green-500/25 animate-in zoom-in-50 duration-300">
-              <CheckCircle2 className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-              공동구매가 생성됐어요! 🎉
-            </h1>
-            <p className="text-lg text-gray-600 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
-              링크를 공유하고 친구들을 초대해보세요.
-            </p>
-
-            {/* Share URL Card */}
-            <div className="w-full max-w-sm bg-gray-50 rounded-2xl p-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
-              <p className="text-xs font-medium text-gray-500 mb-2">공유 링크</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm text-gray-700 truncate bg-white px-3 py-2 rounded-lg border border-gray-200">
-                  {`${typeof window !== 'undefined' ? window.location.origin : ''}/cobuy/${createdSession.share_token}`}
-                </code>
+              <div className="flex gap-3">
                 <button
-                  onClick={handleShare}
-                  className={`p-2 rounded-lg transition-all ${
-                    linkCopied
-                      ? 'bg-green-100 text-green-600'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
+                  onClick={handleBack}
+                  disabled={isCreating}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {linkCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>이전</span>
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={isCreating}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreating ? '생성 중...' : '공동구매 만들기'}
                 </button>
               </div>
-              {linkCopied && (
-                <p className="text-sm text-green-600 mt-2 animate-in fade-in duration-200">
-                  링크가 복사되었어요!
-                </p>
-              )}
             </div>
-
-            <div className="flex gap-3 w-full max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-500 delay-400">
-              <button
-                type="button"
-                onClick={handleShare}
-                className="flex-1 py-4 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              >
-                <Share2 className="w-5 h-5" />
-                <span>공유하기</span>
-              </button>
-
-              <Link
-                href={`/home/my-page/cobuy/${createdSession.id}`}
-                onClick={() => onClose()}
-                className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
-              >
-                <span>관리하기</span>
-                <ChevronRight className="w-5 h-5" />
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      {/* Header */}
-      <header className="flex-shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
-            {currentStep !== 'welcome' && currentStep !== 'success' && (
-              <button
-                onClick={handleBack}
-                className="p-2 -ml-2 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
-            )}
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">공동구매 만들기</h1>
-              {currentStep !== 'welcome' && currentStep !== 'success' && (
-                <p className="text-sm text-gray-500">
-                  {STEPS.find(s => s.id === currentStep)?.label}
-                </p>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={handleClose}
-            disabled={isCreating}
-            className="p-2 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
-          >
-            <X className="w-6 h-6 text-gray-500" />
-          </button>
+          )}
         </div>
-
-        {/* Progress Bar */}
-        {currentStep !== 'success' && (
-          <div className="px-6 pb-4">
-            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              {currentStepIndex + 1} / {STEPS.length}
-            </p>
-          </div>
-        )}
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto">
-        {renderStepContent()}
-      </main>
-
-      {/* Footer Navigation */}
-      {currentStep !== 'welcome' && currentStep !== 'success' && (
-        <footer className="flex-shrink-0 border-t border-gray-200 bg-white p-4 safe-area-inset-bottom">
-          <div className="max-w-lg mx-auto flex gap-3">
-            {currentStep !== 'review' ? (
-              <button
-                onClick={handleNext}
-                className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
-              >
-                <span>다음</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            ) : (
-              <button
-                onClick={handleCreate}
-                disabled={isCreating}
-                className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/25 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isCreating ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>생성 중...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    <span>공동구매 만들기</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </footer>
-      )}
+      </div>
     </div>
   );
 }

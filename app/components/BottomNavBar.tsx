@@ -17,11 +17,6 @@ type NavItem = {
 export default function BottomNavBar() {
   const pathname = usePathname();
 
-  // Hide bottom nav on full-screen pages
-  if (pathname?.startsWith('/home/cobuy/create')) {
-    return null;
-  }
-
   const navItems: NavItem[] = [
     {
       id: 'home',

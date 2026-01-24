@@ -1,33 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Script from 'next/script';
-import {
-  ArrowLeft, ArrowRight, Info, Ruler, X, Users, Calendar, MapPin, Truck,
-  Package, User, Mail, Phone, CheckCircle2, CreditCard, Plus, Minus, Trash2, Search, Check
-} from 'lucide-react';
+import { Info, Ruler, X } from 'lucide-react';
 import { addParticipant, getCoBuySessionByToken } from '@/lib/cobuyService';
 import Header from '@/app/components/Header';
-import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot, CoBuySelectedItem, CoBuyDeliveryMethod, CoBuyDeliveryInfo, CoBuyCustomField } from '@/types/types';
+import { CoBuySessionWithDetails, Product, ProductConfig, SavedDesignScreenshot } from '@/types/types';
 import { generateCoBuyOrderId } from '@/lib/orderIdUtils';
 import CoBuyDesignViewer from '@/app/components/cobuy/CoBuyDesignViewer';
+import ParticipantForm, { ParticipantFormData } from '@/app/components/cobuy/ParticipantForm';
 import CoBuyClosedScreen from '@/app/components/cobuy/CoBuyClosedScreen';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 import { createClient } from '@/lib/supabase-client';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type DesignWithProduct = SavedDesignScreenshot & { product?: Product };
-
-type Step =
-  | 'welcome'
-  | 'size-quantity'
-  | 'personal-info'
-  | 'delivery-method'
-  | 'delivery-address'
-  | 'custom-fields'
-  | 'review'
-  | 'payment';
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return '-';
@@ -41,7 +28,7 @@ const formatDate = (dateString?: string | null) => {
 
 const formatPrice = (price?: number | null) => {
   if (price === null || price === undefined) return '-';
-  return `₩${price.toLocaleString('ko-KR')}`;
+  return `${price.toLocaleString('ko-KR')}원`;
 };
 
 export default function CoBuySharePage() {
@@ -49,37 +36,19 @@ export default function CoBuySharePage() {
   const rawShareToken = params.shareToken;
   const shareToken = Array.isArray(rawShareToken) ? rawShareToken[0] : (rawShareToken as string);
 
-  // Session state
   const [session, setSession] = useState<CoBuySessionWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // Step navigation
-  const [currentStep, setCurrentStep] = useState<Step>('welcome');
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
-
-  // Form state
-  const [selectedItems, setSelectedItems] = useState<CoBuySelectedItem[]>([{ size: '', quantity: 1 }]);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [deliveryMethod, setDeliveryMethod] = useState<CoBuyDeliveryMethod | null>(null);
-  const [deliveryInfo, setDeliveryInfo] = useState<CoBuyDeliveryInfo | null>(null);
-  const [fieldResponses, setFieldResponses] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Submission state
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
-
-  // UI state
+  const [participantInfo, setParticipantInfo] = useState<ParticipantFormData | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isDiscountInfoOpen, setIsDiscountInfoOpen] = useState(false);
   const [isSizingChartOpen, setIsSizingChartOpen] = useState(false);
-  const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
+  const discountInfoRef = useRef<HTMLDivElement | null>(null);
 
-  // Fetch session data
   useEffect(() => {
     if (!shareToken) return;
 
@@ -93,10 +62,6 @@ export default function CoBuySharePage() {
         setSession(null);
       } else {
         setSession(data);
-        // Set default delivery method
-        if (!data.delivery_settings?.enabled) {
-          setDeliveryMethod('pickup');
-        }
       }
 
       setIsLoading(false);
@@ -105,7 +70,7 @@ export default function CoBuySharePage() {
     fetchSession();
   }, [shareToken]);
 
-  // Real-time subscription
+  // Real-time subscription for session updates (participant count, total quantity, etc.)
   useEffect(() => {
     if (!session?.id) return;
 
@@ -122,12 +87,14 @@ export default function CoBuySharePage() {
           filter: `id=eq.${session.id}`,
         },
         (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          // Update session with new values while preserving related data
           setSession((prev) => {
             if (!prev) return prev;
             const newData = payload.new as Record<string, unknown>;
             return {
               ...prev,
               ...newData,
+              // Preserve nested objects that aren't in the update
               saved_design_screenshot: prev.saved_design_screenshot,
               participants: prev.participants,
             };
@@ -141,21 +108,66 @@ export default function CoBuySharePage() {
     };
   }, [session?.id]);
 
-  // Check Daum Postcode script
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
-      setIsPostcodeScriptLoaded(true);
-    }
-  }, []);
+    if (!isDiscountInfoOpen) return;
 
-  // Derived state
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (discountInfoRef.current?.contains(target)) return;
+      setIsDiscountInfoOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDiscountInfoOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDiscountInfoOpen]);
+
   const design = session?.saved_design_screenshot as DesignWithProduct | undefined;
   const product = design?.product;
-  const pricingTiers = useMemo(() => session?.pricing_tiers || [], [session]);
-  const deliverySettings = useMemo(() => session?.delivery_settings || null, [session]);
-  const customFields = useMemo(() => (session?.custom_fields || []).filter(f => !f.fixed), [session]);
-  const sizeOptions = useMemo(() => product?.size_options || [], [product]);
+
+  const paidParticipantCount = session?.current_participant_count ?? 0;
   const currentTotalQuantity = session?.current_total_quantity ?? 0;
+
+  // Calculate progress based on pricing tiers
+  const getProgressInfo = useMemo(() => {
+    const tiers = session?.pricing_tiers || [];
+    if (tiers.length === 0) {
+      return {
+        progressPercent: 0,
+        targetQuantity: 100,
+        currentQuantity: currentTotalQuantity,
+        nextTierQuantity: null,
+        currentPrice: design?.price_per_item ?? 0,
+      };
+    }
+
+    const sortedTiers = [...tiers].sort((a, b) => a.minQuantity - b.minQuantity);
+    const maxTierQuantity = sortedTiers[sortedTiers.length - 1]?.minQuantity || 100;
+
+    // Find current applicable tier
+    const sortedDesc = [...tiers].sort((a, b) => b.minQuantity - a.minQuantity);
+    const currentTier = sortedDesc.find(tier => currentTotalQuantity >= tier.minQuantity);
+
+    // Find next tier
+    const nextTier = sortedTiers.find(tier => currentTotalQuantity < tier.minQuantity);
+
+    return {
+      progressPercent: Math.min(100, Math.round((currentTotalQuantity / maxTierQuantity) * 100)),
+      targetQuantity: maxTierQuantity,
+      currentQuantity: currentTotalQuantity,
+      nextTierQuantity: nextTier?.minQuantity || null,
+      currentPrice: currentTier?.pricePerItem ?? design?.price_per_item ?? 0,
+      nextTierPrice: nextTier?.pricePerItem || null,
+    };
+  }, [session?.pricing_tiers, currentTotalQuantity, design?.price_per_item]);
 
   const productConfig: ProductConfig | null = useMemo(() => {
     if (!product?.configuration) return null;
@@ -170,77 +182,48 @@ export default function CoBuySharePage() {
     return colorSelections?.productColor || '#FFFFFF';
   }, [design]);
 
-  // Calculate total quantity
-  const getTotalQuantity = () => {
-    return selectedItems.reduce((sum, item) => sum + item.quantity, 0);
-  };
+  const sizeOptions = useMemo(() => {
+    return product?.size_options || [];
+  }, [product]);
 
-  // Calculate applicable price
+  const pricingTiers = useMemo(() => {
+    return session?.pricing_tiers || [];
+  }, [session]);
+
+  const deliverySettings = useMemo(() => {
+    return session?.delivery_settings || null;
+  }, [session]);
+
+  // Calculate applicable price based on quantity and pricing tiers
   const getApplicablePrice = (quantity: number) => {
-    const projectedTotal = currentTotalQuantity + quantity;
+    const currentTotal = session?.current_total_quantity || 0;
+    const projectedTotal = currentTotal + quantity;
+
     if (pricingTiers.length === 0) return design?.price_per_item ?? 0;
 
+    // Sort tiers by minQuantity descending to find the highest applicable tier
     const sortedTiers = [...pricingTiers].sort((a, b) => b.minQuantity - a.minQuantity);
     const applicableTier = sortedTiers.find(tier => projectedTotal >= tier.minQuantity);
+
     return applicableTier?.pricePerItem ?? design?.price_per_item ?? 0;
   };
 
-  const currentPrice = getApplicablePrice(getTotalQuantity());
-  const deliveryFee = deliveryMethod === 'delivery' ? (deliverySettings?.deliveryFee || 0) : 0;
-  const totalAmount = Math.round(currentPrice * getTotalQuantity()) + deliveryFee;
-
-  // Get progress info
-  const getProgressInfo = useMemo(() => {
-    const tiers = pricingTiers;
-    if (tiers.length === 0) {
-      return {
-        progressPercent: 0,
-        targetQuantity: 100,
-        currentQuantity: currentTotalQuantity,
-        nextTierQuantity: null,
-        currentPrice: design?.price_per_item ?? 0,
-      };
-    }
-
-    const sortedTiers = [...tiers].sort((a, b) => a.minQuantity - b.minQuantity);
-    const maxTierQuantity = sortedTiers[sortedTiers.length - 1]?.minQuantity || 100;
-    const sortedDesc = [...tiers].sort((a, b) => b.minQuantity - a.minQuantity);
-    const currentTier = sortedDesc.find(tier => currentTotalQuantity >= tier.minQuantity);
-    const nextTier = sortedTiers.find(tier => currentTotalQuantity < tier.minQuantity);
-
-    return {
-      progressPercent: Math.min(100, Math.round((currentTotalQuantity / maxTierQuantity) * 100)),
-      targetQuantity: maxTierQuantity,
-      currentQuantity: currentTotalQuantity,
-      nextTierQuantity: nextTier?.minQuantity || null,
-      currentPrice: currentTier?.pricePerItem ?? design?.price_per_item ?? 0,
-      nextTierPrice: nextTier?.pricePerItem || null,
-    };
-  }, [pricingTiers, currentTotalQuantity, design?.price_per_item]);
-
-  // Get next tier info
-  const getNextTierInfo = () => {
-    if (pricingTiers.length === 0) return null;
-    const projectedTotal = currentTotalQuantity + getTotalQuantity();
-    const sortedTiers = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity);
-    const nextTier = sortedTiers.find(tier => projectedTotal < tier.minQuantity);
-
-    if (!nextTier) return null;
-    return {
-      quantityNeeded: nextTier.minQuantity - projectedTotal,
-      nextPrice: nextTier.pricePerItem,
-    };
-  };
-
-  // Closed reason check
   const closedReason = useMemo(() => {
     if (!session) return null;
-    if (session.status === 'cancelled') return 'cancelled' as const;
-    if (session.status !== 'gathering') return 'closed' as const;
+
+    if (session.status === 'cancelled') {
+      return 'cancelled' as const;
+    }
+
+    if (session.status !== 'gathering') {
+      return 'closed' as const;
+    }
 
     const now = new Date();
     const endDate = new Date(session.end_date);
-    if (now > endDate) return 'expired' as const;
+    if (now > endDate) {
+      return 'expired' as const;
+    }
 
     if (session.max_participants !== null &&
       session.current_participant_count >= session.max_participants) {
@@ -250,160 +233,7 @@ export default function CoBuySharePage() {
     return null;
   }, [session]);
 
-  // Build step list dynamically
-  const getSteps = (): Step[] => {
-    const steps: Step[] = ['welcome', 'size-quantity', 'personal-info'];
-
-    if (deliverySettings?.enabled) {
-      steps.push('delivery-method');
-      if (deliveryMethod === 'delivery') {
-        steps.push('delivery-address');
-      }
-    }
-
-    if (customFields.length > 0) {
-      steps.push('custom-fields');
-    }
-
-    steps.push('review', 'payment');
-    return steps;
-  };
-
-  const steps = getSteps();
-  const currentStepIndex = steps.indexOf(currentStep);
-  const progress = ((currentStepIndex + 1) / steps.length) * 100;
-
-  // Navigation handlers
-  const handleNext = () => {
-    // Validate current step
-    if (!validateCurrentStep()) return;
-
-    const nextIndex = currentStepIndex + 1;
-    if (nextIndex < steps.length) {
-      setSlideDirection('right');
-      setIsAnimating(true);
-      setTimeout(() => {
-        setCurrentStep(steps[nextIndex]);
-        setIsAnimating(false);
-      }, 150);
-    }
-  };
-
-  const handleBack = () => {
-    const prevIndex = currentStepIndex - 1;
-    if (prevIndex >= 0) {
-      setSlideDirection('left');
-      setIsAnimating(true);
-      setTimeout(() => {
-        setCurrentStep(steps[prevIndex]);
-        setIsAnimating(false);
-      }, 150);
-    }
-  };
-
-  // Validation
-  const validateCurrentStep = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    switch (currentStep) {
-      case 'size-quantity':
-        selectedItems.forEach((item, index) => {
-          if (!item.size) newErrors[`item-${index}-size`] = '사이즈를 선택해주세요';
-        });
-        break;
-
-      case 'personal-info':
-        if (!name.trim()) newErrors.name = '이름을 입력해주세요';
-        if (!email.trim()) {
-          newErrors.email = '이메일을 입력해주세요';
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          newErrors.email = '올바른 이메일 형식이 아닙니다';
-        }
-        if (!phone.trim()) {
-          newErrors.phone = '전화번호를 입력해주세요';
-        }
-        break;
-
-      case 'delivery-method':
-        if (!deliveryMethod) newErrors.deliveryMethod = '수령 방법을 선택해주세요';
-        break;
-
-      case 'delivery-address':
-        if (!deliveryInfo?.recipientName?.trim()) newErrors.recipientName = '수령인 이름을 입력해주세요';
-        if (!deliveryInfo?.phone?.trim()) newErrors.deliveryPhone = '연락처를 입력해주세요';
-        if (!deliveryInfo?.address?.trim()) newErrors.address = '주소를 입력해주세요';
-        if (!deliveryInfo?.addressDetail?.trim()) newErrors.addressDetail = '상세 주소를 입력해주세요';
-        break;
-
-      case 'custom-fields':
-        customFields.forEach(field => {
-          if (field.required && (!fieldResponses[field.id] || !fieldResponses[field.id].trim())) {
-            newErrors[field.id] = `${field.label}을(를) 입력해주세요`;
-          }
-        });
-        break;
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Item handlers
-  const handleItemSizeChange = (index: number, size: string) => {
-    const newItems = [...selectedItems];
-    newItems[index] = { ...newItems[index], size };
-    setSelectedItems(newItems);
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[`item-${index}-size`];
-      return newErrors;
-    });
-  };
-
-  const handleItemQuantityChange = (index: number, quantity: number) => {
-    const newItems = [...selectedItems];
-    newItems[index] = { ...newItems[index], quantity: Math.max(1, quantity) };
-    setSelectedItems(newItems);
-  };
-
-  const addItem = () => {
-    setSelectedItems([...selectedItems, { size: '', quantity: 1 }]);
-  };
-
-  const removeItem = (index: number) => {
-    if (selectedItems.length <= 1) return;
-    setSelectedItems(selectedItems.filter((_, i) => i !== index));
-  };
-
-  // Address search
-  const handleAddressSearch = () => {
-    if (!(window as any).daum?.Postcode) {
-      alert('주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
-      return;
-    }
-
-    new (window as any).daum.Postcode({
-      oncomplete: function(data: any) {
-        setDeliveryInfo(prev => ({
-          recipientName: prev?.recipientName || '',
-          phone: prev?.phone || '',
-          address: data.roadAddress || data.jibunAddress,
-          addressDetail: prev?.addressDetail || '',
-          postalCode: data.zonecode,
-          memo: prev?.memo || '',
-        }));
-        setErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors.address;
-          delete newErrors.postalCode;
-          return newErrors;
-        });
-      }
-    }).open();
-  };
-
-  // Submit handler
-  const handleSubmit = async () => {
+  const handleSubmit = async (data: ParticipantFormData) => {
     if (!session) return;
 
     setIsSubmitting(true);
@@ -411,15 +241,15 @@ export default function CoBuySharePage() {
 
     const participant = await addParticipant({
       sessionId: session.id,
-      name,
-      email,
-      phone,
-      fieldResponses,
-      selectedSize: selectedItems[0]?.size || '',
-      selectedItems,
-      deliveryMethod,
-      deliveryInfo,
-      deliveryFee,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      fieldResponses: data.fieldResponses,
+      selectedSize: data.selectedSize,
+      selectedItems: data.selectedItems,
+      deliveryMethod: data.deliveryMethod,
+      deliveryInfo: data.deliveryInfo,
+      deliveryFee: data.deliveryFee,
     });
 
     if (!participant) {
@@ -428,72 +258,59 @@ export default function CoBuySharePage() {
       return;
     }
 
+    const totalQuantity = data.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const applicablePrice = getApplicablePrice(totalQuantity);
+    const paymentAmount = Math.round(applicablePrice * totalQuantity) + (data.deliveryFee || 0);
     const generatedOrderId = generateCoBuyOrderId();
-
-    // Notify participant joined
     fetch('/api/cobuy/notify/participant-joined', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         sessionId: session.id,
         participantId: participant.id,
       }),
     }).catch((error) => console.error('Failed to notify participant joined:', error));
 
-    // Store payment context
     try {
       sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
         participantId: participant.id,
         sessionId: session.id,
         shareToken,
         orderId: generatedOrderId,
-        amount: totalAmount,
+        amount: paymentAmount,
       }));
     } catch (error) {
       console.error('Failed to persist CoBuy payment context:', error);
     }
 
     setParticipantId(participant.id);
+    setParticipantInfo(data);
     setOrderId(generatedOrderId);
+    setIsSubmitted(true);
     setIsSubmitting(false);
-
-    // Move to payment step
-    setSlideDirection('right');
-    setIsAnimating(true);
-    setTimeout(() => {
-      setCurrentStep('payment');
-      setIsAnimating(false);
-    }, 150);
   };
 
-  // Render loading/error states
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent mb-4" />
-          <p className="text-gray-500">공동구매 정보를 불러오는 중...</p>
-        </div>
+        <p className="text-gray-500">공동구매 정보를 불러오는 중입니다...</p>
       </div>
     );
   }
 
   if (fetchError) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <X className="w-8 h-8 text-gray-400" />
-          </div>
-          <p className="text-gray-600">{fetchError}</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">{fetchError}</p>
       </div>
     );
   }
 
   if (!session || !design || !productConfig) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-500">공동구매 정보를 찾을 수 없습니다.</p>
       </div>
     );
@@ -511,877 +328,258 @@ export default function CoBuySharePage() {
     );
   }
 
-  // Animation class
-  const animationClass = isAnimating
-    ? slideDirection === 'right' ? 'opacity-0 translate-x-4' : 'opacity-0 -translate-x-4'
-    : 'opacity-100 translate-x-0';
-
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      {/* Daum Postcode Script */}
-      {!isPostcodeScriptLoaded && (
-        <Script
-          src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
-          strategy="lazyOnload"
-          onLoad={() => setIsPostcodeScriptLoaded(true)}
-        />
-      )}
-
-      {/* Header */}
-      <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
-          <div className="flex items-center gap-3 md:gap-4">
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-gray-900 line-clamp-1">{session.title}</h1>
-              {currentStep !== 'welcome' && currentStep !== 'payment' && (
-                <p className="text-xs md:text-sm text-gray-500">
-                  {currentStep === 'size-quantity' && '사이즈 및 수량'}
-                  {currentStep === 'personal-info' && '참여자 정보'}
-                  {currentStep === 'delivery-method' && '수령 방법'}
-                  {currentStep === 'delivery-address' && '배송 정보'}
-                  {currentStep === 'custom-fields' && '추가 정보'}
-                  {currentStep === 'review' && '주문 확인'}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        {currentStep !== 'welcome' && (
-          <div className="px-4 pb-3 md:px-6 md:pb-4">
-            <div className="h-1 md:h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-[10px] md:text-xs text-gray-500 mt-1.5 md:mt-2">
-              {currentStepIndex + 1} / {steps.length}
-            </p>
-          </div>
-        )}
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className={`transition-all duration-150 ease-out ${animationClass}`}>
-          {/* Welcome Step */}
-          {currentStep === 'welcome' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              {/* Session Info */}
-              <div className="text-center mb-6">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/25">
-                  <Users className="w-7 h-7 md:w-8 md:h-8 text-white" />
-                </div>
-                <p className="text-xs md:text-sm text-blue-600 font-medium mb-2">공동구매 참여</p>
-                <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">{session.title}</h1>
-                {session.description && (
-                  <p className="text-sm md:text-base text-gray-600">{session.description}</p>
-                )}
-              </div>
-
-              {/* Design Preview */}
-              <div className="bg-gray-100 rounded-2xl overflow-hidden mb-6">
-                <CoBuyDesignViewer
-                  config={productConfig}
-                  canvasState={design.canvas_state as Record<string, string>}
-                  productColor={productColor}
-                />
-                {product?.sizing_chart_image && (
-                  <div className="p-3 bg-white border-t border-gray-200">
-                    <button
-                      type="button"
-                      onClick={() => setIsSizingChartOpen(true)}
-                      className="flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
-                    >
-                      <Ruler className="w-4 h-4" />
-                      사이즈 정보 보기
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Session Details */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">마감일: {formatDate(session.end_date)}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Users className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">
-                    현재 {session.current_participant_count}명 참여
-                    {session.max_participants && ` / 최대 ${session.max_participants}명`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Package className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">현재 {currentTotalQuantity}벌 주문</span>
-                </div>
-              </div>
-
-              {/* Pricing Progress */}
-              {pricingTiers.length > 0 && (
-                <div className="bg-blue-50 rounded-xl p-4 mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-blue-800">할인 진행률</span>
-                    <span className="text-sm text-blue-600">{getProgressInfo.currentQuantity}벌</span>
-                  </div>
-
-                  {/* Progress Bar with Checkpoints */}
-                  <div className="relative pt-1 pb-8">
-                    <div className="absolute left-0 right-0 top-3 h-1.5 bg-blue-200 rounded-full" />
-                    <div
-                      className="absolute left-0 top-3 h-1.5 bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${getProgressInfo.progressPercent}%` }}
-                    />
-
-                    {/* Checkpoints */}
-                    <div className="relative">
-                      {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, index) => {
-                        const maxQty = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).slice(-1)[0]?.minQuantity || 100;
-                        const isReached = currentTotalQuantity >= tier.minQuantity;
-                        const position = (tier.minQuantity / maxQty) * 100;
-
-                        return (
-                          <div
-                            key={index}
-                            className="absolute flex flex-col items-center"
-                            style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
-                          >
-                            <div className={`w-3 h-3 rounded-full border-2 ${isReached ? 'bg-blue-500 border-blue-500' : 'bg-white border-blue-300'}`} />
-                            <span className={`text-[10px] mt-1 ${isReached ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
-                              {tier.minQuantity}벌
-                            </span>
-                            <span className={`text-[10px] ${isReached ? 'text-blue-500' : 'text-gray-400'}`}>
-                              {formatPrice(tier.pricePerItem)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {getProgressInfo.nextTierQuantity && (
-                    <p className="text-xs text-blue-700 mt-2">
-                      💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 {formatPrice(getProgressInfo.nextTierPrice)}으로 할인!
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Base Price */}
-              <div className="text-center mb-6">
-                <p className="text-sm text-gray-500 mb-1">현재 적용 단가</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900">
-                  {formatPrice(getProgressInfo.currentPrice)}
-                </p>
-              </div>
-
-              {/* Start Button */}
-              <button
-                onClick={handleNext}
-                className="w-full py-3 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-sm md:text-base"
-              >
-                <span>참여하기</span>
-                <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-            </div>
+    <div className="min-h-screen bg-white pb-16">
+      <Header back backHref="/home" />
+      <div className="mx-auto pt-6 space-y-3 px-4">
+        <header className="space-y-3">
+          <p className="text-sm text-gray-500">공동구매 참여</p>
+          <h1 className="text-2xl font-bold text-gray-900">{session.title}</h1>
+          {session.description && (
+            <p className="text-gray-600">{session.description}</p>
           )}
 
-          {/* Size & Quantity Step */}
-          {currentStep === 'size-quantity' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-3">
-                  <Ruler className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">사이즈와 수량을 선택해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  여러 사이즈를 구매하려면 &apos;추가&apos; 버튼을 눌러주세요
-                </p>
-              </div>
+          <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+            <span>기간: {formatDate(session.start_date)} ~ {formatDate(session.end_date)}</span>
+            <span>참여 인원: {session.current_participant_count}{session.max_participants ? ` / ${session.max_participants}` : ''}</span>
+            <span>가격: {formatPrice(design.price_per_item)}</span>
+          </div>
 
-              <div className="space-y-3 mb-6">
-                {selectedItems.map((item, index) => (
-                  <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-xl">
-                    {/* Size dropdown */}
-                    <div className="flex-1">
-                      <select
-                        value={item.size}
-                        onChange={(e) => handleItemSizeChange(index, e.target.value)}
-                        className={`w-full px-3 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base ${
-                          errors[`item-${index}-size`] ? 'border-red-500' : 'border-gray-200'
-                        }`}
-                      >
-                        <option value="">사이즈 선택</option>
-                        {sizeOptions.map((size, idx) => (
-                          <option key={idx} value={size}>{size}</option>
+          {/* Progress Bar - Quantity Based with Checkpoints */}
+          {pricingTiers.length > 0 && (() => {
+            const sortedTiers = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity);
+            const maxQuantity = sortedTiers[sortedTiers.length - 1]?.minQuantity || 100;
+
+            return (
+              <div className="space-y-3 px-5">
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <div className="group relative flex items-center gap-1" ref={discountInfoRef}>
+                    <span>할인 적용 진행률</span>
+                    <button
+                      type="button"
+                      aria-label="할인 정보"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      onClick={() => setIsDiscountInfoOpen((prev) => !prev)}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                    <div
+                      role="tooltip"
+                      className={[
+                        "absolute left-0 top-7 z-10 w-64 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm",
+                        isDiscountInfoOpen
+                          ? "visible opacity-100"
+                          : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+                        "transition-opacity duration-150",
+                      ].join(' ')}
+                    >
+                      <p className="mb-2">총 주문 수량에 따라 단가가 달라집니다:</p>
+                      <div className="space-y-1">
+                        {sortedTiers.map((tier, idx) => (
+                          <div key={idx} className="flex justify-between">
+                            <span>{tier.minQuantity}벌 이상</span>
+                            <span className="font-medium">₩{tier.pricePerItem.toLocaleString()}</span>
+                          </div>
                         ))}
-                      </select>
-                      {errors[`item-${index}-size`] && (
-                        <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-size`]}</p>
-                      )}
+                      </div>
                     </div>
-
-                    {/* Quantity controls */}
-                    <div className="flex items-center border-2 border-gray-200 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => handleItemQuantityChange(index, item.quantity - 1)}
-                        className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-l-xl transition-colors"
-                        disabled={item.quantity <= 1}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="px-3 py-2 min-w-10 text-center font-medium text-sm md:text-base">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleItemQuantityChange(index, item.quantity + 1)}
-                        className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-r-xl transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Remove button */}
-                    {selectedItems.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    )}
                   </div>
-                ))}
-
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
-                >
-                  <Plus className="w-4 h-4" />
-                  다른 사이즈 추가
-                </button>
-              </div>
-
-              {/* Order Summary */}
-              {getTotalQuantity() > 0 && (
-                <div className="bg-blue-50 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-700">총 수량</span>
-                    <span className="font-bold text-blue-600">{getTotalQuantity()}벌</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-700">단가</span>
-                    <span className="font-medium text-blue-600">{formatPrice(currentPrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-2 border-t border-blue-200">
-                    <span className="text-gray-700 font-medium">예상 금액</span>
-                    <span className="font-bold text-blue-600 text-lg">{formatPrice(currentPrice * getTotalQuantity())}</span>
-                  </div>
-
-                  {getNextTierInfo() && (
-                    <div className="text-xs text-blue-700 bg-blue-100 rounded-lg px-3 py-2 mt-2">
-                      💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 {formatPrice(getNextTierInfo()?.nextPrice)}으로 할인!
-                    </div>
-                  )}
+                  <span>
+                    현재 {getProgressInfo.currentQuantity}벌
+                  </span>
                 </div>
-              )}
 
-              {/* Pricing Tiers */}
-              {pricingTiers.length > 0 && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                  <p className="text-xs font-medium text-gray-700 mb-2">수량별 단가 안내</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => {
-                      const isActive = currentTotalQuantity + getTotalQuantity() >= tier.minQuantity;
+                {/* Checkpoint Progress Bar */}
+                <div className="relative pt-1 pb-6 h-15">
+                  {/* Background line */}
+                  <div className="absolute left-0 right-0 top-4 h-1 bg-gray-200 rounded-full" />
+
+                  {/* Progress line */}
+                  <div
+                    className="absolute left-0 top-4 h-1 bg-blue-500 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, (currentTotalQuantity / maxQuantity) * 100)}%`,
+                    }}
+                  />
+
+                  {/* Checkpoints */}
+                  <div className="relative flex justify-between">
+                    {sortedTiers.map((tier, index) => {
+                      const isReached = currentTotalQuantity >= tier.minQuantity;
+                      const isCurrent = currentTotalQuantity >= tier.minQuantity &&
+                        (index === sortedTiers.length - 1 || currentTotalQuantity < sortedTiers[index + 1].minQuantity);
+                      const position = (tier.minQuantity / maxQuantity) * 100;
+
                       return (
-                        <span
-                          key={idx}
-                          className={`px-2 py-1 rounded-lg text-xs ${
-                            isActive ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600'
-                          }`}
+                        <div
+                          key={index}
+                          className="flex flex-col items-center"
+                          style={{
+                            position: 'absolute',
+                            left: `${position}%`,
+                            transform: 'translateX(-50%)',
+                          }}
                         >
-                          {tier.minQuantity}벌↑ {formatPrice(tier.pricePerItem)}
-                        </span>
+                          {/* Checkpoint circle */}
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                              isReached
+                                ? 'bg-blue-500 border-blue-500'
+                                : 'bg-white border-gray-300'
+                            } ${isCurrent ? 'ring-2 ring-blue-200' : ''}`}
+                          />
+                          {/* Label */}
+                          <div className="mt-2 text-center">
+                            <span
+                              className={`text-xs font-medium block ${
+                                isReached ? 'text-blue-600' : 'text-gray-400'
+                              }`}
+                            >
+                              {tier.minQuantity}벌
+                            </span>
+                            <span
+                              className={`text-xs block ${
+                                isReached ? 'text-blue-500' : 'text-gray-400'
+                              }`}
+                            >
+                              ₩{tier.pricePerItem.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    현재 총 주문량: {currentTotalQuantity}벌 → 내 주문 포함: {currentTotalQuantity + getTotalQuantity()}벌
+                </div>
+
+                {getProgressInfo.nextTierQuantity && (
+                  <p className="text-xs text-blue-600">
+                    💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 단가 ₩{getProgressInfo.nextTierPrice?.toLocaleString()}으로 할인! <span className='text-gray-400'>(차액은 캐시백으로 환불됩니다.)</span>
                   </p>
-                </div>
-              )}
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Participant Count (when no pricing tiers) */}
+          {pricingTiers.length === 0 && (
+            <div className="px-5 text-sm text-gray-600">
+              <span>참여 인원: {paidParticipantCount}명</span>
             </div>
           )}
+        </header>
 
-          {/* Personal Info Step */}
-          {currentStep === 'personal-info' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-green-100 flex items-center justify-center mb-3">
-                  <User className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">참여자 정보를 입력해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  주문 확인 및 안내를 위해 필요합니다
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    이름 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setErrors(prev => { const n = { ...prev }; delete n.name; return n; });
-                    }}
-                    className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base ${
-                      errors.name ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="이름을 입력하세요"
-                  />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    이메일 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setErrors(prev => { const n = { ...prev }; delete n.email; return n; });
-                    }}
-                    className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base ${
-                      errors.email ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="example@email.com"
-                  />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    전화번호 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => {
-                      setPhone(e.target.value.replace(/[^0-9]/g, ''));
-                      setErrors(prev => { const n = { ...prev }; delete n.phone; return n; });
-                    }}
-                    className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base ${
-                      errors.phone ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="01012345678"
-                  />
-                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Delivery Method Step */}
-          {currentStep === 'delivery-method' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-3">
-                  <Truck className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">수령 방법을 선택해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  직접 수령 또는 배송 중 선택할 수 있어요
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {/* Pickup Option */}
+        <div className='flex flex-col '>
+          {/* Design Previewer */}
+          <section className="rounded-md shadow-sm bg-gray-100">
+            <CoBuyDesignViewer
+              config={productConfig}
+              canvasState={design.canvas_state as Record<string, string>}
+              productColor={productColor}
+            />
+            {/* Sizing Chart Button */}
+            {product?.sizing_chart_image && (
+              <div className="p-4 bg-white border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => {
-                    setDeliveryMethod('pickup');
-                    setErrors(prev => { const n = { ...prev }; delete n.deliveryMethod; return n; });
-                  }}
-                  className={`w-full p-4 md:p-5 rounded-2xl border-2 text-left transition-all ${
-                    deliveryMethod === 'pickup'
-                      ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
+                  onClick={() => setIsSizingChartOpen(true)}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
                 >
-                  <div className="flex items-start gap-3 md:gap-4">
-                    <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${
-                      deliveryMethod === 'pickup' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      <MapPin className="w-4 h-4 md:w-5 md:h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 text-sm md:text-base">직접 수령</span>
-                        {deliveryMethod === 'pickup' && <Check className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />}
-                      </div>
-                      <p className="text-xs md:text-sm text-gray-600 mt-1">무료</p>
-                      {deliverySettings?.pickupLocation && (
-                        <p className="text-xs text-gray-500 mt-1">{deliverySettings.pickupLocation}</p>
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {/* Delivery Option */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeliveryMethod('delivery');
-                    setErrors(prev => { const n = { ...prev }; delete n.deliveryMethod; return n; });
-                  }}
-                  className={`w-full p-4 md:p-5 rounded-2xl border-2 text-left transition-all ${
-                    deliveryMethod === 'delivery'
-                      ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  <div className="flex items-start gap-3 md:gap-4">
-                    <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${
-                      deliveryMethod === 'delivery' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      <Truck className="w-4 h-4 md:w-5 md:h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 text-sm md:text-base">배송</span>
-                        {deliveryMethod === 'delivery' && <Check className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />}
-                      </div>
-                      <p className="text-xs md:text-sm text-gray-600 mt-1">
-                        {(deliverySettings?.deliveryFee || 0) > 0
-                          ? `+${formatPrice(deliverySettings?.deliveryFee)}`
-                          : '무료 배송'}
-                      </p>
-                    </div>
-                  </div>
+                  <Ruler className="w-4 h-4" />
+                  사이즈 정보 보기
                 </button>
               </div>
-
-              {errors.deliveryMethod && (
-                <p className="text-red-500 text-xs mt-2">{errors.deliveryMethod}</p>
-              )}
-            </div>
-          )}
-
-          {/* Delivery Address Step */}
-          {currentStep === 'delivery-address' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
-                  <MapPin className="w-5 h-5 md:w-6 md:h-6 text-indigo-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">배송 정보를 입력해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  정확한 배송을 위해 필요합니다
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {/* Recipient Name */}
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    수령인 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={deliveryInfo?.recipientName || ''}
-                    onChange={(e) => {
-                      setDeliveryInfo(prev => ({ ...prev!, recipientName: e.target.value }));
-                      setErrors(prev => { const n = { ...prev }; delete n.recipientName; return n; });
-                    }}
-                    className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm md:text-base ${
-                      errors.recipientName ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="수령인 이름"
-                  />
-                  {errors.recipientName && <p className="text-red-500 text-xs mt-1">{errors.recipientName}</p>}
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    연락처 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={deliveryInfo?.phone || ''}
-                    onChange={(e) => {
-                      setDeliveryInfo(prev => ({ ...prev!, phone: e.target.value.replace(/[^0-9]/g, '') }));
-                      setErrors(prev => { const n = { ...prev }; delete n.deliveryPhone; return n; });
-                    }}
-                    className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm md:text-base ${
-                      errors.deliveryPhone ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="01012345678"
-                  />
-                  {errors.deliveryPhone && <p className="text-red-500 text-xs mt-1">{errors.deliveryPhone}</p>}
-                </div>
-
-                {/* Address Search */}
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    주소 <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={deliveryInfo?.postalCode || ''}
-                      readOnly
-                      className="w-24 md:w-28 px-3 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-sm"
-                      placeholder="우편번호"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddressSearch}
-                      className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium flex items-center justify-center gap-2 text-sm md:text-base"
-                    >
-                      <Search className="w-4 h-4" />
-                      주소 검색
-                    </button>
-                  </div>
-                  {errors.address && !deliveryInfo?.address && (
-                    <p className="text-red-500 text-xs mt-1">{errors.address}</p>
-                  )}
-                </div>
-
-                {/* Address Fields (shown after search) */}
-                {deliveryInfo?.address && (
-                  <>
-                    <input
-                      type="text"
-                      value={deliveryInfo.address}
-                      readOnly
-                      className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-sm md:text-base"
-                    />
-
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                        상세 주소 <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={deliveryInfo?.addressDetail || ''}
-                        onChange={(e) => {
-                          setDeliveryInfo(prev => ({ ...prev!, addressDetail: e.target.value }));
-                          setErrors(prev => { const n = { ...prev }; delete n.addressDetail; return n; });
-                        }}
-                        className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm md:text-base ${
-                          errors.addressDetail ? 'border-red-500' : 'border-gray-200'
-                        }`}
-                        placeholder="아파트 동/호수, 건물명 등"
-                      />
-                      {errors.addressDetail && <p className="text-red-500 text-xs mt-1">{errors.addressDetail}</p>}
-                    </div>
-                  </>
-                )}
-
-                {/* Memo */}
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                    배송 요청사항 <span className="text-gray-400">(선택)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={deliveryInfo?.memo || ''}
-                    onChange={(e) => setDeliveryInfo(prev => ({ ...prev!, memo: e.target.value }))}
-                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm md:text-base"
-                    placeholder="예: 문 앞에 놓아주세요"
-                    maxLength={100}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Custom Fields Step */}
-          {currentStep === 'custom-fields' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
-                  <Info className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">추가 정보를 입력해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  주최자가 요청한 정보입니다
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {customFields.map((field) => (
-                  <div key={field.id}>
-                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5">
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </label>
-
-                    {field.type === 'dropdown' && field.options ? (
-                      <select
-                        value={fieldResponses[field.id] || ''}
-                        onChange={(e) => {
-                          setFieldResponses(prev => ({ ...prev, [field.id]: e.target.value }));
-                          setErrors(prev => { const n = { ...prev }; delete n[field.id]; return n; });
-                        }}
-                        className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base ${
-                          errors[field.id] ? 'border-red-500' : 'border-gray-200'
-                        }`}
-                      >
-                        <option value="">선택해주세요</option>
-                        {field.options.map((option, idx) => (
-                          <option key={idx} value={option}>{option}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
-                        value={fieldResponses[field.id] || ''}
-                        onChange={(e) => {
-                          const value = field.type === 'phone' ? e.target.value.replace(/[^0-9]/g, '') : e.target.value;
-                          setFieldResponses(prev => ({ ...prev, [field.id]: value }));
-                          setErrors(prev => { const n = { ...prev }; delete n[field.id]; return n; });
-                        }}
-                        className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base ${
-                          errors[field.id] ? 'border-red-500' : 'border-gray-200'
-                        }`}
-                        placeholder={`${field.label}을(를) 입력하세요`}
-                      />
-                    )}
-
-                    {errors[field.id] && (
-                      <p className="text-red-500 text-xs mt-1">{errors[field.id]}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Review Step */}
-          {currentStep === 'review' && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-amber-100 flex items-center justify-center mb-3">
-                  <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6 text-amber-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">주문 내용을 확인해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  결제 전 마지막 확인 단계입니다
-                </p>
-              </div>
-
-              <div className="bg-gray-50 rounded-2xl p-4 md:p-5 space-y-4">
-                {/* Order Items */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">주문 상품</p>
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm md:text-base mb-1">
-                      <span className="text-gray-700">{item.size} × {item.quantity}벌</span>
-                      <span className="font-medium">{formatPrice(currentPrice * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Participant Info */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">참여자 정보</p>
-                  <div className="space-y-1 text-sm md:text-base">
-                    <p className="text-gray-700">{name}</p>
-                    <p className="text-gray-700">{email}</p>
-                    {phone && <p className="text-gray-700">{phone}</p>}
-                  </div>
-                </div>
-
-                {/* Delivery Info */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">수령 방법</p>
-                  {deliveryMethod === 'pickup' ? (
-                    <div className="flex items-center gap-2 text-sm md:text-base">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-700">직접 수령</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 text-sm md:text-base">
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700">배송</span>
-                      </div>
-                      {deliveryInfo && (
-                        <div className="text-gray-600 text-xs md:text-sm ml-6">
-                          <p>{deliveryInfo.recipientName} / {deliveryInfo.phone}</p>
-                          <p>{deliveryInfo.address} {deliveryInfo.addressDetail}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Custom Field Responses */}
-                {customFields.length > 0 && Object.keys(fieldResponses).length > 0 && (
-                  <div className="pb-4 border-b border-gray-200">
-                    <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">추가 정보</p>
-                    <div className="space-y-1 text-sm md:text-base">
-                      {customFields.map(field => (
-                        fieldResponses[field.id] && (
-                          <div key={field.id} className="flex justify-between">
-                            <span className="text-gray-500">{field.label}</span>
-                            <span className="text-gray-700">{fieldResponses[field.id]}</span>
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Total */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">상품 금액</span>
-                    <span>{formatPrice(currentPrice * getTotalQuantity())}</span>
-                  </div>
-                  {deliveryFee > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">배송비</span>
-                      <span>+{formatPrice(deliveryFee)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
-                    <span>총 결제 금액</span>
-                    <span className="text-blue-600">{formatPrice(totalAmount)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {submitError && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-red-600 text-sm">{submitError}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Payment Step */}
-          {currentStep === 'payment' && participantId && orderId && (
-            <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
-              <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-3">
-                  <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-emerald-600" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">결제를 진행해주세요</h2>
-                <p className="text-sm md:text-base text-gray-600">
-                  안전한 결제를 위해 토스페이먼츠를 사용합니다
-                </p>
-              </div>
-
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-2 text-green-700">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span className="font-medium">참여 정보가 저장되었습니다</span>
-                </div>
-                <p className="text-green-600 text-sm mt-1">결제를 완료하면 공동구매 참여가 확정됩니다.</p>
-              </div>
-
-              <TossPaymentWidget
-                amount={totalAmount}
-                orderId={orderId}
-                orderName={deliveryFee > 0
-                  ? `${session.title} 공동구매 (${getTotalQuantity()}벌, 배송)`
-                  : `${session.title} 공동구매 (${getTotalQuantity()}벌)`}
-                customerEmail={email}
-                customerName={name}
-                customerMobilePhone={phone}
-                successUrl={typeof window !== 'undefined'
-                  ? `${window.location.origin}/cobuy/${shareToken}/success?${new URLSearchParams({
-                    participantId,
-                    sessionId: session.id,
-                  }).toString()}`
-                  : `/cobuy/${shareToken}/success`}
-                failUrl={typeof window !== 'undefined'
-                  ? `${window.location.origin}/cobuy/${shareToken}/fail?${new URLSearchParams({
-                    participantId,
-                    sessionId: session.id,
-                  }).toString()}`
-                  : `/cobuy/${shareToken}/fail`}
-                onBeforePaymentRequest={() => {
-                  sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
-                    participantId,
-                    sessionId: session.id,
-                    shareToken,
-                    orderId,
-                    amount: totalAmount,
-                  }));
-                }}
-                onError={(error) => {
-                  console.error('Toss payment error:', error);
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Footer Navigation */}
-      {currentStep !== 'welcome' && currentStep !== 'payment' && (
-        <footer className="shrink-0 border-t border-gray-200 bg-white p-3 md:p-4 safe-area-inset-bottom">
-          <div className="max-w-lg mx-auto flex gap-2 md:gap-3">
-            <button
-              onClick={handleBack}
-              className="py-3 md:py-4 px-5 md:px-6 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base text-gray-700"
-            >
-              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-              <span>이전</span>
-            </button>
-
-            {currentStep !== 'review' ? (
-              <button
-                onClick={handleNext}
-                className="flex-1 py-3 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
-              >
-                <span>다음</span>
-                <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="flex-1 py-3 md:py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>처리 중...</span>
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
-                    <span>결제하기</span>
-                  </>
-                )}
-              </button>
             )}
-          </div>
-        </footer>
-      )}
+          </section>
+
+          {/* Participant Information Input */}
+          <section className="bg-white rounded-md shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">참여자 정보</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              아래 정보를 입력하면 공동구매 참여가 접수됩니다. 결제는 다음 단계에서 진행됩니다.
+            </p>
+            {isSubmitted ? (
+              <div className="space-y-4">
+                <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-700">
+                  참여 정보가 접수되었습니다. 결제를 진행해주세요.
+                </div>
+                {participantInfo && participantId && orderId && (() => {
+                  const totalQty = participantInfo.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+                  const unitPrice = getApplicablePrice(totalQty);
+                  const deliveryFee = participantInfo.deliveryFee || 0;
+                  const totalAmount = Math.round(unitPrice * totalQty) + deliveryFee;
+                  const orderName = deliveryFee > 0
+                    ? `${session.title} 공동구매 (${totalQty}벌, 배송)`
+                    : `${session.title} 공동구매 (${totalQty}벌)`;
+                  return (
+                    <TossPaymentWidget
+                      amount={totalAmount}
+                      orderId={orderId}
+                      orderName={orderName}
+                      customerEmail={participantInfo.email}
+                      customerName={participantInfo.name}
+                      customerMobilePhone={participantInfo.phone}
+                      successUrl={typeof window !== 'undefined'
+                        ? `${window.location.origin}/cobuy/${shareToken}/success?${new URLSearchParams({
+                          participantId,
+                          sessionId: session.id,
+                        }).toString()}`
+                        : `/cobuy/${shareToken}/success?${new URLSearchParams({
+                          participantId,
+                          sessionId: session.id,
+                        }).toString()}`}
+                      failUrl={typeof window !== 'undefined'
+                        ? `${window.location.origin}/cobuy/${shareToken}/fail?${new URLSearchParams({
+                          participantId,
+                          sessionId: session.id,
+                        }).toString()}`
+                        : `/cobuy/${shareToken}/fail?${new URLSearchParams({
+                          participantId,
+                          sessionId: session.id,
+                        }).toString()}`}
+                      onBeforePaymentRequest={() => {
+                        if (!participantId || !session) {
+                          throw new Error('참여자 정보를 찾을 수 없습니다.');
+                        }
+                        sessionStorage.setItem('pendingCoBuyPayment', JSON.stringify({
+                          participantId,
+                          sessionId: session.id,
+                          shareToken,
+                          orderId,
+                          amount: totalAmount,
+                        }));
+                      }}
+                      onError={(error) => {
+                        console.error('Toss payment error:', error);
+                      }}
+                    />
+                  );
+                })()}
+              </div>
+            ) : (
+              <>
+                <ParticipantForm
+                  customFields={session.custom_fields || []}
+                  sizeOptions={sizeOptions}
+                  onSubmit={handleSubmit}
+                  isSubmitting={isSubmitting}
+                  pricePerItem={design.price_per_item}
+                  pricingTiers={pricingTiers}
+                  currentTotalQuantity={session.current_total_quantity || 0}
+                  deliverySettings={deliverySettings}
+                />
+                {submitError && (
+                  <p className="text-red-500 text-sm mt-3">{submitError}</p>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      </div>
 
       {/* Sizing Chart Modal */}
       {isSizingChartOpen && product?.sizing_chart_image && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setIsSizingChartOpen(false)}
         >
           <div
@@ -1394,6 +592,7 @@ export default function CoBuySharePage() {
                 type="button"
                 onClick={() => setIsSizingChartOpen(false)}
                 className="p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                aria-label="닫기"
               >
                 <X className="w-5 h-5" />
               </button>
