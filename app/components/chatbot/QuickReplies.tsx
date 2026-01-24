@@ -11,12 +11,12 @@ export default function QuickReplies({ replies, onReplyClick }: QuickRepliesProp
   if (!replies || replies.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-2 mt-3">
       {replies.map((reply, index) => (
         <button
           key={index}
           onClick={() => onReplyClick(reply)}
-          className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors whitespace-nowrap"
+          className="px-4 py-2 text-sm font-medium bg-white border-2 border-blue-500 text-blue-600 rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md active:scale-95 transition-all whitespace-nowrap"
         >
           {reply.label}
         </button>

@@ -49,7 +49,7 @@ export const INTENT_DEFINITIONS: IntentDefinition[] = [
     intent: 'pricing_info',
     keywords: [
       'DTF', 'DTG', '나염', '자수', '아플리케', '전사',
-      '인쇄', '프린트', '가격', '비용', '얼마'
+      '인쇄', '프린트', '가격', '비용', '얼마', '견적'
     ],
     patterns: [
       /(?:DTF|DTG|나염|자수|아플리케|전사)\s*(?:가격|비용|얼마)/i,
