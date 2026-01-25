@@ -327,7 +327,7 @@ export default function CoBuyDetailPage() {
         <div className="space-y-1.5 pt-2 mt-2 border-t border-gray-100">
           <div className="flex items-center gap-2 text-sm">
             {isDelivery ? (
-              <Truck className="w-4 h-4 text-blue-600" />
+              <Truck className="w-4 h-4 text-[#3B55A5]" />
             ) : (
               <MapPin className="w-4 h-4 text-green-600" />
             )}
@@ -359,7 +359,7 @@ export default function CoBuyDetailPage() {
       <div className="space-y-1">
         <div className="flex items-center gap-1.5">
           {isDelivery ? (
-            <Truck className="w-3.5 h-3.5 text-blue-600" />
+            <Truck className="w-3.5 h-3.5 text-[#3B55A5]" />
           ) : (
             <MapPin className="w-3.5 h-3.5 text-green-600" />
           )}
@@ -556,7 +556,7 @@ export default function CoBuyDetailPage() {
                   <button
                     onClick={handleCreateOrders}
                     disabled={session.status === 'cancelled' || ['order_complete', 'manufacturing', 'manufacture_complete', 'delivering'].includes(session.status)}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-[#3B55A5] text-white text-sm rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <PackageCheck className="w-4 h-4" />
                     <span>주문 생성</span>
@@ -586,7 +586,7 @@ export default function CoBuyDetailPage() {
               {/* 배송받을 장소 */}
               <div className="rounded-xl bg-gray-50 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Truck className="w-4 h-4 text-blue-600" />
+                  <Truck className="w-4 h-4 text-[#3B55A5]" />
                   <p className="text-sm font-medium text-gray-700">배송받을 장소</p>
                 </div>
                 {session.delivery_settings.deliveryAddress ? (
@@ -673,9 +673,9 @@ export default function CoBuyDetailPage() {
 
           {/* Pricing Tiers Info */}
           {session.pricing_tiers && session.pricing_tiers.length > 0 && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-xl">
+            <div className="mt-4 p-4 bg-[#3B55A5]/10 rounded-xl">
               <div className="flex items-start gap-2">
-                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <Info className="w-5 h-5 text-[#3B55A5] shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 mb-2">수량별 단가</p>
                   <div className="flex flex-wrap gap-2">
@@ -686,7 +686,7 @@ export default function CoBuyDetailPage() {
                           key={idx}
                           className={`px-3 py-1.5 rounded-lg text-sm ${
                             isActive
-                              ? 'bg-blue-500 text-white font-medium'
+                              ? 'bg-[#3B55A5]/100 text-white font-medium'
                               : 'bg-white border border-gray-200 text-gray-600'
                           }`}
                         >

@@ -377,7 +377,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100">
                 <span>총 결제 금액</span>
-                <span className="text-blue-600">{formatPrice(order.total_amount)}원</span>
+                <span className="text-[#3B55A5]">{formatPrice(order.total_amount)}원</span>
               </div>
             </div>
           </div>

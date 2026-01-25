@@ -274,7 +274,7 @@ export default function CreateMyReviewPage() {
             <p className="text-gray-600 mb-6">리뷰를 작성할 상품을 선택해주세요.</p>
             <button
               onClick={() => router.push('/home/my-page/orders')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="px-6 py-3 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors"
             >
               주문 내역에서 선택
             </button>
@@ -350,7 +350,7 @@ export default function CreateMyReviewPage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
               placeholder="리뷰 제목"
               maxLength={100}
             />
@@ -361,7 +361,7 @@ export default function CreateMyReviewPage() {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm min-h-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm min-h-[140px] focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
               placeholder="리뷰 내용을 입력해주세요."
               maxLength={2000}
             />

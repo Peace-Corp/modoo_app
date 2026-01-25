@@ -380,7 +380,7 @@ export default function CreateCoBuyModal({
         {/* Welcome */}
         {currentStep === 'welcome' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-8 shadow-lg shadow-blue-500/25">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#4A66B5] to-[#3B55A5] flex items-center justify-center mb-8 shadow-lg shadow-[#3B55A5]/25">
               <Users className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">공동구매를 시작해볼까요?</h1>
@@ -416,7 +416,7 @@ export default function CreateCoBuyModal({
                   { icon: <MapPin className="w-4 h-4" />, text: '배송 및 수령 장소' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3 text-gray-600">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                    <div className="w-8 h-8 rounded-lg bg-[#3B55A5]/10 flex items-center justify-center text-[#3B55A5]">
                       {item.icon}
                     </div>
                     <span className="text-sm">{item.text}</span>
@@ -427,7 +427,7 @@ export default function CreateCoBuyModal({
 
             <button
               onClick={handleNext}
-              className="w-full max-w-sm py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+              className="w-full max-w-sm py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-2"
             >
               <span>시작하기</span>
               <ArrowRight className="w-5 h-5" />
@@ -439,8 +439,8 @@ export default function CreateCoBuyModal({
         {currentStep === 'title' && (
           <div className="max-w-lg mx-auto py-12 px-6">
             <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
-                <Tag className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 rounded-xl bg-[#3B55A5]/20 flex items-center justify-center mb-4">
+                <Tag className="w-6 h-6 text-[#3B55A5]" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">공동구매 제목을 정해주세요</h2>
               <p className="text-gray-600">
@@ -458,7 +458,7 @@ export default function CreateCoBuyModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="예: 24학번 과잠 공동구매"
-                  className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10 transition-all"
                   maxLength={100}
                   autoFocus
                 />
@@ -532,20 +532,20 @@ export default function CreateCoBuyModal({
                 onClick={() => setIsPublic(false)}
                 className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
                   !isPublic
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
+                    ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    !isPublic ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                    !isPublic ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'
                   }`}>
                     <Lock className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-900">비공개</span>
-                      {!isPublic && <Check className="w-5 h-5 text-blue-500" />}
+                      {!isPublic && <Check className="w-5 h-5 text-[#3B55A5]" />}
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       링크를 가진 사람만 참여할 수 있어요.<br />
@@ -559,20 +559,20 @@ export default function CreateCoBuyModal({
                 onClick={() => setIsPublic(true)}
                 className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
                   isPublic
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
+                    ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    isPublic ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                    isPublic ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'
                   }`}>
                     <Globe className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-900">공개</span>
-                      {isPublic && <Check className="w-5 h-5 text-blue-500" />}
+                      {isPublic && <Check className="w-5 h-5 text-[#3B55A5]" />}
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       누구나 공동구매 목록에서 발견할 수 있어요.<br />
@@ -639,8 +639,8 @@ export default function CreateCoBuyModal({
                 </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-800">
+              <div className="bg-[#3B55A5]/10 border border-[#3B55A5]/30 rounded-xl p-4">
+                <p className="text-sm text-[#2D4280]">
                   <strong>📅 참고:</strong> 종료일 이후에는 더 이상 참여를 받지 않아요. 충분한 기간을 설정해주세요.
                 </p>
               </div>
@@ -951,20 +951,20 @@ export default function CreateCoBuyModal({
                 onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: false }))}
                 className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
                   !deliverySettings.enabled
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
+                    ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    !deliverySettings.enabled ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                    !deliverySettings.enabled ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'
                   }`}>
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-900">직접 수령만</span>
-                      {!deliverySettings.enabled && <Check className="w-5 h-5 text-blue-500" />}
+                      {!deliverySettings.enabled && <Check className="w-5 h-5 text-[#3B55A5]" />}
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       모든 참여자가 지정된 장소에서 수령해요.
@@ -977,20 +977,20 @@ export default function CreateCoBuyModal({
                 onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: true }))}
                 className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
                   deliverySettings.enabled
-                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
+                    ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    deliverySettings.enabled ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                    deliverySettings.enabled ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'
                   }`}>
                     <Truck className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-900">개별 배송 허용</span>
-                      {deliverySettings.enabled && <Check className="w-5 h-5 text-blue-500" />}
+                      {deliverySettings.enabled && <Check className="w-5 h-5 text-[#3B55A5]" />}
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       참여자가 배송비를 추가로 내고 배송받을 수 있어요.
@@ -1103,8 +1103,8 @@ export default function CreateCoBuyModal({
                   <div className="flex items-center gap-2 mt-2">
                     {isPublic ? (
                       <>
-                        <Globe className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm text-blue-600">공개</span>
+                        <Globe className="w-4 h-4 text-[#3B55A5]" />
+                        <span className="text-sm text-[#3B55A5]">공개</span>
                       </>
                     ) : (
                       <>
@@ -1247,7 +1247,7 @@ export default function CreateCoBuyModal({
               <Link
                 href={`/home/my-page/cobuy/${createdSession.id}`}
                 onClick={() => onClose()}
-                className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-2"
               >
                 <span>관리하기</span>
                 <ChevronRight className="w-5 h-5" />
@@ -1319,7 +1319,7 @@ export default function CreateCoBuyModal({
             {currentStep !== 'review' ? (
               <button
                 onClick={handleNext}
-                className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-2"
               >
                 <span>다음</span>
                 <ArrowRight className="w-5 h-5" />
