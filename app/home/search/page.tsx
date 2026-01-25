@@ -106,7 +106,7 @@ export default function SearchPage() {
               placeholder="상품 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-20 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-20 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
             />
             <div className="absolute inset-y-0 right-3 flex items-center gap-2">
               {searchQuery && (
@@ -120,7 +120,7 @@ export default function SearchPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`p-1.5 rounded-lg transition-colors ${
-                  showFilters ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-gray-600"
+                  showFilters ? "bg-blue-50 text-[#3B55A5]" : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 <SlidersHorizontal size={20} />
@@ -139,7 +139,7 @@ export default function SearchPage() {
                     onClick={() => setSelectedCategory(category.key)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                       selectedCategory === category.key
-                        ? "bg-blue-600 text-white"
+                        ? "bg-[#3B55A5] text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >

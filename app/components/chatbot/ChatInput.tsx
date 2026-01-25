@@ -28,12 +28,12 @@ export default function ChatInput({ value, onChange, onSend, disabled }: ChatInp
         onKeyDown={handleKeyDown}
         placeholder="메시지를 입력하세요..."
         disabled={disabled}
-        className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
       <button
         onClick={onSend}
         disabled={!value.trim() || disabled}
-        className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        className="p-2 bg-[#3B55A5] text-white rounded-full hover:bg-[#2D4280] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
       >
         <Send className="w-4 h-4" />
       </button>

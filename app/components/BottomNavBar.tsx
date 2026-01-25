@@ -75,24 +75,30 @@ export default function BottomNavBar() {
             <Link
               key={item.id}
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 active:scale-95 ${
                 isActive(item.href)
-                  ? 'text-blue-600'
+                  ? 'text-[#3B55A5]'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <div className="relative">
+              <div className={`relative transition-transform duration-200 ${
+                isActive(item.href) ? 'scale-110' : 'scale-100'
+              }`}>
                 {item.icon}
               </div>
-              <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
+              <span className={`text-[10px] mt-0.5 font-medium transition-all duration-200 ${
+                isActive(item.href) ? 'font-semibold' : ''
+              }`}>{item.label}</span>
             </Link>
           ))}
 
           {/* Cart button using CartButton component */}
           <div
-            className="flex flex-col items-center justify-center flex-1 h-full transition-colors text-gray-600 hover:text-gray-900"
+            className="flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 active:scale-95 text-gray-600 hover:text-gray-900"
           >
-            <CartButton />
+            <div className="transition-transform duration-200 hover:scale-110">
+              <CartButton />
+            </div>
             <span className="text-[10px] mt-0.5 font-medium">장바구니</span>
           </div>
         </div>

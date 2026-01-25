@@ -54,7 +54,7 @@ export default function LoginPromptModal({
           <div className="flex flex-col gap-3">
             <button
               onClick={handleLoginClick}
-              className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg font-semibold text-lg hover:bg-blue-700 transition"
+              className="w-full px-6 py-4 bg-[#3B55A5] text-white rounded-lg font-semibold text-lg hover:bg-[#2D4280] transition"
             >
               로그인하기
             </button>

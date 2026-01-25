@@ -108,7 +108,7 @@ export default function CoBuyListPage() {
             </p>
             <button
               onClick={() => router.push('/home/designs')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="px-6 py-3 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors"
             >
               나의 디자인으로 이동
             </button>

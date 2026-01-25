@@ -471,7 +471,7 @@ export default function CoBuySharePage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent mb-4" />
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#3B55A5] border-r-transparent mb-4" />
           <p className="text-gray-500">공동구매 정보를 불러오는 중...</p>
         </div>
       </div>
@@ -571,10 +571,10 @@ export default function CoBuySharePage() {
             <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
               {/* Session Info */}
               <div className="text-center mb-6">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/25">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-[#4A66B5] to-[#3B55A5] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#3B55A5]/25">
                   <Users className="w-7 h-7 md:w-8 md:h-8 text-white" />
                 </div>
-                <p className="text-xs md:text-sm text-blue-600 font-medium mb-2">공동구매 참여</p>
+                <p className="text-xs md:text-sm text-[#3B55A5] font-medium mb-2">공동구매 참여</p>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">{session.title}</h1>
                 {session.description && (
                   <p className="text-sm md:text-base text-gray-600">{session.description}</p>
@@ -623,17 +623,17 @@ export default function CoBuySharePage() {
 
               {/* Pricing Progress */}
               {pricingTiers.length > 0 && (
-                <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                <div className="bg-[#3B55A5]/10 rounded-xl p-4 mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-blue-800">할인 진행률</span>
-                    <span className="text-sm text-blue-600">{getProgressInfo.currentQuantity}벌</span>
+                    <span className="text-sm font-medium text-[#2D4280]">할인 진행률</span>
+                    <span className="text-sm text-[#3B55A5]">{getProgressInfo.currentQuantity}벌</span>
                   </div>
 
                   {/* Progress Bar with Checkpoints */}
                   <div className="relative pt-1 pb-8">
-                    <div className="absolute left-0 right-0 top-3 h-1.5 bg-blue-200 rounded-full" />
+                    <div className="absolute left-0 right-0 top-3 h-1.5 bg-[#3B55A5]/30 rounded-full" />
                     <div
-                      className="absolute left-0 top-3 h-1.5 bg-blue-500 rounded-full transition-all duration-300"
+                      className="absolute left-0 top-3 h-1.5 bg-[#3B55A5] rounded-full transition-all duration-300"
                       style={{ width: `${getProgressInfo.progressPercent}%` }}
                     />
 
@@ -650,11 +650,11 @@ export default function CoBuySharePage() {
                             className="absolute flex flex-col items-center"
                             style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
                           >
-                            <div className={`w-3 h-3 rounded-full border-2 ${isReached ? 'bg-blue-500 border-blue-500' : 'bg-white border-blue-300'}`} />
-                            <span className={`text-[10px] mt-1 ${isReached ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
+                            <div className={`w-3 h-3 rounded-full border-2 ${isReached ? 'bg-[#3B55A5] border-[#3B55A5]' : 'bg-white border-[#3B55A5]/50'}`} />
+                            <span className={`text-[10px] mt-1 ${isReached ? 'text-[#3B55A5] font-medium' : 'text-gray-400'}`}>
                               {tier.minQuantity}벌
                             </span>
-                            <span className={`text-[10px] ${isReached ? 'text-blue-500' : 'text-gray-400'}`}>
+                            <span className={`text-[10px] ${isReached ? 'text-[#3B55A5]' : 'text-gray-400'}`}>
                               {formatPrice(tier.pricePerItem)}
                             </span>
                           </div>
@@ -664,7 +664,7 @@ export default function CoBuySharePage() {
                   </div>
 
                   {getProgressInfo.nextTierQuantity && (
-                    <p className="text-xs text-blue-700 mt-2">
+                    <p className="text-xs text-[#2D4280] mt-2">
                       💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 {formatPrice(getProgressInfo.nextTierPrice)}으로 할인!
                     </p>
                   )}
@@ -682,7 +682,7 @@ export default function CoBuySharePage() {
               {/* Start Button */}
               <button
                 onClick={handleNext}
-                className="w-full py-3 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-sm md:text-base"
+                className="w-full py-3 md:py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-2 text-sm md:text-base"
               >
                 <span>참여하기</span>
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
@@ -694,8 +694,8 @@ export default function CoBuySharePage() {
           {currentStep === 'size-quantity' && (
             <div className="max-w-lg mx-auto py-6 px-4 md:py-8 md:px-6">
               <div className="mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-3">
-                  <Ruler className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#3B55A5]/20 flex items-center justify-center mb-3">
+                  <Ruler className="w-5 h-5 md:w-6 md:h-6 text-[#3B55A5]" />
                 </div>
                 <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">사이즈와 수량을 선택해주세요</h2>
                 <p className="text-sm md:text-base text-gray-600">
@@ -772,22 +772,22 @@ export default function CoBuySharePage() {
 
               {/* Order Summary */}
               {getTotalQuantity() > 0 && (
-                <div className="bg-blue-50 rounded-xl p-4 space-y-2">
+                <div className="bg-[#3B55A5]/10 rounded-xl p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-700">총 수량</span>
-                    <span className="font-bold text-blue-600">{getTotalQuantity()}벌</span>
+                    <span className="font-bold text-[#3B55A5]">{getTotalQuantity()}벌</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-700">단가</span>
-                    <span className="font-medium text-blue-600">{formatPrice(currentPrice)}</span>
+                    <span className="font-medium text-[#3B55A5]">{formatPrice(currentPrice)}</span>
                   </div>
                   <div className="flex justify-between text-sm pt-2 border-t border-blue-200">
                     <span className="text-gray-700 font-medium">예상 금액</span>
-                    <span className="font-bold text-blue-600 text-lg">{formatPrice(currentPrice * getTotalQuantity())}</span>
+                    <span className="font-bold text-[#3B55A5] text-lg">{formatPrice(currentPrice * getTotalQuantity())}</span>
                   </div>
 
                   {getNextTierInfo() && (
-                    <div className="text-xs text-blue-700 bg-blue-100 rounded-lg px-3 py-2 mt-2">
+                    <div className="text-xs text-[#2D4280] bg-[#3B55A5]/20 rounded-lg px-3 py-2 mt-2">
                       💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 {formatPrice(getNextTierInfo()?.nextPrice)}으로 할인!
                     </div>
                   )}
@@ -805,7 +805,7 @@ export default function CoBuySharePage() {
                         <span
                           key={idx}
                           className={`px-2 py-1 rounded-lg text-xs ${
-                            isActive ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600'
+                            isActive ? 'bg-[#3B55A5] text-white' : 'bg-white border border-gray-200 text-gray-600'
                           }`}
                         >
                           {tier.minQuantity}벌↑ {formatPrice(tier.pricePerItem)}
@@ -918,20 +918,20 @@ export default function CoBuySharePage() {
                   }}
                   className={`w-full p-4 md:p-5 rounded-2xl border-2 text-left transition-all ${
                     deliveryMethod === 'pickup'
-                      ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
+                      ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10'
                       : 'border-gray-200 hover:border-gray-300 bg-white'
                   }`}
                 >
                   <div className="flex items-start gap-3 md:gap-4">
                     <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${
-                      deliveryMethod === 'pickup' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                      deliveryMethod === 'pickup' ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'
                     }`}>
                       <MapPin className="w-4 h-4 md:w-5 md:h-5" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-gray-900 text-sm md:text-base">직접 수령</span>
-                        {deliveryMethod === 'pickup' && <Check className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />}
+                        {deliveryMethod === 'pickup' && <Check className="w-4 h-4 md:w-5 md:h-5 text-[#3B55A5]" />}
                       </div>
                       <p className="text-xs md:text-sm text-gray-600 mt-1">무료</p>
                       {deliverySettings?.pickupLocation && (
@@ -950,20 +950,20 @@ export default function CoBuySharePage() {
                   }}
                   className={`w-full p-4 md:p-5 rounded-2xl border-2 text-left transition-all ${
                     deliveryMethod === 'delivery'
-                      ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-500/10'
+                      ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10'
                       : 'border-gray-200 hover:border-gray-300 bg-white'
                   }`}
                 >
                   <div className="flex items-start gap-3 md:gap-4">
                     <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${
-                      deliveryMethod === 'delivery' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                      deliveryMethod === 'delivery' ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'
                     }`}>
                       <Truck className="w-4 h-4 md:w-5 md:h-5" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-gray-900 text-sm md:text-base">배송</span>
-                        {deliveryMethod === 'delivery' && <Check className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />}
+                        {deliveryMethod === 'delivery' && <Check className="w-4 h-4 md:w-5 md:h-5 text-[#3B55A5]" />}
                       </div>
                       <p className="text-xs md:text-sm text-gray-600 mt-1">
                         {(deliverySettings?.deliveryFee || 0) > 0
@@ -1262,7 +1262,7 @@ export default function CoBuySharePage() {
                   )}
                   <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
                     <span>총 결제 금액</span>
-                    <span className="text-blue-600">{formatPrice(totalAmount)}</span>
+                    <span className="text-[#3B55A5]">{formatPrice(totalAmount)}</span>
                   </div>
                 </div>
               </div>
@@ -1350,7 +1350,7 @@ export default function CoBuySharePage() {
             {currentStep !== 'review' ? (
               <button
                 onClick={handleNext}
-                className="flex-1 py-3 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
+                className="flex-1 py-3 md:py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
               >
                 <span>다음</span>
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />

@@ -173,7 +173,7 @@ export default function MyPage() {
               </div>
               <Link
                 href="/login"
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors"
               >
                 로그인
               </Link>

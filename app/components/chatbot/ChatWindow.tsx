@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { matchIntent, parseKoreanPrice } from '@/lib/chatbot/intentMatcher';
-import { generateResponse } from '@/lib/chatbot/responseGenerator';
+import { generateResponse, ResponseWithState } from '@/lib/chatbot/responseGenerator';
 import { fetchProductsForRecommendation } from '@/lib/chatbot/productSearch';
 import { QuickReply } from '@/lib/chatbot/types';
 import { CATEGORY_MAPPING } from '@/lib/chatbot/intents';
@@ -19,13 +19,37 @@ export default function ChatWindow() {
     messages,
     inputValue,
     isTyping,
+    conversationState,
     openChat,
     closeChat,
     addMessage,
     setInputValue,
-    setIsTyping
+    setIsTyping,
+    startRecommendationFlow,
+    updateRecommendationStep,
+    updatePreferences,
+    resetConversationState
   } = useChatStore();
   const { isAuthenticated } = useAuthStore();
+
+  // Helper to handle state updates from response
+  const handleStateUpdate = (stateUpdate: ResponseWithState['stateUpdate']) => {
+    if (!stateUpdate) return;
+
+    if (stateUpdate.resetFlow) {
+      resetConversationState();
+    } else if (stateUpdate.startFlow) {
+      startRecommendationFlow();
+    }
+
+    if (stateUpdate.nextStep) {
+      updateRecommendationStep(stateUpdate.nextStep);
+    }
+
+    if (stateUpdate.preferences) {
+      updatePreferences(stateUpdate.preferences);
+    }
+  };
 
   const handleSend = async () => {
     const text = inputValue.trim();
@@ -47,29 +71,51 @@ export default function ChatWindow() {
       // Match intent
       const intentMatch = matchIntent(text);
 
-      // Fetch products if needed
+      // Fetch products if needed (for recommendation flow completion or direct search)
       let products = undefined;
-      if (intentMatch.intent === 'product_recommendation') {
-        const { maxPrice, category } = intentMatch.extractedEntities;
+      const isInRecommendationFlow = conversationState.activeFlow === 'product_recommendation';
+      const isQuantityStep = conversationState.currentStep === 'quantity';
+
+      if (intentMatch.intent === 'product_recommendation' || isQuantityStep) {
         const options: { maxPrice?: number; category?: string } = {};
 
-        if (maxPrice) {
-          options.maxPrice = parseKoreanPrice(maxPrice);
-        }
-        if (category) {
-          options.category = CATEGORY_MAPPING[category] || category;
+        // Use preferences from conversation state if in flow
+        if (isInRecommendationFlow) {
+          if (conversationState.preferences.maxPrice) {
+            options.maxPrice = conversationState.preferences.maxPrice;
+          }
+          if (conversationState.preferences.category) {
+            options.category = CATEGORY_MAPPING[conversationState.preferences.category] || conversationState.preferences.category;
+          }
+        } else {
+          // Use extracted entities from intent
+          const { maxPrice, category } = intentMatch.extractedEntities;
+          if (maxPrice) {
+            options.maxPrice = parseKoreanPrice(maxPrice);
+          }
+          if (category) {
+            options.category = CATEGORY_MAPPING[category] || category;
+          }
         }
 
         products = await fetchProductsForRecommendation(options);
 
         // If no specific filters but general recommendation, get popular products
-        if (!maxPrice && !category && products.length === 0) {
+        if (Object.keys(options).length === 0 && products.length === 0) {
           products = await fetchProductsForRecommendation({ limit: 6 });
         }
       }
 
-      // Generate response
-      const response = generateResponse(intentMatch, isAuthenticated, products);
+      // Generate response with conversation state
+      const response = generateResponse(
+        intentMatch,
+        isAuthenticated,
+        products,
+        isInRecommendationFlow ? {
+          currentStep: conversationState.currentStep,
+          preferences: conversationState.preferences
+        } : undefined
+      );
 
       // Handle reset
       if (response === 'reset') {
@@ -77,10 +123,14 @@ export default function ChatWindow() {
         return;
       }
 
+      // Handle state updates
+      handleStateUpdate(response.stateUpdate);
+
       // Add bot message
-      addMessage(response);
+      addMessage(response.response);
     } catch (error) {
       console.error('Error processing message:', error);
+      resetConversationState();
       addMessage({
         sender: 'bot',
         content: '죄송해요, 오류가 발생했어요. 다시 시도해 주세요.',
@@ -129,25 +179,45 @@ export default function ChatWindow() {
       const intentMatch = matchIntent(text);
       let products = undefined;
 
-      if (intentMatch.intent === 'product_recommendation') {
-        const { maxPrice, category } = intentMatch.extractedEntities;
+      const isInRecommendationFlow = conversationState.activeFlow === 'product_recommendation';
+      const isQuantityStep = conversationState.currentStep === 'quantity';
+
+      if (intentMatch.intent === 'product_recommendation' || isQuantityStep) {
         const options: { maxPrice?: number; category?: string } = {};
 
-        if (maxPrice) {
-          options.maxPrice = parseKoreanPrice(maxPrice);
-        }
-        if (category) {
-          options.category = CATEGORY_MAPPING[category] || category;
+        if (isInRecommendationFlow) {
+          if (conversationState.preferences.maxPrice) {
+            options.maxPrice = conversationState.preferences.maxPrice;
+          }
+          if (conversationState.preferences.category) {
+            options.category = CATEGORY_MAPPING[conversationState.preferences.category] || conversationState.preferences.category;
+          }
+        } else {
+          const { maxPrice, category } = intentMatch.extractedEntities;
+          if (maxPrice) {
+            options.maxPrice = parseKoreanPrice(maxPrice);
+          }
+          if (category) {
+            options.category = CATEGORY_MAPPING[category] || category;
+          }
         }
 
         products = await fetchProductsForRecommendation(options);
 
-        if (!maxPrice && !category && products.length === 0) {
+        if (Object.keys(options).length === 0 && products.length === 0) {
           products = await fetchProductsForRecommendation({ limit: 6 });
         }
       }
 
-      const response = generateResponse(intentMatch, isAuthenticated, products);
+      const response = generateResponse(
+        intentMatch,
+        isAuthenticated,
+        products,
+        isInRecommendationFlow ? {
+          currentStep: conversationState.currentStep,
+          preferences: conversationState.preferences
+        } : undefined
+      );
 
       // Handle reset
       if (response === 'reset') {
@@ -155,9 +225,13 @@ export default function ChatWindow() {
         return;
       }
 
-      addMessage(response);
+      // Handle state updates
+      handleStateUpdate(response.stateUpdate);
+
+      addMessage(response.response);
     } catch (error) {
       console.error('Error processing message:', error);
+      resetConversationState();
       addMessage({
         sender: 'bot',
         content: '죄송해요, 오류가 발생했어요. 다시 시도해 주세요.',
@@ -176,6 +250,7 @@ export default function ChatWindow() {
   const handleReset = () => {
     setIsTyping(false);
     useChatStore.getState().clearMessages();
+    resetConversationState();
     // Re-open to show welcome message
     closeChat();
     setTimeout(() => openChat(), 100);
@@ -186,10 +261,10 @@ export default function ChatWindow() {
   return (
     <div className="fixed bottom-24 right-4 md:bottom-8 md:right-24 z-[9998] w-[calc(100vw-2rem)] max-w-[380px] h-[70vh] md:h-[500px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-blue-600 text-white">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#3B55A5] text-white">
         <div>
           <h3 className="font-semibold">모두의 유니폼</h3>
-          <p className="text-xs text-blue-100">무엇이든 물어보세요!</p>
+          <p className="text-xs text-blue-200">무엇이든 물어보세요!</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -200,7 +275,7 @@ export default function ChatWindow() {
           </button>
           <button
             onClick={closeChat}
-            className="p-1 hover:bg-blue-700 rounded-full transition-colors"
+            className="p-1 hover:bg-[#2D4280] rounded-full transition-colors"
             aria-label="채팅 닫기"
           >
             <X className="w-5 h-5" />

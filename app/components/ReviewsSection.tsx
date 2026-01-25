@@ -98,7 +98,7 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
         </div>
         <Link
           href={`/reviews/${productId}`}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-[#3B55A5] hover:underline"
         >
           전체 보기
         </Link>
