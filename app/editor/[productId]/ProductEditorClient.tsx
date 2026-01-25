@@ -478,7 +478,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
 
       {/* Product Details */}
       {!isEditMode && (
-        <div className="text-black bg-white p-4 mb-24 flex flex-col gap-1 pb-100">
+        <div className="text-black bg-white p-4 mb-24 flex flex-col gap-1">
           {/* First Section */}
           <div className="w-full flex justify-between">
             <div className="">
