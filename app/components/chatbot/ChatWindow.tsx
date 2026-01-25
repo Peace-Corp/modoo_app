@@ -269,7 +269,7 @@ export default function ChatWindow() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleReset}
-            className="text-xs text-blue-200 hover:text-white underline transition-colors"
+            className="px-3 py-1.5 text-xs font-medium bg-white/20 hover:bg-white/30 text-white rounded-full transition-all"
           >
             처음으로
           </button>
