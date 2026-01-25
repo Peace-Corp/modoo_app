@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { ChatMessage, QuickReply } from '@/lib/chatbot/types';
+import { ChatMessage, QuickReply, ConversationState, RecommendationPreferences, RecommendationStep } from '@/lib/chatbot/types';
+
+const INITIAL_CONVERSATION_STATE: ConversationState = {
+  activeFlow: null,
+  currentStep: 'initial',
+  preferences: {}
+};
 
 interface ChatState {
   // UI State
@@ -12,6 +18,9 @@ interface ChatState {
   inputValue: string;
   isTyping: boolean;
 
+  // Conversation state for multi-step flows
+  conversationState: ConversationState;
+
   // Actions
   toggleChat: () => void;
   openChat: () => void;
@@ -23,6 +32,12 @@ interface ChatState {
   clearMessages: () => void;
 
   addQuickRepliesToLastMessage: (quickReplies: QuickReply[]) => void;
+
+  // Conversation state actions
+  startRecommendationFlow: () => void;
+  updateRecommendationStep: (step: RecommendationStep) => void;
+  updatePreferences: (preferences: Partial<RecommendationPreferences>) => void;
+  resetConversationState: () => void;
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -34,8 +49,8 @@ const WELCOME_MESSAGE: ChatMessage = {
   metadata: {
     quickReplies: [
       { label: '상품 추천', action: '상품 추천해줘', type: 'message' },
+      { label: '공동구매란?', action: '공동구매가 뭐야?', type: 'message' },
       { label: '인쇄 가격', action: '인쇄 가격 알려줘', type: 'message' },
-      { label: '주문 조회', action: '주문 상태 확인', type: 'message' },
       { label: 'FAQ', action: '/inquiries?tab=faq', type: 'navigate' },
     ]
   }
@@ -47,6 +62,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   inputValue: '',
   isTyping: false,
+  conversationState: INITIAL_CONVERSATION_STATE,
 
   // UI Actions
   toggleChat: () => set((state) => ({
@@ -76,7 +92,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...state.messages,
       {
         ...message,
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         timestamp: Date.now(),
       }
     ]
@@ -99,5 +115,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }
     return { messages };
+  }),
+
+  // Conversation state actions
+  startRecommendationFlow: () => set({
+    conversationState: {
+      activeFlow: 'product_recommendation',
+      currentStep: 'category',
+      preferences: {}
+    }
+  }),
+
+  updateRecommendationStep: (step) => set((state) => ({
+    conversationState: {
+      ...state.conversationState,
+      currentStep: step
+    }
+  })),
+
+  updatePreferences: (preferences) => set((state) => ({
+    conversationState: {
+      ...state.conversationState,
+      preferences: {
+        ...state.conversationState.preferences,
+        ...preferences
+      }
+    }
+  })),
+
+  resetConversationState: () => set({
+    conversationState: INITIAL_CONVERSATION_STATE
   }),
 }));

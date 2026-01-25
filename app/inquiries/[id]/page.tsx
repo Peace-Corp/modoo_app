@@ -305,10 +305,10 @@ export default function InquiryDetailPage() {
           {inquiry.replies && inquiry.replies.length > 0 ? (
             <div className="space-y-4 mb-6">
               {inquiry.replies.map((reply: any) => (
-                <div key={reply.id} className="border-l-4 border-blue-500 pl-4 py-2">
+                <div key={reply.id} className="border-l-4 border-[#3B55A5] pl-4 py-2">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-blue-600">
+                      <span className="text-sm font-medium text-[#3B55A5]">
                         관리자
                       </span>
                       {reply.admin && (

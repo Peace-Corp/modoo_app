@@ -16,7 +16,7 @@ export default function QuickReplies({ replies, onReplyClick }: QuickRepliesProp
         <button
           key={index}
           onClick={() => onReplyClick(reply)}
-          className="px-4 py-2 text-sm font-medium bg-white border-2 border-blue-500 text-blue-600 rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md active:scale-95 transition-all whitespace-nowrap"
+          className="px-4 py-2 text-sm font-medium bg-white border-2 border-[#3B55A5] text-[#3B55A5] rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md active:scale-95 transition-all whitespace-nowrap"
         >
           {reply.label}
         </button>

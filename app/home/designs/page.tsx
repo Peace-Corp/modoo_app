@@ -492,7 +492,7 @@ export default function DesignsPage() {
                         {/* CoBuy Button */}
                         <button
                           onClick={(e) => handleCoBuyClick(design, e)}
-                          className="w-full py-2 px-3 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                          className="w-full py-2 px-3 bg-[#3B55A5] text-white text-sm rounded-lg hover:bg-[#2D4280] transition-colors flex items-center justify-center gap-2"
                         >
                           <Users className="w-4 h-4" />
                           <span>공동구매</span>

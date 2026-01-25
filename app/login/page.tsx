@@ -115,7 +115,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         {/* Back to Home Link */}
         <div className="mb-6">
-          <Link href="/" className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+          <Link href="/" className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-[#3B55A5] transition-colors">
             ← 홈으로 돌아가기
           </Link>
         </div>
@@ -147,7 +147,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setIsSignUp(true)}
-                      className="font-semibold text-blue-600 hover:text-blue-700"
+                      className="font-semibold text-[#3B55A5] hover:text-[#2D4280]"
                     >
                       회원가입
                     </button>
@@ -165,7 +165,7 @@ export default function LoginPage() {
                       autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-[#3B55A5] text-gray-900"
                       placeholder="example@email.com"
                       tabIndex={isSignUp ? -1 : 0}
                     />
@@ -181,7 +181,7 @@ export default function LoginPage() {
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-[#3B55A5] text-gray-900"
                       placeholder="••••••••"
                       tabIndex={isSignUp ? -1 : 0}
                     />
@@ -200,7 +200,7 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={isLoading || isSignUp}
-                    className="w-full py-3 px-4 rounded-md text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 rounded-md text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2D4280] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3B55A5] disabled:opacity-50 disabled:cursor-not-allowed"
                     tabIndex={isSignUp ? -1 : 0}
                   >
                     {isLoading && !isSignUp ? (
@@ -225,7 +225,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setIsSignUp(false)}
-                      className="font-semibold text-blue-600 hover:text-blue-700"
+                      className="font-semibold text-[#3B55A5] hover:text-[#2D4280]"
                     >
                       로그인
                     </button>
@@ -243,7 +243,7 @@ export default function LoginPage() {
                       autoComplete="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-[#3B55A5] text-gray-900"
                       placeholder="홍길동"
                       tabIndex={isSignUp ? 0 : -1}
                     />
@@ -259,7 +259,7 @@ export default function LoginPage() {
                       autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-[#3B55A5] text-gray-900"
                       placeholder="example@email.com"
                       tabIndex={isSignUp ? 0 : -1}
                     />
@@ -275,7 +275,7 @@ export default function LoginPage() {
                       autoComplete="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-[#3B55A5] text-gray-900"
                       placeholder="01012345678"
                       tabIndex={isSignUp ? 0 : -1}
                     />
@@ -291,7 +291,7 @@ export default function LoginPage() {
                       autoComplete="new-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-[#3B55A5] text-gray-900"
                       placeholder="••••••••"
                       tabIndex={isSignUp ? 0 : -1}
                     />
@@ -310,7 +310,7 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={isLoading || !isSignUp}
-                    className="w-full py-3 px-4 rounded-md text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 rounded-md text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2D4280] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3B55A5] disabled:opacity-50 disabled:cursor-not-allowed"
                     tabIndex={isSignUp ? 0 : -1}
                   >
                     {isLoading && isSignUp ? (

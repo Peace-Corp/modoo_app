@@ -30,7 +30,7 @@ export default function CategoryButton({ name, icon, onClick, href, isActive = f
       }`}
     >
       <div className={`size-16 sm:size-18 lg:size-20 rounded-xl lg:rounded-2xl flex items-center justify-center transition-colors border border-black/40 hover:bg-gray-100 ${
-        isActive ? 'ring-2 ring-blue-500 box-content' : ''
+        isActive ? 'ring-2 ring-[#3B55A5] box-content' : ''
       }`}>
         {icon ? (
           <Image
@@ -45,7 +45,7 @@ export default function CategoryButton({ name, icon, onClick, href, isActive = f
         )}
       </div>
       <p className={`text-xs sm:text-sm lg:text-sm font-medium ${
-        isActive ? 'text-blue-600' : 'text-gray-700'
+        isActive ? 'text-[#3B55A5]' : 'text-gray-700'
       }`}>
         {name}
       </p>

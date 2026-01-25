@@ -60,7 +60,33 @@ export type ChatIntent =
   | 'order_status'
   | 'faq_help'
   | 'greeting'
+  | 'reset'
+  | 'cobuy_info'
   | 'unknown';
+
+// Product recommendation conversation steps
+export type RecommendationStep =
+  | 'initial'
+  | 'category'
+  | 'budget'
+  | 'purpose'
+  | 'quantity'
+  | 'complete';
+
+// Product recommendation preferences collected during conversation
+export interface RecommendationPreferences {
+  category?: string;
+  maxPrice?: number;
+  purpose?: string;
+  quantity?: string;
+}
+
+// Conversation state for multi-step flows
+export interface ConversationState {
+  activeFlow: 'product_recommendation' | null;
+  currentStep: RecommendationStep;
+  preferences: RecommendationPreferences;
+}
 
 // Intent matching result
 export interface IntentMatch {

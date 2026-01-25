@@ -49,7 +49,7 @@ export default function CoBuyProgressBar({ currentStatus }: CoBuyProgressBarProp
                       isCompleted
                         ? 'bg-green-500 text-white'
                         : isCurrent
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-[#3B55A5] text-white'
                         : 'bg-gray-200 text-gray-400'
                     }`}
                   >
@@ -75,7 +75,7 @@ export default function CoBuyProgressBar({ currentStatus }: CoBuyProgressBarProp
                       isCompleted
                         ? 'text-green-600'
                         : isCurrent
-                        ? 'text-blue-600'
+                        ? 'text-[#3B55A5]'
                         : 'text-gray-400'
                     }`}
                   >
@@ -113,7 +113,7 @@ export default function CoBuyProgressBar({ currentStatus }: CoBuyProgressBarProp
                     isCompleted
                       ? 'bg-green-500 text-white'
                       : isCurrent
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-[#3B55A5] text-white'
                       : 'bg-gray-200 text-gray-400'
                   }`}
                 >
@@ -129,7 +129,7 @@ export default function CoBuyProgressBar({ currentStatus }: CoBuyProgressBarProp
                     isCompleted
                       ? 'text-green-600'
                       : isCurrent
-                      ? 'text-blue-600'
+                      ? 'text-[#3B55A5]'
                       : 'text-gray-400'
                   }`}
                 >

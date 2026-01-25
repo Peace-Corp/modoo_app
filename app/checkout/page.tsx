@@ -347,7 +347,7 @@ export default function CheckoutPage() {
           {isAuthenticated && user && (
             <button
               onClick={() => setUseProfileInfo(!useProfileInfo)}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="text-sm text-[#3B55A5] hover:text-[#2D4280] font-medium"
             >
               {useProfileInfo ? '직접 입력' : '프로필 정보 사용'}
             </button>
@@ -653,7 +653,7 @@ export default function CheckoutPage() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 bg-[#3B55A5] rounded-lg flex items-center justify-center text-white font-bold text-sm">
                   토스
                 </div>
                 <div>

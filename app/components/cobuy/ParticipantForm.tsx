@@ -346,7 +346,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
           <select
             value={value}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
             required={field.required}
           >
             <option value="">선택해주세요</option>
@@ -361,7 +361,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
             type="email"
             value={value}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
             placeholder={`${field.label}을(를) 입력하세요`}
             required={field.required}
           />
@@ -370,7 +370,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
             type="tel"
             value={value}
             onChange={(e) => handleInputChange(field.id, e.target.value.replace(/[^0-9]/g, ''))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
             placeholder="01012345678"
             required={field.required}
           />
@@ -379,7 +379,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
             type="text"
             value={value}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
             placeholder={`${field.label}을(를) 입력하세요`}
             required={field.required}
           />
@@ -403,7 +403,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
           type="text"
           value={formData.name}
           onChange={(e) => handleInputChange('name', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
           placeholder="이름을 입력하세요"
         />
         {errors.name && (
@@ -419,7 +419,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
           type="email"
           value={formData.email}
           onChange={(e) => handleInputChange('email', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
           placeholder="example@email.com"
         />
         {errors.email && (
@@ -435,7 +435,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
           type="tel"
           value={formData.phone}
           onChange={(e) => handleInputChange('phone', e.target.value.replace(/[^0-9]/g, ''))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
           placeholder="01012345678"
         />
         {errors.phone && (
@@ -460,7 +460,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                 <select
                   value={item.size}
                   onChange={(e) => handleItemSizeChange(index, e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] ${
                     errors[`item-${index}-size`] ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
@@ -524,36 +524,36 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
 
         {/* Total summary */}
         {getTotalQuantity() > 0 && (
-          <div className="mt-3 p-3 bg-blue-50 rounded-lg space-y-2">
+          <div className="mt-3 p-3 bg-[#3B55A5]/10 rounded-lg space-y-2">
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-700">총 수량</span>
-              <span className="font-bold text-blue-600">{getTotalQuantity()}벌</span>
+              <span className="font-bold text-[#3B55A5]">{getTotalQuantity()}벌</span>
             </div>
             {(pricePerItem > 0 || pricingTiers.length > 0) && (
               <>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-700">단가</span>
-                  <span className="font-medium text-blue-600">₩{getCurrentPricePerItem().toLocaleString()}</span>
+                  <span className="font-medium text-[#3B55A5]">₩{getCurrentPricePerItem().toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-700">상품 금액</span>
-                  <span className="font-medium text-blue-600">₩{(getTotalQuantity() * getCurrentPricePerItem()).toLocaleString()}</span>
+                  <span className="font-medium text-[#3B55A5]">₩{(getTotalQuantity() * getCurrentPricePerItem()).toLocaleString()}</span>
                 </div>
                 {formData.deliveryFee > 0 && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-700">배송비</span>
-                    <span className="font-medium text-blue-600">+₩{formData.deliveryFee.toLocaleString()}</span>
+                    <span className="font-medium text-[#3B55A5]">+₩{formData.deliveryFee.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center text-sm pt-1 border-t border-blue-200">
+                <div className="flex justify-between items-center text-sm pt-1 border-t border-[#3B55A5]/30">
                   <span className="text-gray-700 font-medium">예상 결제 금액</span>
-                  <span className="font-bold text-blue-600 text-lg">₩{getTotalPrice().toLocaleString()}</span>
+                  <span className="font-bold text-[#3B55A5] text-lg">₩{getTotalPrice().toLocaleString()}</span>
                 </div>
               </>
             )}
             {/* Next tier hint */}
             {getNextTierInfo() && (
-              <div className="text-xs text-blue-700 bg-blue-100 rounded px-2 py-1.5 mt-2">
+              <div className="text-xs text-[#2D4280] bg-[#3B55A5]/20 rounded px-2 py-1.5 mt-2">
                 💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 ₩{getNextTierInfo()?.nextPrice?.toLocaleString()}으로 할인! <span className="text-black/80">(차액은 캐시백으로 환불됩니다.)</span>
               </div>
             )}
@@ -572,7 +572,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                     key={idx}
                     className={`px-2 py-1 rounded text-xs ${
                       isActive
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-[#3B55A5] text-white'
                         : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
@@ -603,7 +603,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
               onClick={() => handleDeliveryMethodChange('pickup')}
               className={`p-4 rounded-lg border-2 text-left transition-all ${
                 formData.deliveryMethod === 'pickup'
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-[#3B55A5] bg-[#3B55A5]/10'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -623,7 +623,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
               onClick={() => handleDeliveryMethodChange('delivery')}
               className={`p-4 rounded-lg border-2 text-left transition-all ${
                 formData.deliveryMethod === 'delivery'
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-[#3B55A5] bg-[#3B55A5]/10'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -666,7 +666,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                   type="text"
                   value={formData.deliveryInfo?.recipientName || ''}
                   onChange={(e) => handleDeliveryInfoChange('recipientName', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] text-sm ${
                     errors.recipientName ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="수령인 이름"
@@ -685,7 +685,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                   type="tel"
                   value={formData.deliveryInfo?.phone || ''}
                   onChange={(e) => handleDeliveryInfoChange('phone', e.target.value.replace(/[^0-9]/g, ''))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] text-sm ${
                     errors.deliveryPhone ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="01012345678"
@@ -743,7 +743,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                       type="text"
                       value={formData.deliveryInfo?.addressDetail || ''}
                       onChange={(e) => handleDeliveryInfoChange('addressDetail', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] text-sm ${
                         errors.addressDetail ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="아파트 동/호수, 건물명 등"
@@ -768,7 +768,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                   type="text"
                   value={formData.deliveryInfo?.memo || ''}
                   onChange={(e) => handleDeliveryInfoChange('memo', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] text-sm"
                   placeholder="예: 문 앞에 놓아주세요"
                   maxLength={100}
                 />
@@ -788,7 +788,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
         className={`w-full py-3 px-4 rounded-lg font-medium text-white transition-colors ${
           isSubmitting
             ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700'
+            : 'bg-[#3B55A5] hover:bg-[#2D4280]'
         }`}
       >
         {isSubmitting ? '처리 중...' : '결제하기'}
