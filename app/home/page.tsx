@@ -5,67 +5,74 @@ import CategoryButton from "@/app/components/CategoryButton";
 import ProductionExamples from "@/app/components/ProductionExamples";
 import InquiryBoardSection from "@/app/components/InquiryBoardSection";
 import CoBuySessionCard from "@/app/components/CoBuySessionCard";
-import { createClient } from "@/lib/supabase";
+import { createAnonClient } from "@/lib/supabase";
 import { Product, CoBuySessionWithDetails } from "@/types/types";
 import { CATEGORIES } from "@/lib/categories";
-import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 
-const getActiveProducts = cache(async (): Promise<Product[]> => {
-  const supabase = await createClient();
+const getActiveProducts = unstable_cache(
+  async (): Promise<Product[]> => {
+    const supabase = createAnonClient();
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*, manufacturers(name)')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, manufacturers(name)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching products:', error);
-    return [];
-  }
+    if (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
 
-  return (data ?? []).map(product => ({
-    ...product,
-    manufacturer_name: product.manufacturers?.name ?? null,
-  })) as Product[];
-});
+    return (data ?? []).map((product: { manufacturers?: { name: string } } & Omit<Product, 'manufacturer_name'>) => ({
+      ...product,
+      manufacturer_name: product.manufacturers?.name ?? null,
+    })) as Product[];
+  },
+  ['home-active-products'],
+  { revalidate: 60, tags: ['products'] }
+);
 
-const getCategoryItems = cache(() =>
+const getCategoryItems = () =>
   CATEGORIES.map((category) => ({
     key: category.key,
     name: category.name,
     icon: category.icon,
     href: `/home/search?category=${encodeURIComponent(category.key)}`,
-  }))
+  }));
+
+const getPublicCoBuySessions = unstable_cache(
+  async (): Promise<CoBuySessionWithDetails[]> => {
+    const supabase = createAnonClient();
+
+    const { data, error } = await supabase
+      .from('cobuy_sessions')
+      .select(`
+        *,
+        saved_design_screenshot:saved_design_screenshots (
+          id,
+          title,
+          preview_url
+        )
+      `)
+      .eq('is_public', true)
+      .eq('status', 'gathering')
+      .gte('end_date', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(4);
+
+    if (error) {
+      console.error('Error fetching public CoBuy sessions:', error);
+      return [];
+    }
+
+    return (data ?? []) as CoBuySessionWithDetails[];
+  },
+  ['home-cobuy-sessions'],
+  { revalidate: 30, tags: ['cobuy-sessions'] }
 );
-
-const getPublicCoBuySessions = cache(async (): Promise<CoBuySessionWithDetails[]> => {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('cobuy_sessions')
-    .select(`
-      *,
-      saved_design_screenshot:saved_design_screenshots (
-        id,
-        title,
-        preview_url
-      )
-    `)
-    .eq('is_public', true)
-    .eq('status', 'gathering')
-    .gte('end_date', new Date().toISOString())
-    .order('created_at', { ascending: false })
-    .limit(4);
-
-  if (error) {
-    console.error('Error fetching public CoBuy sessions:', error);
-    return [];
-  }
-
-  return (data ?? []) as CoBuySessionWithDetails[];
-});
 
 export default async function HomePage() {
   const [products, cobuySessions] = await Promise.all([
