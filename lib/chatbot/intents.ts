@@ -103,6 +103,17 @@ export const INTENT_DEFINITIONS: IntentDefinition[] = [
       /^(?:시작|처음)/i,
     ],
   },
+
+  // Reset Intent
+  {
+    intent: 'reset',
+    keywords: ['처음으로', '다시', '리셋', '초기화', '새로'],
+    patterns: [
+      /(?:처음|다시|새로)\s*(?:시작|부터)/i,
+      /(?:리셋|초기화)/i,
+      /(?:대화|채팅)\s*(?:다시|초기화|리셋)/i,
+    ],
+  },
 ];
 
 // Navigation route mapping

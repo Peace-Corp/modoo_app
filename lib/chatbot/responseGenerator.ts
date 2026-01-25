@@ -9,7 +9,7 @@ export function generateResponse(
   intentMatch: IntentMatch,
   isAuthenticated: boolean,
   products?: ProductPreview[]
-): ResponseResult {
+): ResponseResult | 'reset' {
   switch (intentMatch.intent) {
     case 'greeting':
       return generateGreetingResponse();
@@ -23,6 +23,8 @@ export function generateResponse(
       return generateOrderStatusResponse(isAuthenticated);
     case 'faq_help':
       return generateFaqResponse();
+    case 'reset':
+      return 'reset';
     default:
       return generateUnknownResponse();
   }

@@ -19,6 +19,7 @@ export default function ChatWindow() {
     messages,
     inputValue,
     isTyping,
+    openChat,
     closeChat,
     addMessage,
     setInputValue,
@@ -69,6 +70,12 @@ export default function ChatWindow() {
 
       // Generate response
       const response = generateResponse(intentMatch, isAuthenticated, products);
+
+      // Handle reset
+      if (response === 'reset') {
+        handleReset();
+        return;
+      }
 
       // Add bot message
       addMessage(response);
@@ -141,6 +148,13 @@ export default function ChatWindow() {
       }
 
       const response = generateResponse(intentMatch, isAuthenticated, products);
+
+      // Handle reset
+      if (response === 'reset') {
+        handleReset();
+        return;
+      }
+
       addMessage(response);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -155,8 +169,16 @@ export default function ChatWindow() {
   };
 
   const handleProductClick = (productId: string) => {
-    router.push(`/product/${productId}`);
+    router.push(`/editor/${productId}`);
     closeChat();
+  };
+
+  const handleReset = () => {
+    setIsTyping(false);
+    useChatStore.getState().clearMessages();
+    // Re-open to show welcome message
+    closeChat();
+    setTimeout(() => openChat(), 100);
   };
 
   if (!isOpen) return null;
@@ -169,13 +191,21 @@ export default function ChatWindow() {
           <h3 className="font-semibold">모두의 유니폼</h3>
           <p className="text-xs text-blue-100">무엇이든 물어보세요!</p>
         </div>
-        <button
-          onClick={closeChat}
-          className="p-1 hover:bg-blue-700 rounded-full transition-colors"
-          aria-label="채팅 닫기"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleReset}
+            className="text-xs text-blue-200 hover:text-white underline transition-colors"
+          >
+            처음으로
+          </button>
+          <button
+            onClick={closeChat}
+            className="p-1 hover:bg-blue-700 rounded-full transition-colors"
+            aria-label="채팅 닫기"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}

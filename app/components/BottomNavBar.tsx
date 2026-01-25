@@ -28,7 +28,7 @@ export default function BottomNavBar() {
       label: '홈',
       href: '/home',
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
       ),
@@ -38,7 +38,7 @@ export default function BottomNavBar() {
       label: '검색',
       href: '/home/search',
       icon: (
-        <Search />
+        <Search size={20} />
       ),
     },
     {
@@ -46,7 +46,7 @@ export default function BottomNavBar() {
       label: '내 디자인',
       href: '/home/designs',
       icon: (
-        <PencilLine />
+        <PencilLine size={20} />
       ),
     },
     {
@@ -54,7 +54,7 @@ export default function BottomNavBar() {
       label: '내정보',
       href: '/home/my-page',
       icon: (
-        <CircleUser />
+        <CircleUser size={20} />
       ),
     },
   ];
@@ -84,7 +84,7 @@ export default function BottomNavBar() {
               <div className="relative">
                 {item.icon}
               </div>
-              <span className="text-xs mt-1 font-medium">{item.label}</span>
+              <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
             </Link>
           ))}
 
@@ -93,7 +93,7 @@ export default function BottomNavBar() {
             className="flex flex-col items-center justify-center flex-1 h-full transition-colors text-gray-600 hover:text-gray-900"
           >
             <CartButton />
-            <span className="text-xs mt-1 font-medium">장바구니</span>
+            <span className="text-[10px] mt-0.5 font-medium">장바구니</span>
           </div>
         </div>
       </div>

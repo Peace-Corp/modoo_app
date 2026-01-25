@@ -60,6 +60,7 @@ export type ChatIntent =
   | 'order_status'
   | 'faq_help'
   | 'greeting'
+  | 'reset'
   | 'unknown';
 
 // Intent matching result
