@@ -397,9 +397,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden fixed inset-0">
+    <div className="h-dvh bg-gray-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#3B55A5] text-white shadow-md">
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#3B55A5] text-white shadow-md safe-area-top">
         <button
           onClick={() => router.push('/home')}
           className="p-2 hover:bg-[#2D4280] rounded-full transition-colors"
@@ -431,8 +431,8 @@ export default function ChatPage() {
 
       {/* Date Picker UI */}
       {inquiryFlow.currentStep === 'needed_date' && !isTyping && (
-        <div className="shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
-          <div className="max-w-md mx-auto space-y-3">
+        <div className="shrink-0 px-4 py-3 border-t border-gray-200 bg-white pb-safe">
+          <div className="max-w-md mx-auto space-y-2">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 <Calendar className="w-4 h-4 inline mr-1" />
@@ -443,20 +443,20 @@ export default function ChatPage() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={handleFlexibleDate}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1 py-2.5 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
               >
                 크게 상관 없음
               </button>
               <button
                 onClick={handleDateSubmit}
                 disabled={!selectedDate}
-                className="flex-1 py-3 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
               >
                 <Check className="w-4 h-4" />
                 선택 완료
@@ -468,14 +468,14 @@ export default function ChatPage() {
 
       {/* Priority Multi-Select UI */}
       {inquiryFlow.currentStep === 'priorities' && !isTyping && (
-        <div className="shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
+        <div className="shrink-0 px-4 py-3 border-t border-gray-200 bg-white pb-safe">
           <div className="max-w-md mx-auto">
-            <p className="text-sm text-gray-500 mb-3 text-center">
+            <p className="text-sm text-gray-500 mb-2 text-center">
               {selectedPriorities.length === 3
                 ? '선택 완료! 아래 버튼을 눌러주세요.'
                 : `${3 - selectedPriorities.length}개 더 선택해주세요`}
             </p>
-            <div className="flex flex-wrap justify-center gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {PRIORITY_OPTIONS.map((priority) => {
                 const selectedIndex = selectedPriorities.indexOf(priority);
                 const isSelected = selectedIndex !== -1;
@@ -483,14 +483,14 @@ export default function ChatPage() {
                   <button
                     key={priority}
                     onClick={() => handlePriorityToggle(priority)}
-                    className={`relative px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                    className={`relative px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                       isSelected
-                        ? 'bg-[#3B55A5] text-white ring-2 ring-[#3B55A5] ring-offset-2'
+                        ? 'bg-[#3B55A5] text-white ring-2 ring-[#3B55A5] ring-offset-1'
                         : 'bg-white text-gray-700 border border-gray-300 hover:border-[#3B55A5] hover:text-[#3B55A5]'
                     }`}
                   >
                     {isSelected && (
-                      <span className="absolute -top-2 -left-2 w-6 h-6 bg-[#3B55A5] text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      <span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-[#3B55A5] text-white text-xs rounded-full flex items-center justify-center font-bold">
                         {selectedIndex + 1}
                       </span>
                     )}
@@ -502,14 +502,14 @@ export default function ChatPage() {
             {selectedPriorities.length === 3 && (
               <button
                 onClick={handlePrioritiesSubmit}
-                className="w-full py-3 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
                 선택 완료
               </button>
             )}
             {selectedPriorities.length > 0 && selectedPriorities.length < 3 && (
-              <p className="text-sm text-center text-gray-400 mt-3">
+              <p className="text-xs text-center text-gray-400 mt-2">
                 선택: {selectedPriorities.join(' → ')}
               </p>
             )}
@@ -519,54 +519,58 @@ export default function ChatPage() {
 
       {/* Contact Form UI */}
       {inquiryFlow.currentStep === 'contact_info' && !isTyping && (
-        <div className="shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
-          <div className="max-w-md mx-auto space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">이름 *</label>
-              <input
-                type="text"
-                value={contactForm.name}
-                onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="홍길동"
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
-              />
+        <div className="shrink-0 max-h-[50vh] overflow-y-auto border-t border-gray-200 bg-white">
+          <div className="px-4 py-3 pb-safe">
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">이름 *</label>
+                  <input
+                    type="text"
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="홍길동"
+                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">연락처 *</label>
+                  <input
+                    type="tel"
+                    value={contactForm.phone}
+                    onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="010-1234-5678"
+                    className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">이메일 (선택)</label>
+                <input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="email@example.com"
+                  className="w-full px-3 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer py-1">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                  className="w-5 h-5 text-[#3B55A5] border-gray-300 rounded focus:ring-[#3B55A5] shrink-0"
+                />
+                <span className="text-sm text-gray-600">개인정보 활용 동의 *</span>
+              </label>
+              <button
+                onClick={handleContactFormSubmit}
+                disabled={!contactForm.name.trim() || !contactForm.phone.trim() || !privacyConsent || inquiryFlow.isSubmitting}
+                className="w-full py-2.5 bg-[#3B55A5] text-white text-base font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {inquiryFlow.isSubmitting ? '문의 접수 중...' : '문의하기'}
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">이메일</label>
-              <input
-                type="email"
-                value={contactForm.email}
-                onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="email@example.com"
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">연락처 *</label>
-              <input
-                type="tel"
-                value={contactForm.phone}
-                onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="010-1234-5678"
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
-              />
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={privacyConsent}
-                onChange={(e) => setPrivacyConsent(e.target.checked)}
-                className="w-5 h-5 text-[#3B55A5] border-gray-300 rounded focus:ring-[#3B55A5]"
-              />
-              <span className="text-sm text-gray-600">개인정보 활용 동의 *</span>
-            </label>
-            <button
-              onClick={handleContactFormSubmit}
-              disabled={!contactForm.name.trim() || !contactForm.phone.trim() || !privacyConsent || inquiryFlow.isSubmitting}
-              className="w-full py-3 bg-[#3B55A5] text-white text-base font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {inquiryFlow.isSubmitting ? '문의 접수 중...' : '문의하기'}
-            </button>
           </div>
         </div>
       )}

@@ -11,6 +11,7 @@ import { Product, CoBuySessionWithDetails, ReviewWithProduct } from "@/types/typ
 import { CATEGORIES } from "@/lib/categories";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
+import Footer from "../components/Footer";
 
 const getActiveProducts = unstable_cache(
   async (): Promise<Product[]> => {
@@ -177,6 +178,7 @@ export default async function HomePage() {
         <div id="reviews"></div>
         <InquiryBoardSection />
       </main>
+      <Footer />
     </div>
   );
 }
