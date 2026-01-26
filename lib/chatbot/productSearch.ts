@@ -1,6 +1,14 @@
 import { createClient } from '@/lib/supabase-client';
 import { ProductPreview } from './types';
-import { CATEGORY_MAPPING } from './intents';
+
+// Category mapping from Korean to database keys
+const CATEGORY_MAPPING: Record<string, string> = {
+  '티셔츠': 't-shirts',
+  '후드티': 'hoodie',
+  '맨투맨': 'sweatshirt',
+  '후드집업': 'hoodie-zip',
+  '자켓': 'jacket'
+};
 
 export interface ProductSearchOptions {
   maxPrice?: number;

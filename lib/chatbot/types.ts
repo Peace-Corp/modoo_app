@@ -8,7 +8,8 @@ export type MessageContentType =
   | 'pricing'
   | 'navigation'
   | 'quick_replies'
-  | 'login_prompt';
+  | 'login_prompt'
+  | 'inquiry_step';  // For rendering step-specific UI
 
 // Quick reply button
 export interface QuickReply {
@@ -49,59 +50,78 @@ export interface ChatMessage {
     pricingData?: PricingData;
     navigationRoute?: string;
     quickReplies?: QuickReply[];
+    inquiryStep?: InquiryStep;  // For rendering step-specific UI
   };
 }
 
-// Supported chat intents
-export type ChatIntent =
-  | 'navigation'
-  | 'product_recommendation'
-  | 'pricing_info'
-  | 'order_status'
-  | 'faq_help'
-  | 'greeting'
-  | 'reset'
-  | 'cobuy_info'
-  | 'unknown';
+// =========================
+// Inquiry Flow Types
+// =========================
 
-// Product recommendation conversation steps
-export type RecommendationStep =
-  | 'initial'
-  | 'category'
-  | 'budget'
-  | 'purpose'
-  | 'quantity'
-  | 'complete';
+// Inquiry flow steps
+export type InquiryStep =
+  | 'welcome'
+  | 'clothing_type'    // Q1
+  | 'quantity'         // Q2
+  | 'priorities'       // Q3
+  | 'needed_date'      // Q4
+  | 'contact_info'     // Q5
+  | 'recommendation'   // Q6
+  | 'completed';
 
-// Product recommendation preferences collected during conversation
-export interface RecommendationPreferences {
-  category?: string;
-  maxPrice?: number;
-  purpose?: string;
-  quantity?: string;
+// Clothing type options
+export type ClothingType = '티셔츠' | '후드티' | '맨투맨' | '후드집업' | '자켓';
+
+// Quantity options
+export type QuantityOption = '10벌' | '30벌' | '50벌' | '100벌 이상';
+
+// Priority options
+export type Priority = '빠른 제작' | '퀄리티' | '가격' | '자세한 상담';
+
+// User data collected during inquiry flow
+export interface InquiryData {
+  clothingType?: ClothingType;
+  quantity?: QuantityOption;
+  priorities?: Priority[];  // Ordered array of 3
+  neededDate?: string | null;  // ISO date string or null for flexible
+  neededDateFlexible?: boolean;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
-// Conversation state for multi-step flows
-export interface ConversationState {
-  activeFlow: 'product_recommendation' | null;
-  currentStep: RecommendationStep;
-  preferences: RecommendationPreferences;
+// Inquiry flow state
+export interface InquiryFlowState {
+  currentStep: InquiryStep;
+  inquiryData: InquiryData;
+  inquiryId?: string;  // Set after saving to DB
+  isSubmitting?: boolean;
+  error?: string;
 }
 
-// Intent matching result
-export interface IntentMatch {
-  intent: ChatIntent;
-  confidence: number;
-  extractedEntities: Record<string, string>;
+// API response for inquiry submission
+export interface InquirySubmitResponse {
+  success: boolean;
+  inquiry?: {
+    id: string;
+    created_at: string;
+  };
+  error?: string;
 }
 
-// Intent definition for matching
-export interface IntentDefinition {
-  intent: ChatIntent;
-  keywords: string[];
-  patterns: RegExp[];
-  entityExtractors?: {
-    name: string;
-    pattern: RegExp;
-  }[];
+// Chatbot inquiry record from database
+export interface ChatbotInquiry {
+  id: string;
+  clothing_type: string;
+  quantity: number;
+  priorities: string[];
+  needed_date: string | null;
+  needed_date_flexible: boolean;
+  contact_name: string;
+  contact_email: string | null;
+  contact_phone: string;
+  status: 'pending' | 'contacted' | 'completed' | 'cancelled';
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
 }

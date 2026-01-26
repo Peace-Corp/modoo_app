@@ -7,9 +7,10 @@ interface ChatInputProps {
   onChange: (value: string) => void;
   onSend: () => void;
   disabled?: boolean;
+  placeholder?: string;
 }
 
-export default function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps) {
+export default function ChatInput({ value, onChange, onSend, disabled, placeholder = '메시지를 입력하세요...' }: ChatInputProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -26,7 +27,7 @@ export default function ChatInput({ value, onChange, onSend, disabled }: ChatInp
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="메시지를 입력하세요..."
+        placeholder={placeholder}
         disabled={disabled}
         className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
