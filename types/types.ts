@@ -453,3 +453,32 @@ export interface CoBuySessionWithDetails extends CoBuySession {
   saved_design_screenshot?: SavedDesignScreenshot;
   participants?: CoBuyParticipant[];
 }
+
+// ============================================================================
+// Review Types
+// ============================================================================
+
+export interface Review {
+  id: string;
+  product_id: string;
+  user_id: string | null;
+  rating: number;
+  title: string;
+  content: string;
+  author_name: string;
+  is_verified_purchase: boolean;
+  helpful_count: number;
+  is_best: boolean;
+  review_image_urls: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+// Review with product details for best reviews display
+export interface ReviewWithProduct extends Review {
+  product?: {
+    id: string;
+    title: string;
+    thumbnail_image_link: string | null;
+  };
+}

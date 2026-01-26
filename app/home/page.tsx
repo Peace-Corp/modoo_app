@@ -5,8 +5,9 @@ import CategoryButton from "@/app/components/CategoryButton";
 import ProductionExamples from "@/app/components/ProductionExamples";
 import InquiryBoardSection from "@/app/components/InquiryBoardSection";
 import CoBuySessionCard from "@/app/components/CoBuySessionCard";
+import BestReviewsSection from "@/app/components/BestReviewsSection";
 import { createAnonClient } from "@/lib/supabase";
-import { Product, CoBuySessionWithDetails } from "@/types/types";
+import { Product, CoBuySessionWithDetails, ReviewWithProduct } from "@/types/types";
 import { CATEGORIES } from "@/lib/categories";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
@@ -74,10 +75,40 @@ const getPublicCoBuySessions = unstable_cache(
   { revalidate: 30, tags: ['cobuy-sessions'] }
 );
 
+const getBestReviews = unstable_cache(
+  async (): Promise<ReviewWithProduct[]> => {
+    const supabase = createAnonClient();
+
+    const { data, error } = await supabase
+      .from('reviews')
+      .select(`
+        *,
+        product:products (
+          id,
+          title,
+          thumbnail_image_link
+        )
+      `)
+      .eq('is_best', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Error fetching best reviews:', error);
+      return [];
+    }
+
+    return (data ?? []) as ReviewWithProduct[];
+  },
+  ['home-best-reviews'],
+  { revalidate: 60, tags: ['reviews'] }
+);
+
 export default async function HomePage() {
-  const [products, cobuySessions] = await Promise.all([
+  const [products, cobuySessions, bestReviews] = await Promise.all([
     getActiveProducts(),
     getPublicCoBuySessions(),
+    getBestReviews(),
   ]);
 
   return (
@@ -118,6 +149,9 @@ export default async function HomePage() {
 
         {/* Production Examples Section */}
         <ProductionExamples />
+
+        {/* Best Reviews Section */}
+        <BestReviewsSection reviews={bestReviews} />
 
         {/* CoBuy Section */}
         {cobuySessions.length > 0 && (
