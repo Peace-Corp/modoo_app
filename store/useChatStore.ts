@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import { ChatMessage, QuickReply, ConversationState, RecommendationPreferences, RecommendationStep } from '@/lib/chatbot/types';
+import { ChatMessage, QuickReply, InquiryFlowState, InquiryStep, InquiryData } from '@/lib/chatbot/types';
 
-const INITIAL_CONVERSATION_STATE: ConversationState = {
-  activeFlow: null,
-  currentStep: 'initial',
-  preferences: {}
+const INITIAL_INQUIRY_STATE: InquiryFlowState = {
+  currentStep: 'welcome',
+  inquiryData: {},
+  inquiryId: undefined,
+  isSubmitting: false,
+  error: undefined
 };
 
 interface ChatState {
@@ -18,8 +20,8 @@ interface ChatState {
   inputValue: string;
   isTyping: boolean;
 
-  // Conversation state for multi-step flows
-  conversationState: ConversationState;
+  // Inquiry flow state
+  inquiryFlow: InquiryFlowState;
 
   // Actions
   toggleChat: () => void;
@@ -33,25 +35,29 @@ interface ChatState {
 
   addQuickRepliesToLastMessage: (quickReplies: QuickReply[]) => void;
 
-  // Conversation state actions
-  startRecommendationFlow: () => void;
-  updateRecommendationStep: (step: RecommendationStep) => void;
-  updatePreferences: (preferences: Partial<RecommendationPreferences>) => void;
-  resetConversationState: () => void;
+  // Inquiry flow actions
+  setInquiryStep: (step: InquiryStep) => void;
+  updateInquiryData: (data: Partial<InquiryData>) => void;
+  setInquiryId: (id: string) => void;
+  setIsSubmitting: (submitting: boolean) => void;
+  setInquiryError: (error: string | undefined) => void;
+  resetInquiryFlow: () => void;
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   sender: 'bot',
-  content: '안녕하세요! 모두의 유니폼 챗봇입니다. 무엇을 도와드릴까요?',
-  contentType: 'text',
+  content: '안녕하세요! 모두의 유니폼입니다.\n맞춤 상품을 추천해 드릴게요! 먼저 어떤 종류의 의류를 찾으시나요?',
+  contentType: 'inquiry_step',
   timestamp: Date.now(),
   metadata: {
+    inquiryStep: 'clothing_type',
     quickReplies: [
-      { label: '상품 추천', action: '상품 추천해줘', type: 'message' },
-      { label: '공동구매란?', action: '공동구매가 뭐야?', type: 'message' },
-      { label: '인쇄 가격', action: '인쇄 가격 알려줘', type: 'message' },
-      { label: 'FAQ', action: '/inquiries?tab=faq', type: 'navigate' },
+      { label: '티셔츠', action: '티셔츠', type: 'message' },
+      { label: '후드티', action: '후드티', type: 'message' },
+      { label: '맨투맨', action: '맨투맨', type: 'message' },
+      { label: '후드집업', action: '후드집업', type: 'message' },
+      { label: '자켓', action: '자켓', type: 'message' },
     ]
   }
 };
@@ -62,7 +68,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   inputValue: '',
   isTyping: false,
-  conversationState: INITIAL_CONVERSATION_STATE,
+  inquiryFlow: INITIAL_INQUIRY_STATE,
 
   // UI Actions
   toggleChat: () => set((state) => ({
@@ -78,7 +84,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: [{
           ...WELCOME_MESSAGE,
           timestamp: Date.now()
-        }]
+        }],
+        inquiryFlow: {
+          ...INITIAL_INQUIRY_STATE,
+          currentStep: 'clothing_type'
+        }
       });
     } else {
       set({ isOpen: true });
@@ -117,33 +127,47 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return { messages };
   }),
 
-  // Conversation state actions
-  startRecommendationFlow: () => set({
-    conversationState: {
-      activeFlow: 'product_recommendation',
-      currentStep: 'category',
-      preferences: {}
-    }
-  }),
-
-  updateRecommendationStep: (step) => set((state) => ({
-    conversationState: {
-      ...state.conversationState,
+  // Inquiry flow actions
+  setInquiryStep: (step) => set((state) => ({
+    inquiryFlow: {
+      ...state.inquiryFlow,
       currentStep: step
     }
   })),
 
-  updatePreferences: (preferences) => set((state) => ({
-    conversationState: {
-      ...state.conversationState,
-      preferences: {
-        ...state.conversationState.preferences,
-        ...preferences
+  updateInquiryData: (data) => set((state) => ({
+    inquiryFlow: {
+      ...state.inquiryFlow,
+      inquiryData: {
+        ...state.inquiryFlow.inquiryData,
+        ...data
       }
     }
   })),
 
-  resetConversationState: () => set({
-    conversationState: INITIAL_CONVERSATION_STATE
+  setInquiryId: (id) => set((state) => ({
+    inquiryFlow: {
+      ...state.inquiryFlow,
+      inquiryId: id
+    }
+  })),
+
+  setIsSubmitting: (submitting) => set((state) => ({
+    inquiryFlow: {
+      ...state.inquiryFlow,
+      isSubmitting: submitting
+    }
+  })),
+
+  setInquiryError: (error) => set((state) => ({
+    inquiryFlow: {
+      ...state.inquiryFlow,
+      error
+    }
+  })),
+
+  resetInquiryFlow: () => set({
+    inquiryFlow: INITIAL_INQUIRY_STATE,
+    messages: []
   }),
 }));
