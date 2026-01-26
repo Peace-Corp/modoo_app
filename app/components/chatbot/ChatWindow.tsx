@@ -107,6 +107,9 @@ export default function ChatWindow() {
     phone: ''
   });
 
+  // Privacy consent state
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+
   // Get next step in the flow
   const getNextStep = (currentStep: InquiryStep): InquiryStep => {
     const stepOrder: InquiryStep[] = [
@@ -336,6 +339,7 @@ export default function ChatWindow() {
     setSelectedPriorities([]);
     setSelectedDate('');
     setContactForm({ name: '', email: '', phone: '' });
+    setPrivacyConsent(false);
     resetInquiryFlow();
     // Re-open to show welcome message
     closeChat();
@@ -644,9 +648,18 @@ export default function ChatWindow() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={privacyConsent}
+                onChange={(e) => setPrivacyConsent(e.target.checked)}
+                className="w-4 h-4 text-[#3B55A5] border-gray-300 rounded focus:ring-[#3B55A5]"
+              />
+              <span className="text-xs text-gray-600">개인정보 활용 동의 *</span>
+            </label>
             <button
               onClick={handleContactFormSubmit}
-              disabled={!contactForm.name.trim() || !contactForm.phone.trim() || inquiryFlow.isSubmitting}
+              disabled={!contactForm.name.trim() || !contactForm.phone.trim() || !privacyConsent || inquiryFlow.isSubmitting}
               className="w-full py-2.5 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {inquiryFlow.isSubmitting ? '문의 접수 중...' : '문의하기'}

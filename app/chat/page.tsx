@@ -104,6 +104,9 @@ export default function ChatPage() {
     phone: ''
   });
 
+  // Privacy consent state
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+
   // Initialize chat on mount (without opening the floating widget)
   useEffect(() => {
     if (messages.length === 0) {
@@ -246,6 +249,7 @@ export default function ChatPage() {
     setSelectedPriorities([]);
     setSelectedDate('');
     setContactForm({ name: '', email: '', phone: '' });
+    setPrivacyConsent(false);
     resetInquiryFlow();
     // Re-initialize to show welcome message (without opening floating widget)
     setTimeout(() => initializeChat(), 100);
@@ -547,9 +551,18 @@ export default function ChatPage() {
                 className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={privacyConsent}
+                onChange={(e) => setPrivacyConsent(e.target.checked)}
+                className="w-5 h-5 text-[#3B55A5] border-gray-300 rounded focus:ring-[#3B55A5]"
+              />
+              <span className="text-sm text-gray-600">개인정보 활용 동의 *</span>
+            </label>
             <button
               onClick={handleContactFormSubmit}
-              disabled={!contactForm.name.trim() || !contactForm.phone.trim() || inquiryFlow.isSubmitting}
+              disabled={!contactForm.name.trim() || !contactForm.phone.trim() || !privacyConsent || inquiryFlow.isSubmitting}
               className="w-full py-3 bg-[#3B55A5] text-white text-base font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {inquiryFlow.isSubmitting ? '문의 접수 중...' : '문의하기'}
