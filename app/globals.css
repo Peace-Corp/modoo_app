@@ -57,3 +57,12 @@ body {
     transform: scaleY(0.1);
   }
 }
+
+/* Safe area utilities for iOS */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}

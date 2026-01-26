@@ -25,7 +25,6 @@ export default function RootLayout({
         <NavigationListener />
         <div className="w-full lg:max-w-7xl lg:mx-auto">
           <main>{children}</main>
-          <Footer />
         </div>
 
         {/* Chatbot */}
