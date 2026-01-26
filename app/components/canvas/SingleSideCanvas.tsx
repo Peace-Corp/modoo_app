@@ -116,7 +116,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     const canvas = new fabric.Canvas(canvasEl.current, {
       width,
       height,
-      backgroundColor: '#f3f3f3', // light gray background for visibility
+      // backgroundColor: '#f3f3f3', // light gray background for visibility
+      backgroundColor: '#EBEBEB',
       preserveObjectStacking: true, // keeps selected objects from jumping to front automatically
       selection: false, // Will be controlled by separate effect based on isEdit
     })
