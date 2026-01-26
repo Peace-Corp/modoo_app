@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Check, Calendar } from 'lucide-react';
+import { Home, Check, Calendar } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { QuickReply, InquiryStep, ClothingType, QuantityOption, Priority } from '@/lib/chatbot/types';
 import { fetchProductsForRecommendation } from '@/lib/chatbot/productSearch';
-import MessageList from './MessageList';
+import MessageList from '@/app/components/chatbot/MessageList';
 
 // Category mapping for product search
 const CATEGORY_MAPPING: Record<string, string> = {
@@ -55,7 +55,7 @@ const STEP_MESSAGES: Record<InquiryStep, { content: string; quickReplies?: Quick
     content: '이 단체복이 필요한 날짜는 언제인가요?',
   },
   contact_info: {
-    content: '주문 담당자 성함과 연락처를 알려주세요!\n(예: 홍길동 010-1234-5678)',
+    content: '주문 담당자 정보를 입력해주세요!',
   },
   recommendation: {
     content: '문의가 접수되었습니다! 고객님의 조건에 맞는 상품을 추천해 드릴게요.',
@@ -74,16 +74,13 @@ const CLOTHING_TYPES: ClothingType[] = ['티셔츠', '후드티', '맨투맨', '
 const QUANTITY_OPTIONS: QuantityOption[] = ['10벌', '30벌', '50벌', '100벌 이상'];
 const PRIORITY_OPTIONS: Priority[] = ['빠른 제작', '퀄리티', '가격', '자세한 상담'];
 
-export default function ChatWindow() {
+export default function ChatPage() {
   const router = useRouter();
   const {
-    isOpen,
     messages,
-    inputValue,
     isTyping,
     inquiryFlow,
-    openChat,
-    closeChat,
+    initializeChat,
     addMessage,
     setInputValue,
     setIsTyping,
@@ -107,20 +104,12 @@ export default function ChatWindow() {
     phone: ''
   });
 
-  // Get next step in the flow
-  const getNextStep = (currentStep: InquiryStep): InquiryStep => {
-    const stepOrder: InquiryStep[] = [
-      'clothing_type',
-      'quantity',
-      'priorities',
-      'needed_date',
-      'contact_info',
-      'recommendation',
-      'completed'
-    ];
-    const currentIndex = stepOrder.indexOf(currentStep);
-    return currentIndex < stepOrder.length - 1 ? stepOrder[currentIndex + 1] : 'completed';
-  };
+  // Initialize chat on mount (without opening the floating widget)
+  useEffect(() => {
+    if (messages.length === 0) {
+      initializeChat();
+    }
+  }, [messages.length, initializeChat]);
 
   // Add bot message for a step
   const addBotMessage = (step: InquiryStep, extraContent?: string, products?: any[]) => {
@@ -137,44 +126,6 @@ export default function ChatWindow() {
         products
       }
     });
-  };
-
-  // Submit inquiry to API
-  const submitInquiry = async () => {
-    const { inquiryData } = inquiryFlow;
-
-    try {
-      setIsSubmitting(true);
-
-      const response = await fetch('/api/chatbot/inquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clothingType: inquiryData.clothingType,
-          quantity: inquiryData.quantity,
-          priorities: inquiryData.priorities,
-          neededDate: inquiryData.neededDate,
-          neededDateFlexible: inquiryData.neededDateFlexible,
-          contactName: inquiryData.contactName,
-          contactEmail: inquiryData.contactEmail,
-          contactPhone: inquiryData.contactPhone
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to submit inquiry');
-      }
-
-      setInquiryId(result.inquiry.id);
-      return true;
-    } catch (error) {
-      console.error('Error submitting inquiry:', error);
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   // Fetch recommended products based on inquiry data
@@ -196,7 +147,7 @@ export default function ChatWindow() {
 
   // Handle user response based on current step
   const handleStepResponse = async (text: string) => {
-    const { currentStep, inquiryData } = inquiryFlow;
+    const { currentStep } = inquiryFlow;
 
     // Handle reset command
     if (text === 'reset' || text === '새 문의하기') {
@@ -250,51 +201,11 @@ export default function ChatWindow() {
     }
   };
 
-  const handleSend = async () => {
-    const text = inputValue.trim();
-    if (!text || isTyping) return;
-
-    // Add user message
-    addMessage({
-      sender: 'user',
-      content: text,
-      contentType: 'text'
-    });
-    setInputValue('');
-    setIsTyping(true);
-
-    // Simulate typing delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    try {
-      await handleStepResponse(text);
-    } catch (error) {
-      console.error('Error processing message:', error);
-      addMessage({
-        sender: 'bot',
-        content: '죄송해요, 오류가 발생했어요. 다시 시도해 주세요.',
-        contentType: 'text',
-        metadata: {
-          quickReplies: [
-            { label: '새 문의하기', action: 'reset', type: 'message' },
-          ]
-        }
-      });
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   const handleQuickReplyClick = (reply: QuickReply) => {
     if (reply.type === 'navigate') {
       router.push(reply.action);
-      closeChat();
     } else {
-      setInputValue(reply.action);
-      // Auto-send the message
-      setTimeout(() => {
-        handleSendFromQuickReply(reply.action);
-      }, 100);
+      handleSendFromQuickReply(reply.action);
     }
   };
 
@@ -328,7 +239,6 @@ export default function ChatWindow() {
 
   const handleProductClick = (productId: string) => {
     router.push(`/editor/${productId}`);
-    closeChat();
   };
 
   const handleReset = () => {
@@ -337,19 +247,16 @@ export default function ChatWindow() {
     setSelectedDate('');
     setContactForm({ name: '', email: '', phone: '' });
     resetInquiryFlow();
-    // Re-open to show welcome message
-    closeChat();
-    setTimeout(() => openChat(), 100);
+    // Re-initialize to show welcome message (without opening floating widget)
+    setTimeout(() => initializeChat(), 100);
   };
 
   // Handle priority toggle in multi-select mode
   const handlePriorityToggle = (priority: Priority) => {
     setSelectedPriorities(prev => {
       if (prev.includes(priority)) {
-        // Remove if already selected
         return prev.filter(p => p !== priority);
       } else if (prev.length < 3) {
-        // Add if less than 3 selected
         return [...prev, priority];
       }
       return prev;
@@ -409,7 +316,6 @@ export default function ChatWindow() {
 
     setIsTyping(true);
 
-    // Update inquiry data with contact info
     const contactName = name.trim();
     const contactEmail = email.trim() || undefined;
     const contactPhone = phone.trim();
@@ -418,14 +324,12 @@ export default function ChatWindow() {
     setContactForm({ name: '', email: '', phone: '' });
     setInquiryStep('recommendation');
 
-    // Add confirmation message
     addMessage({
       sender: 'bot',
       content: `${contactName}님, 문의를 접수 중입니다...`,
       contentType: 'text'
     });
 
-    // Submit inquiry directly with all the data
     try {
       setIsSubmitting(true);
       const { inquiryData } = inquiryFlow;
@@ -453,7 +357,6 @@ export default function ChatWindow() {
 
       setInquiryId(result.inquiry.id);
 
-      // Fetch and show recommendations
       const products = await fetchRecommendations();
 
       if (products.length > 0) {
@@ -489,48 +392,46 @@ export default function ChatWindow() {
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed bottom-24 right-4 md:bottom-8 md:right-24 z-[9998] w-[calc(100vw-2rem)] max-w-[380px] h-[70vh] md:h-[500px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden fixed inset-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#3B55A5] text-white">
-        <div>
-          <h3 className="font-semibold">모두의 유니폼</h3>
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#3B55A5] text-white shadow-md">
+        <button
+          onClick={() => router.push('/home')}
+          className="p-2 hover:bg-[#2D4280] rounded-full transition-colors"
+          aria-label="홈으로"
+        >
+          <Home className="w-6 h-6" />
+        </button>
+        <div className="text-center">
+          <h1 className="font-semibold text-lg">모두의 유니폼</h1>
           <p className="text-xs text-blue-200">맞춤 상품 추천</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleReset}
-            className="px-3 py-1.5 text-xs font-medium bg-white/20 hover:bg-white/30 text-white rounded-full transition-all"
-          >
-            처음으로
-          </button>
-          <button
-            onClick={closeChat}
-            className="p-1 hover:bg-[#2D4280] rounded-full transition-colors"
-            aria-label="채팅 닫기"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <button
+          onClick={handleReset}
+          className="px-3 py-1.5 text-xs font-medium bg-white/20 hover:bg-white/30 text-white rounded-full transition-all"
+        >
+          처음으로
+        </button>
       </div>
 
       {/* Messages */}
-      <MessageList
-        messages={messages}
-        isTyping={isTyping}
-        onQuickReplyClick={handleQuickReplyClick}
-        onProductClick={handleProductClick}
-      />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <MessageList
+          messages={messages}
+          isTyping={isTyping}
+          onQuickReplyClick={handleQuickReplyClick}
+          onProductClick={handleProductClick}
+        />
+      </div>
 
       {/* Date Picker UI */}
       {inquiryFlow.currentStep === 'needed_date' && !isTyping && (
-        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <div className="space-y-3">
+        <div className="shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
+          <div className="max-w-md mx-auto space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                <Calendar className="w-3.5 h-3.5 inline mr-1" />
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                <Calendar className="w-4 h-4 inline mr-1" />
                 필요한 날짜
               </label>
               <input
@@ -538,20 +439,20 @@ export default function ChatWindow() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={handleFlexibleDate}
-                className="flex-1 py-2.5 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1 py-3 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
               >
                 크게 상관 없음
               </button>
               <button
                 onClick={handleDateSubmit}
                 disabled={!selectedDate}
-                className="flex-1 py-2.5 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
                 선택 완료
@@ -563,98 +464,99 @@ export default function ChatWindow() {
 
       {/* Priority Multi-Select UI */}
       {inquiryFlow.currentStep === 'priorities' && !isTyping && (
-        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <p className="text-xs text-gray-500 mb-2">
-            {selectedPriorities.length === 3
-              ? '선택 완료! 아래 버튼을 눌러주세요.'
-              : `${3 - selectedPriorities.length}개 더 선택해주세요`}
-          </p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {PRIORITY_OPTIONS.map((priority) => {
-              const selectedIndex = selectedPriorities.indexOf(priority);
-              const isSelected = selectedIndex !== -1;
-              return (
-                <button
-                  key={priority}
-                  onClick={() => handlePriorityToggle(priority)}
-                  className={`relative px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                    isSelected
-                      ? 'bg-[#3B55A5] text-white ring-2 ring-[#3B55A5] ring-offset-1'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:border-[#3B55A5] hover:text-[#3B55A5]'
-                  }`}
-                >
-                  {isSelected && (
-                    <span className="absolute -top-2 -left-2 w-5 h-5 bg-[#3B55A5] text-white text-xs rounded-full flex items-center justify-center font-bold">
-                      {selectedIndex + 1}
-                    </span>
-                  )}
-                  {priority}
-                </button>
-              );
-            })}
-          </div>
-          {selectedPriorities.length === 3 && (
-            <button
-              onClick={handlePrioritiesSubmit}
-              className="w-full py-2.5 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors flex items-center justify-center gap-2"
-            >
-              <Check className="w-4 h-4" />
-              선택 완료
-            </button>
-          )}
-          {selectedPriorities.length > 0 && selectedPriorities.length < 3 && (
-            <p className="text-xs text-center text-gray-400 mt-2">
-              선택: {selectedPriorities.join(' → ')}
+        <div className="shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
+          <div className="max-w-md mx-auto">
+            <p className="text-sm text-gray-500 mb-3 text-center">
+              {selectedPriorities.length === 3
+                ? '선택 완료! 아래 버튼을 눌러주세요.'
+                : `${3 - selectedPriorities.length}개 더 선택해주세요`}
             </p>
-          )}
+            <div className="flex flex-wrap justify-center gap-3 mb-4">
+              {PRIORITY_OPTIONS.map((priority) => {
+                const selectedIndex = selectedPriorities.indexOf(priority);
+                const isSelected = selectedIndex !== -1;
+                return (
+                  <button
+                    key={priority}
+                    onClick={() => handlePriorityToggle(priority)}
+                    className={`relative px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                      isSelected
+                        ? 'bg-[#3B55A5] text-white ring-2 ring-[#3B55A5] ring-offset-2'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:border-[#3B55A5] hover:text-[#3B55A5]'
+                    }`}
+                  >
+                    {isSelected && (
+                      <span className="absolute -top-2 -left-2 w-6 h-6 bg-[#3B55A5] text-white text-xs rounded-full flex items-center justify-center font-bold">
+                        {selectedIndex + 1}
+                      </span>
+                    )}
+                    {priority}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedPriorities.length === 3 && (
+              <button
+                onClick={handlePrioritiesSubmit}
+                className="w-full py-3 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                선택 완료
+              </button>
+            )}
+            {selectedPriorities.length > 0 && selectedPriorities.length < 3 && (
+              <p className="text-sm text-center text-gray-400 mt-3">
+                선택: {selectedPriorities.join(' → ')}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {/* Contact Form UI */}
       {inquiryFlow.currentStep === 'contact_info' && !isTyping && (
-        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <div className="space-y-3">
+        <div className="shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
+          <div className="max-w-md mx-auto space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">이름 *</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">이름 *</label>
               <input
                 type="text"
                 value={contactForm.name}
                 onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="홍길동"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">이메일</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">이메일</label>
               <input
                 type="email"
                 value={contactForm.email}
                 onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="email@example.com"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">연락처 *</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">연락처 *</label>
               <input
                 type="tel"
                 value={contactForm.phone}
                 onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
                 placeholder="010-1234-5678"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
               />
             </div>
             <button
               onClick={handleContactFormSubmit}
               disabled={!contactForm.name.trim() || !contactForm.phone.trim() || inquiryFlow.isSubmitting}
-              className="w-full py-2.5 bg-[#3B55A5] text-white text-sm font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-[#3B55A5] text-white text-base font-medium rounded-lg hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {inquiryFlow.isSubmitting ? '문의 접수 중...' : '문의하기'}
             </button>
           </div>
         </div>
       )}
-
     </div>
   );
 }

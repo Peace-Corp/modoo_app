@@ -18,15 +18,19 @@ export default function MessageList({
   onProductClick
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(messages.length);
   const lastBotMessageIndex = messages.findLastIndex(m => m.sender === 'bot');
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom only when new messages are added
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+    if (messages.length > prevMessageCountRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+    <div className="h-full overflow-y-auto p-4 space-y-3">
       {messages.map((message, index) => (
         <ChatMessage
           key={message.id}
