@@ -40,6 +40,7 @@ export default function BestReviewsSection({ reviews }: BestReviewsSectionProps)
                   src={review.review_image_urls[0]}
                   alt="리뷰 이미지"
                   fill
+                  unoptimized
                   className="object-cover"
                   sizes="(max-width: 1024px) 200px, 20vw"
                 />
@@ -76,6 +77,7 @@ export default function BestReviewsSection({ reviews }: BestReviewsSectionProps)
                         src={review.product.thumbnail_image_link}
                         alt={review.product.title}
                         fill
+                        unoptimized
                         className="object-cover"
                         sizes="32px"
                       />
