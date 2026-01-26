@@ -42,6 +42,9 @@ interface ChatState {
   setIsSubmitting: (submitting: boolean) => void;
   setInquiryError: (error: string | undefined) => void;
   resetInquiryFlow: () => void;
+
+  // Initialize chat without opening the floating widget
+  initializeChat: () => void;
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -170,4 +173,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     inquiryFlow: INITIAL_INQUIRY_STATE,
     messages: []
   }),
+
+  // Initialize chat without opening the floating widget (for dedicated chat page)
+  initializeChat: () => {
+    const state = get();
+    if (state.messages.length === 0) {
+      set({
+        messages: [{
+          ...WELCOME_MESSAGE,
+          timestamp: Date.now()
+        }],
+        inquiryFlow: {
+          ...INITIAL_INQUIRY_STATE,
+          currentStep: 'clothing_type'
+        }
+      });
+    }
+  },
 }));
