@@ -416,7 +416,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
           <aside className="rounded-md bg-white p-4 border border-gray-200 h-full overflow-hidden flex flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.category || '카테고리'}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.manufacturer_name || '제조사'}</p>
                 <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
               </div>
               <ShareProductButton

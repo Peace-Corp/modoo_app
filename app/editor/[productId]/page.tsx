@@ -17,12 +17,23 @@ export default async function ProductEditorPage({ params }: PageProps) {
   const userAgent = (await headers()).get('user-agent') || '';
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 
-  const { data: product, error } = await supabase
+  const { data: productData, error } = await supabase
     .from('products')
-    .select('*')
+    .select(`
+      *,
+      manufacturers (
+        name
+      )
+    `)
     .eq('id', productId)
     .eq('is_active', true)
     .single();
+
+  // Extract manufacturer name from joined data
+  const product = productData ? {
+    ...productData,
+    manufacturer_name: productData.manufacturers?.name ?? null,
+  } : null;
 
   if (error || !product) {
     notFound();
