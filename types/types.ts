@@ -43,8 +43,11 @@ export interface ProductConfig {
   sides: ProductSide[];
 }
 
-// Size option is now just a simple string (e.g., "S", "M", "L", "XL")
-export type SizeOption = string;
+// Size option with display label and internal code
+export interface SizeOption {
+  label: string;      // Display name (e.g., "S", "M", "L")
+  size_code: string;  // Internal code for admin/factory (e.g., "001", "ABC")
+}
 
 export interface CartItem {
   size: string;
@@ -424,7 +427,8 @@ export interface CoBuyParticipant {
   email: string;
   phone: string | null;
   field_responses: Record<string, string>;
-  selected_size: string; // Legacy - kept for backward compatibility
+  selected_size: string; // Display label (e.g., "S", "M", "L")
+  selected_size_code: string | null; // Internal size code for admin/factory tracking
   selected_items: CoBuySelectedItem[]; // New - supports multiple sizes with quantities
   total_quantity: number; // Total items this participant ordered
   delivery_method: CoBuyDeliveryMethod | null; // 'pickup' or 'delivery'

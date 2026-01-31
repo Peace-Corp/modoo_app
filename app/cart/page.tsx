@@ -279,7 +279,10 @@ export default function CartPage() {
 
           // Verify size option exists
           const sizeOptions = productSizeOptions[referenceItem.product_id] || [];
-          const sizeExists = sizeOptions.includes(update.sizeId);
+          // Handle both old string format and new object format
+          const sizeExists = sizeOptions.some((opt) =>
+            typeof opt === 'string' ? opt === update.sizeId : opt.label === update.sizeId
+          );
 
           if (!sizeExists) {
             console.error('Size option not found:', update.sizeId);

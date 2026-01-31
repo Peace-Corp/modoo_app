@@ -448,7 +448,8 @@ export async function addParticipant(
       email: data.email,
       phone: data.phone || null,
       field_responses: data.fieldResponses,
-      selected_size: data.selectedSize, // Legacy field
+      selected_size: data.selectedSize, // Display label (e.g., "S", "M", "L")
+      selected_size_code: null, // Size code is looked up from product when processing orders
       selected_items: data.selectedItems,
       total_quantity: totalQuantity,
       delivery_method: data.deliveryMethod || null,
@@ -481,6 +482,7 @@ export async function addParticipant(
       phone: participantData.phone,
       field_responses: participantData.field_responses,
       selected_size: participantData.selected_size,
+      selected_size_code: participantData.selected_size_code,
       selected_items: participantData.selected_items,
       total_quantity: participantData.total_quantity,
       delivery_method: participantData.delivery_method,
