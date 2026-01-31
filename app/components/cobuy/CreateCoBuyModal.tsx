@@ -209,13 +209,18 @@ export default function CreateCoBuyModal({
   // Add size dropdown field automatically when modal opens
   useEffect(() => {
     if (isOpen && design && customFields.length === 0) {
+      const sizeOptions = design.product.size_options || [];
+      // Extract labels for dropdown display (handle both old string format and new object format)
+      const sizeLabels = sizeOptions.map((opt) =>
+        typeof opt === 'string' ? opt : opt.label
+      );
       const sizeField: CoBuyCustomField = {
         id: 'size-dropdown-fixed',
         type: 'dropdown',
         label: '사이즈',
         required: true,
         fixed: true,
-        options: design.product.size_options || [],
+        options: sizeLabels,
       };
       setCustomFields([sizeField]);
     }

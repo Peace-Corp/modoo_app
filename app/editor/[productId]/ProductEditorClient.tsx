@@ -271,36 +271,6 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     }
   };
 
-  // const handleSaveDesignOnly = async (designTitle: string) => {
-  //   setIsSaving(true);
-  //   try {
-  //     const canvasState = saveAllCanvasState();
-  //     const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
-
-  //     const savedDesign = await saveDesign({
-  //       productId: product.id,
-  //       title: designTitle.trim(),
-  //       productColor: productColor,
-  //       canvasState: canvasState,
-  //       previewImage: previewImage,
-  //       pricePerItem: pricePerItem,
-  //     });
-
-  //     if (!savedDesign) {
-  //       alert('디자인 저장에 실패했습니다.');
-  //       return;
-  //     }
-
-  //     alert('디자인이 저장되었습니다.');
-  //     setIsSaveDesignOpen(false);
-  //   } catch (error) {
-  //     console.error('Save design failed:', error);
-  //     alert('디자인 저장 중 오류가 발생했습니다.');
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // };
-
   // Fetch product colors from database (joined with manufacturer_colors)
   useEffect(() => {
     const fetchColors = async () => {

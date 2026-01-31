@@ -258,20 +258,22 @@ export default function QuantitySelectorModal({
                 <h3 className="text-sm font-medium text-gray-700 mb-3">사이즈 및 수량</h3>
                 <div className="space-y-3">
                   {sizeOptions.map((size) => {
-                    const quantity = quantities[size] || 0;
+                    // Handle both old string format and new object format
+                    const sizeLabel = typeof size === 'string' ? size : size.label;
+                    const quantity = quantities[sizeLabel] || 0;
                     return (
                       <div
-                        key={size}
+                        key={sizeLabel}
                         className={`flex items-center justify-between p-4 border rounded-lg transition ${
                           quantity > 0
                             ? 'border-black bg-gray-50'
                             : 'border-gray-300 bg-white'
                         }`}
                       >
-                        <span className="font-medium">{size}</span>
+                        <span className="font-medium">{sizeLabel}</span>
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => handleQuantityChange(size, -1)}
+                            onClick={() => handleQuantityChange(sizeLabel, -1)}
                             disabled={quantity === 0 || isSaving}
                             className="p-1 hover:bg-gray-200 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                           >
@@ -281,12 +283,12 @@ export default function QuantitySelectorModal({
                             type="number"
                             min="0"
                             value={quantity}
-                            onChange={(e) => handleManualQuantityChange(size, e.target.value)}
+                            onChange={(e) => handleManualQuantityChange(sizeLabel, e.target.value)}
                             disabled={isSaving}
                             className="min-w-12 w-12 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-black transition disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
                           <button
-                            onClick={() => handleQuantityChange(size, 1)}
+                            onClick={() => handleQuantityChange(sizeLabel, 1)}
                             disabled={isSaving}
                             className="p-1 hover:bg-gray-200 rounded transition disabled:opacity-30"
                           >

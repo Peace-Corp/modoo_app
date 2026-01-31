@@ -716,9 +716,13 @@ export default function CoBuySharePage() {
                         }`}
                       >
                         <option value="">사이즈 선택</option>
-                        {sizeOptions.map((size, idx) => (
-                          <option key={idx} value={size}>{size}</option>
-                        ))}
+                        {sizeOptions.map((size, idx) => {
+                          // Handle both old string format and new object format
+                          const sizeLabel = typeof size === 'string' ? size : size.label;
+                          return (
+                            <option key={idx} value={sizeLabel}>{sizeLabel}</option>
+                          );
+                        })}
                       </select>
                       {errors[`item-${index}-size`] && (
                         <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-size`]}</p>
