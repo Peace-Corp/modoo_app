@@ -56,6 +56,10 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   const [isUploadingFont, setIsUploadingFont] = useState(false);
   const [showCopyrightNotice, setShowCopyrightNotice] = useState(false);
   const [uploadedFontName, setUploadedFontName] = useState<string>('');
+
+  // Font upload modal state
+  const [showFontUploadModal, setShowFontUploadModal] = useState(false);
+  const [fontUploadAgreed, setFontUploadAgreed] = useState(false);
   const fontDropdownRef = useRef<HTMLDivElement | null>(null);
   const fontFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -337,6 +341,13 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   };
 
   const handleFontUploadClick = () => {
+    setFontUploadAgreed(false);
+    setShowFontUploadModal(true);
+  };
+
+  const handleFontUploadConfirm = () => {
+    if (!fontUploadAgreed) return;
+    setShowFontUploadModal(false);
     fontFileInputRef.current?.click();
   };
 
@@ -401,6 +412,55 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   return (
     <>
+    {/* Font Upload Agreement Modal */}
+    {showFontUploadModal && (
+      <div
+        className="fixed inset-0 z-200 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+        onClick={() => setShowFontUploadModal(false)}
+      >
+        <div
+          className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="text-lg font-bold mb-4">폰트 파일 안내</h2>
+          <div className="space-y-3 text-sm text-gray-700">
+            <p>
+              커스텀 폰트 사용 시 <strong className="text-black">저작권 및 사용 범위에 대한 모든 책임은 사용자에게 있습니다.</strong>
+            </p>
+            <p>
+              상업적 용도로 사용하기 전에 해당 폰트의 라이선스를 반드시 확인해 주세요.
+            </p>
+          </div>
+          <label className="flex items-start gap-3 mt-5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={fontUploadAgreed}
+              onChange={(e) => setFontUploadAgreed(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+            />
+            <span className="text-sm text-gray-700">
+              위 내용을 확인했습니다.
+            </span>
+          </label>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setShowFontUploadModal(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleFontUploadConfirm}
+              disabled={!fontUploadAgreed}
+              className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* Copyright Notice Modal */}
     {showCopyrightNotice && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
@@ -576,13 +636,6 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
                             {isUploadingFont ? '업로드 중...' : '커스텀 폰트 업로드'}
                           </span>
                         </button>
-                        <input
-                          ref={fontFileInputRef}
-                          type="file"
-                          accept=".ttf,.otf,.woff,.woff2"
-                          onChange={handleFontUpload}
-                          className="hidden"
-                        />
                       </div>
 
                       {/* Custom Fonts */}
@@ -997,6 +1050,15 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
         </div>
       </div>
     </div>
+
+    {/* Hidden file input for font upload - always in DOM */}
+    <input
+      ref={fontFileInputRef}
+      type="file"
+      accept=".ttf,.otf,.woff,.woff2"
+      onChange={handleFontUpload}
+      className="hidden"
+    />
     </>
   );
 };
