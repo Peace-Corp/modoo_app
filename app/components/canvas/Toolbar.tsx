@@ -32,6 +32,10 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
   const [isLoadingModalOpen, setIsLoadingModalOpen] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [loadingSubmessage, setLoadingSubmessage] = useState('');
+
+  // Image upload modal state
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [imageUploadAgreed, setImageUploadAgreed] = useState(false);
   // const canvas = getActiveCanvas();
 
   const handleObjectSelection = (object : fabric.FabricObject | null) => {
@@ -146,6 +150,17 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
 
     // Trigger pricing recalculation
     incrementCanvasVersion();
+  };
+
+  const handleAddImageClick = () => {
+    setImageUploadAgreed(false);
+    setIsImageModalOpen(true);
+  };
+
+  const handleImageModalConfirm = () => {
+    if (!imageUploadAgreed) return;
+    setIsImageModalOpen(false);
+    addImage();
   };
 
   const addImage = async () => {
@@ -506,7 +521,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
                 텍스트
               </button>
               <button
-                onClick={addImage}
+                onClick={handleAddImageClick}
                 className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                 title="이미지 추가"
               >
@@ -598,6 +613,55 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
           message={loadingMessage}
           submessage={loadingSubmessage}
         />
+
+        {/* Image Upload Modal */}
+        {isImageModalOpen && (
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-200"
+            onClick={() => setIsImageModalOpen(false)}
+          >
+            <div
+              className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-bold mb-4">이미지 파일 안내</h2>
+              <div className="space-y-3 text-sm text-gray-700">
+                <p>
+                  <strong className="text-black">AI/PSD 파일</strong>을 권장드립니다.
+                </p>
+                <p>
+                  다른 파일 형식(PNG, JPG 등)도 사용 가능하지만, 인쇄 품질 확인을 위해 연락드릴 수 있습니다.
+                </p>
+              </div>
+              <label className="flex items-start gap-3 mt-5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={imageUploadAgreed}
+                  onChange={(e) => setImageUploadAgreed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                />
+                <span className="text-sm text-gray-700">
+                  위 내용을 확인했습니다.
+                </span>
+              </label>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setIsImageModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleImageModalConfirm}
+                  disabled={!imageUploadAgreed}
+                  className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Template Picker */}
         {productId && (
@@ -757,7 +821,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
               <p className='text-xs'>텍스트</p>
             </button>
             <button
-              onClick={addImage}
+              onClick={handleAddImageClick}
             >
               <div className='bg-white rounded-full p-3 text-sm font-medium transition hover:bg-gray-50 border border-gray-200 whitespace-nowrap'>
                 <FileImage />
@@ -805,6 +869,55 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
         message={loadingMessage}
         submessage={loadingSubmessage}
       />
+
+      {/* Image Upload Modal */}
+      {isImageModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-200"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold mb-4">이미지 파일 안내</h2>
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>
+                <strong className="text-black">AI/PSD 파일</strong>을 권장드립니다.
+              </p>
+              <p>
+                다른 파일 형식(PNG, JPG 등)도 사용 가능하지만, 인쇄 품질 확인을 위해 연락드릴 수 있습니다.
+              </p>
+            </div>
+            <label className="flex items-start gap-3 mt-5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={imageUploadAgreed}
+                onChange={(e) => setImageUploadAgreed(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+              />
+              <span className="text-sm text-gray-700">
+                위 내용을 확인했습니다.
+              </span>
+            </label>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsImageModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleImageModalConfirm}
+                disabled={!imageUploadAgreed}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Template Picker */}
       {productId && (
