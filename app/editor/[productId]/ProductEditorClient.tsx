@@ -452,7 +452,7 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
           {/* First Section */}
           <div className="w-full flex justify-between">
             <div className="">
-              <h2 className="text-xs font-bold">{product.category || '카테고리'}</h2>
+              <h2 className="text-xs font-bold">{product.manufacturer_name || '제조사'}</h2>
               <p className="text-black font-normal">{product.title}</p>
             </div>
             <div>
