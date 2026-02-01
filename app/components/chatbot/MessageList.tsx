@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ChatMessage as ChatMessageType, QuickReply } from '@/lib/chatbot/types';
+import { ChatMessage as ChatMessageType, QuickReply, Priority } from '@/lib/chatbot/types';
 import ChatMessage from './ChatMessage';
 
 interface MessageListProps {
@@ -9,13 +9,21 @@ interface MessageListProps {
   isTyping: boolean;
   onQuickReplyClick: (reply: QuickReply) => void;
   onProductClick: (productId: string) => void;
+  onDateSubmit?: (date: string | null, flexible: boolean) => void;
+  onPrioritiesSubmit?: (priorities: Priority[]) => void;
+  onContactSubmit?: (name: string, email: string, phone: string) => void;
+  isSubmitting?: boolean;
 }
 
 export default function MessageList({
   messages,
   isTyping,
   onQuickReplyClick,
-  onProductClick
+  onProductClick,
+  onDateSubmit,
+  onPrioritiesSubmit,
+  onContactSubmit,
+  isSubmitting
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(messages.length);
@@ -38,6 +46,11 @@ export default function MessageList({
           onQuickReplyClick={onQuickReplyClick}
           onProductClick={onProductClick}
           isLastBotMessage={index === lastBotMessageIndex}
+          onDateSubmit={onDateSubmit}
+          onPrioritiesSubmit={onPrioritiesSubmit}
+          onContactSubmit={onContactSubmit}
+          isTyping={isTyping}
+          isSubmitting={isSubmitting}
         />
       ))}
 

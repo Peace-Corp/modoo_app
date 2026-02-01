@@ -9,7 +9,10 @@ export type MessageContentType =
   | 'navigation'
   | 'quick_replies'
   | 'login_prompt'
-  | 'inquiry_step';  // For rendering step-specific UI
+  | 'inquiry_step'
+  | 'date_picker'        // Interactive date picker input
+  | 'priority_selector'  // Interactive priority multi-select
+  | 'contact_form';      // Interactive contact info form
 
 // Quick reply button
 export interface QuickReply {
@@ -73,7 +76,7 @@ export type InquiryStep =
 export type ClothingType = '티셔츠' | '후드티' | '맨투맨' | '후드집업' | '자켓';
 
 // Quantity options
-export type QuantityOption = '10벌' | '30벌' | '50벌' | '100벌 이상';
+export type QuantityOption = '1~20벌' | '21~50벌' | '50벌 이상';
 
 // Priority options
 export type Priority = '빠른 제작' | '퀄리티' | '가격' | '자세한 상담';
