@@ -1,23 +1,36 @@
 'use client';
 
-import { ChatMessage as ChatMessageType, QuickReply } from '@/lib/chatbot/types';
+import { ChatMessage as ChatMessageType, QuickReply, Priority } from '@/lib/chatbot/types';
 import { LogIn } from 'lucide-react';
 import ProductCard from './ProductCard';
 import PricingTable from './PricingTable';
 import QuickReplies from './QuickReplies';
+import DatePickerBubble from './DatePickerBubble';
+import PrioritySelectorBubble from './PrioritySelectorBubble';
+import ContactFormBubble from './ContactFormBubble';
 
 interface ChatMessageProps {
   message: ChatMessageType;
   onQuickReplyClick: (reply: QuickReply) => void;
   onProductClick: (productId: string) => void;
   isLastBotMessage?: boolean;
+  onDateSubmit?: (date: string | null, flexible: boolean) => void;
+  onPrioritiesSubmit?: (priorities: Priority[]) => void;
+  onContactSubmit?: (name: string, email: string, phone: string) => void;
+  isTyping?: boolean;
+  isSubmitting?: boolean;
 }
 
 export default function ChatMessage({
   message,
   onQuickReplyClick,
   onProductClick,
-  isLastBotMessage
+  isLastBotMessage,
+  onDateSubmit,
+  onPrioritiesSubmit,
+  onContactSubmit,
+  isTyping,
+  isSubmitting
 }: ChatMessageProps) {
   const isUser = message.sender === 'user';
 
@@ -59,6 +72,31 @@ export default function ChatMessage({
           <div className="mt-3">
             <PricingTable data={message.metadata.pricingData} />
           </div>
+        )}
+
+        {/* Date picker - only show on last bot message */}
+        {message.contentType === 'date_picker' && isLastBotMessage && onDateSubmit && (
+          <DatePickerBubble
+            onSubmit={onDateSubmit}
+            disabled={isTyping}
+          />
+        )}
+
+        {/* Priority selector - only show on last bot message */}
+        {message.contentType === 'priority_selector' && isLastBotMessage && onPrioritiesSubmit && (
+          <PrioritySelectorBubble
+            onSubmit={onPrioritiesSubmit}
+            disabled={isTyping}
+          />
+        )}
+
+        {/* Contact form - only show on last bot message */}
+        {message.contentType === 'contact_form' && isLastBotMessage && onContactSubmit && (
+          <ContactFormBubble
+            onSubmit={onContactSubmit}
+            disabled={isTyping}
+            isSubmitting={isSubmitting}
+          />
         )}
 
         {/* Quick replies - only show on last bot message */}

@@ -14,15 +14,21 @@ interface InquiryRequestBody {
   contactPhone: string;
 }
 
-// Parse quantity string to number
+// Parse quantity string to number (returns approximate middle value of range)
 function parseQuantity(quantityStr: string): number {
+  if (quantityStr === '1~20벌') {
+    return 10;
+  }
+  if (quantityStr === '21~50벌') {
+    return 35;
+  }
+  if (quantityStr === '50벌 이상') {
+    return 50;
+  }
+  // Fallback: try to extract first number
   const match = quantityStr.match(/(\d+)/);
   if (match) {
     return parseInt(match[1], 10);
-  }
-  // Default to 100 for "100벌 이상"
-  if (quantityStr.includes('이상')) {
-    return 100;
   }
   return 10; // Default
 }
@@ -32,7 +38,7 @@ export async function POST(request: NextRequest) {
     const body: InquiryRequestBody = await request.json();
 
     // Validate required fields
-    if (!body.clothingType || !body.quantity || !body.priorities || body.priorities.length !== 3) {
+    if (!body.clothingType || !body.quantity || !body.priorities || body.priorities.length === 0) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
