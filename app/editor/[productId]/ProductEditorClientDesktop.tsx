@@ -587,13 +587,6 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 	          setIsRecallGuestDesignOpen(false);
 	        }}
 	      />
-
-	      {/* Saved Designs Modal */}
-	      {/* <SavedDesignsModal
-	        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSelectDesign={handleLoadDesign}
-      /> */}
     </div>
   );
 }
