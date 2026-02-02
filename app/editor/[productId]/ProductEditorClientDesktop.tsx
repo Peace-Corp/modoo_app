@@ -447,13 +447,13 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         <div className="grid gap-2 grid-cols-2 min-h-175">
           {/* Left Side */}
           <div className="flex flex-col gap-2 h-full">
-            <div className="rounded-md bg-white p-6 h-full">
+            <div className="rounded-md bg-white h-full">
               <ProductDesigner config={productConfig} layout="desktop" />
             </div>
           </div>
 
           {/* Right Side - Fixed height with sticky pricing */}
-          <aside className="rounded-md bg-white p-4 border border-gray-200 h-[calc(100vh-80px)] sticky top-18 overflow-hidden flex flex-col">
+          <aside className="rounded-md bg-white p-4 border border-gray-200 h-full overflow-hidden flex flex-col">
             {selectedTextObject ? (
               // Text Editing Panel
               <>
