@@ -9,10 +9,13 @@ import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
-import { Share } from "lucide-react";
+import { Share, X, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { calculateAllSidesPricing, type PricingSummary } from "@/app/utils/canvasPricing";
 import { saveDesign } from "@/lib/designService";
+import * as fabric from 'fabric';
+import { isCurvedText } from '@/lib/curvedText';
+import TextStylePanel from '@/app/components/canvas/TextStylePanel';
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
@@ -63,6 +66,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
   const [isRecallGuestDesignOpen, setIsRecallGuestDesignOpen] = useState(false);
   const [guestDesign, setGuestDesign] = useState<GuestDesign | null>(null);
+  const [selectedTextObject, setSelectedTextObject] = useState<fabric.IText | fabric.Text | null>(null);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -377,6 +381,42 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
     return () => setEditMode(false);
   }, [setEditMode]);
 
+  // Listen for canvas selection changes
+  useEffect(() => {
+    const activeCanvas = canvasMap[activeSideId];
+    if (!activeCanvas) return;
+
+    const handleSelectionCreated = (e: any) => {
+      const selected = e.selected?.[0];
+      if (selected && (selected.type === 'i-text' || selected.type === 'text' || isCurvedText(selected))) {
+        setSelectedTextObject(selected);
+      }
+    };
+
+    const handleSelectionUpdated = (e: any) => {
+      const selected = e.selected?.[0];
+      if (selected && (selected.type === 'i-text' || selected.type === 'text' || isCurvedText(selected))) {
+        setSelectedTextObject(selected);
+      } else {
+        setSelectedTextObject(null);
+      }
+    };
+
+    const handleSelectionCleared = () => {
+      setSelectedTextObject(null);
+    };
+
+    activeCanvas.on('selection:created', handleSelectionCreated);
+    activeCanvas.on('selection:updated', handleSelectionUpdated);
+    activeCanvas.on('selection:cleared', handleSelectionCleared);
+
+    return () => {
+      activeCanvas.off('selection:created', handleSelectionCreated);
+      activeCanvas.off('selection:updated', handleSelectionUpdated);
+      activeCanvas.off('selection:cleared', handleSelectionCleared);
+    };
+  }, [activeSideId, canvasMap]);
+
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
   // Calculate price per item including canvas design costs
@@ -414,15 +454,58 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
           {/* Right Side - Fixed height with sticky pricing */}
           <aside className="rounded-md bg-white p-4 border border-gray-200 h-[calc(100vh-80px)] sticky top-18 overflow-hidden flex flex-col">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.manufacturer_name || '제조사'}</p>
-                <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
-              </div>
-              <ShareProductButton
-              url={`/editor/${product.id}`}
-              />
-            </div>
+            {selectedTextObject ? (
+              // Text Editing Panel
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">텍스트 편집</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const activeCanvas = canvasMap[activeSideId];
+                        if (activeCanvas && selectedTextObject) {
+                          activeCanvas.remove(selectedTextObject);
+                          activeCanvas.requestRenderAll();
+                          setSelectedTextObject(null);
+                        }
+                      }}
+                      className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition"
+                      title="삭제"
+                    >
+                      <Trash2 className="size-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const activeCanvas = canvasMap[activeSideId];
+                        if (activeCanvas) {
+                          activeCanvas.discardActiveObject();
+                          activeCanvas.requestRenderAll();
+                        }
+                        setSelectedTextObject(null);
+                      }}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition"
+                      title="닫기"
+                    >
+                      <X className="size-5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <TextStylePanel selectedObject={selectedTextObject} layout="sidebar" />
+                </div>
+              </>
+            ) : (
+              // Normal Product Info Panel
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.manufacturer_name || '제조사'}</p>
+                    <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
+                  </div>
+                  <ShareProductButton
+                  url={`/editor/${product.id}`}
+                  />
+                </div>
 
             <div className="mt-4 rounded-md border border-gray-200 p-2 flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between mb-4">
@@ -504,6 +587,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                 </button>
               </div>
             </div>
+              </>
+            )}
           </aside>
 	        </div>
 

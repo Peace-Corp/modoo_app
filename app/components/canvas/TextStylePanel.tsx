@@ -34,9 +34,10 @@ import {
 interface TextStylePanelProps {
   selectedObject: fabric.IText | fabric.Text;
   onClose?: () => void;
+  layout?: 'modal' | 'sidebar'; // Add layout mode
 }
 
-const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose }) => {
+const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose, layout = 'modal' }) => {
   const [activeTab, setActiveTab] = useState<'font' | 'colors' | 'spacing' | 'warp'>('font');
   const [fontFamily, setFontFamily] = useState<string>('Arial');
   const [fontSize, setFontSize] = useState<number>(30);
@@ -531,13 +532,15 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
       </div>
     )}
 
-    <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-      <div className="border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl h-[34vh] flex flex-col px-4">
+    <div className={layout === 'sidebar' ? '' : 'fixed inset-x-0 bottom-0 z-50 animate-slide-up'}>
+      <div className={layout === 'sidebar' ? 'flex flex-col h-full' : 'border-t rounded-t-2xl bg-white border-gray-200 shadow-2xl h-[34vh] flex flex-col px-4'}>
         {/* Header with Tabs */}
         <div className="shrink-0 sticky top-0 border-b border-gray-100">
-          <div className='py-3 w-10 mx-auto'>
-            <hr className='border-2 border-black/20 rounded-full'/>
-          </div>
+          {layout === 'modal' && (
+            <div className='py-3 w-10 mx-auto'>
+              <hr className='border-2 border-black/20 rounded-full'/>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="flex">
@@ -593,7 +596,7 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className={`flex-1 overflow-y-auto space-y-4 ${layout === 'sidebar' ? 'p-3' : 'p-4'}`}>
           {/* Font Tab */}
           {activeTab === 'font' && (
             <>
