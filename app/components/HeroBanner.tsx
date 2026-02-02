@@ -76,8 +76,9 @@ export default function HeroBanner() {
             slidesPerView: 1.5,
           },
           1024: {
-            slidesPerView: 2.9,
+            slidesPerView: 3,
             centeredSlides: true,
+            centeredSlidesBounds: true
           },
         }}
         className="h-70 sm:h-72 lg:h-84 hero-swiper"
