@@ -12,6 +12,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import Footer from "../components/Footer";
+import { ChevronRight } from "lucide-react";
 
 const getActiveProducts = unstable_cache(
   async (): Promise<Product[]> => {
@@ -21,7 +22,8 @@ const getActiveProducts = unstable_cache(
       .from('products')
       .select('*, manufacturers(name)')
       .eq('is_active', true)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(4);
 
     if (error) {
       console.error('Error fetching products:', error);
@@ -116,7 +118,7 @@ export default async function HomePage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <Header showHomeNav />
-      <div className="lg:pt-6 pt-4 flex flex-col lg:flex-row lg:items-start border-b border-black/30 pb-4">
+      <div className="lg:pt-6 pt-4 flex flex-col lg:flex-row lg:items-center border-b border-black/30 pb-4">
         {/* Hero Banner */}
         <div className="w-full lg:w-[78%] lg:shrink-0">
           <HeroBanner />
@@ -128,14 +130,18 @@ export default async function HomePage() {
           <CategoriesSection />
         </section>
       </div>
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6 lg:space-y-8 py-4 lg:py-6">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 sm:px-0 lg:space-y-8 py-4 lg:py-6">
 
         {/* Featured Products Section */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-3 lg:mb-4">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 상품</h2>
+            <Link href="/search" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+              전체보기
+              <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 lg:gap-4">
             {products.length > 0 ? (
               products.map((product) => (
                 <ProductCard key={product.id} product={product}/>
@@ -148,11 +154,11 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Production Examples Section */}
-        <ProductionExamples />
-
         {/* Best Reviews Section */}
         <BestReviewsSection reviews={bestReviews} />
+
+        {/* Production Examples Section */}
+        <ProductionExamples />
 
         {/* CoBuy Section */}
         {cobuySessions.length > 0 && (

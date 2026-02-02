@@ -74,11 +74,9 @@ export default function HeroBanner() {
         breakpoints={{
           640: {
             slidesPerView: 1.5,
-            spaceBetween: 10,
           },
           1024: {
-            slidesPerView: 2.8,
-            spaceBetween: 8,
+            slidesPerView: 2.9,
             centeredSlides: true,
           },
         }}
