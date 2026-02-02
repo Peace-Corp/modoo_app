@@ -9,7 +9,7 @@ import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
-import { Share, X, Trash2 } from "lucide-react";
+import { Share, X, Trash2, ChevronsUp, ArrowUp, ArrowDown, ChevronsDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { calculateAllSidesPricing, type PricingSummary } from "@/app/utils/canvasPricing";
 import { saveDesign } from "@/lib/designService";
@@ -76,6 +76,90 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
   const handleColorChange = (color: string) => {
     setProductColor(color);
+  };
+
+  // Layer manipulation functions
+  const bringToFront = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectToFront(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendToBack = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+      const currentIndex = objects.indexOf(activeObject);
+      const targetIndex = maxSystemIndex + 1;
+
+      if (currentIndex > targetIndex) {
+        canvas.remove(activeObject);
+        canvas.insertAt(targetIndex, activeObject);
+        canvas.setActiveObject(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const bringForward = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectForward(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendBackward = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+      const currentIndex = objects.indexOf(activeObject);
+      if (currentIndex > maxSystemIndex + 1) {
+        canvas.sendObjectBackwards(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const handleDeleteObject = () => {
+    const canvas = canvasMap[activeSideId];
+    const selectedObject = canvas?.getActiveObject();
+    const selectedObjects = canvas?.getActiveObjects();
+
+    if (selectedObjects && selectedObjects.length > 0) {
+      selectedObjects.forEach(obj => canvas?.remove(obj));
+      canvas?.discardActiveObject();
+      canvas?.renderAll();
+      incrementCanvasVersion();
+    } else if (selectedObject) {
+      canvas?.remove(selectedObject);
+      canvas?.renderAll();
+      incrementCanvasVersion();
+    }
   };
 
   const handlePurchaseClick = () => {
@@ -442,13 +526,61 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         <Header back={true} />
       </div>
 
-      <div className="">
+      <div className="py-4">
         {/* Editor Container */}
-        <div className="grid gap-2 grid-cols-2 min-h-175">
+        <div className="grid gap-2 grid-cols-2 h-175">
           {/* Left Side */}
-          <div className="flex flex-col gap-2 h-full">
-            <div className="rounded-md bg-white h-full">
+          <div className="flex flex-col gap-2 h-175 relative overflow-hidden">
+            <div className="rounded-md bg-white h-175">
               <ProductDesigner config={productConfig} layout="desktop" />
+            </div>
+
+            {/* Layer Controls positioned at top left - Only shown when object is selected */}
+            {selectedTextObject && (
+              <div className="absolute top-16 left-4 z-10 flex items-center gap-2 rounded-lg border border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-2.5">
+                <span className="text-sm font-semibold text-gray-700 mr-1">레이어 조정:</span>
+                <button
+                  onClick={bringToFront}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="맨 앞으로"
+                >
+                  <ChevronsUp className="size-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={bringForward}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="앞으로"
+                >
+                  <ArrowUp className="size-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={sendBackward}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="뒤로"
+                >
+                  <ArrowDown className="size-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={sendToBack}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="맨 뒤로"
+                >
+                  <ChevronsDown className="size-4 text-gray-700" />
+                </button>
+                <div className="h-6 w-px bg-gray-300 mx-1" />
+                <button
+                  onClick={handleDeleteObject}
+                  className="p-2 rounded-full border border-red-200 bg-white hover:bg-red-50 transition"
+                  title="삭제"
+                >
+                  <Trash2 className="size-4 text-red-600" />
+                </button>
+              </div>
+            )}
+
+            {/* Toolbar positioned at bottom right */}
+            <div className="absolute bottom-6 right-4 z-10">
+              <DesktopToolbar sides={productConfig.sides} productId={productConfig.productId} />
             </div>
           </div>
 
@@ -510,9 +642,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
             <div className="mt-4 rounded-md border border-gray-200 p-2 flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
-                <span className="text-xs text-gray-500">캔버스 편집</span>
               </div>
-              <DesktopToolbar sides={productConfig.sides} productId={productConfig.productId} />
               <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
                 {(() => {
                   const currentSide = product.configuration.find(side => side.id === activeSideId);

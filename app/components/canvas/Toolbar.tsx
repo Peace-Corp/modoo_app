@@ -508,99 +508,78 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
   if (isDesktop) {
     return (
       <>
-        <div className="w-full space-y-3">
-          {/* Main Toolbar */}
-          <div className="w-full flex items-center justify-start gap-4 rounded-md border border-gray-200 bg-white p-2 ">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center gap-3">
+          {/* Expandable Toolbar Items */}
+          <div className={`flex flex-col items-center gap-3 transition-all duration-300 overflow-hidden ${
+            isExpanded ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0'
+          }`}>
+            <button
+              onClick={() => {
+                addText();
+                setIsExpanded(false);
+              }}
+              className="flex flex-col items-center gap-1.5 group"
+              title="텍스트 추가"
+            >
+              <div className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition shadow-sm">
+                <TextCursor className="size-5 text-gray-700" />
+              </div>
+              <span className="text-xs text-gray-600 font-medium">텍스트</span>
+            </button>
+            <button
+              onClick={() => {
+                handleAddImageClick();
+                setIsExpanded(false);
+              }}
+              className="flex flex-col items-center gap-1.5 group"
+              title="이미지 추가"
+            >
+              <div className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition shadow-sm">
+                <FileImage className="size-5 text-gray-700" />
+              </div>
+              <span className="text-xs text-gray-600 font-medium">이미지</span>
+            </button>
+            <button
+              onClick={() => {
+                handleResetCanvas();
+                setIsExpanded(false);
+              }}
+              className="flex flex-col items-center gap-1.5 group"
+              title="초기화"
+            >
+              <div className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition shadow-sm">
+                <RefreshCcw className="size-5 text-gray-700" />
+              </div>
+              <span className="text-xs text-gray-600 font-medium">초기화</span>
+            </button>
+            {productId && (
               <button
-                onClick={addText}
-                className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                title="텍스트 추가"
+                onClick={() => {
+                  setIsTemplatePickerOpen(true);
+                  setIsExpanded(false);
+                }}
+                className="flex flex-col items-center gap-1.5 group"
+                title="템플릿"
               >
-                <TextCursor className="size-4" />
-                텍스트
+                <div className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition shadow-sm">
+                  <LayoutTemplate className="size-5 text-gray-700" />
+                </div>
+                <span className="text-xs text-gray-600 font-medium">템플릿</span>
               </button>
-              <button
-                onClick={handleAddImageClick}
-                className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                title="이미지 추가"
-              >
-                <FileImage className="size-4" />
-                이미지
-              </button>
-              <button
-                onClick={handleResetCanvas}
-                className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                title="초기화"
-              >
-                <RefreshCcw className="size-4" />
-                초기화
-              </button>
-              {productId && (
-                <button
-                  onClick={() => setIsTemplatePickerOpen(true)}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                  title="템플릿"
-                >
-                  <LayoutTemplate className="size-4" />
-                  템플릿
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Layer Manipulation Controls - Only shown when object is selected */}
-          {selectedObject && (
-            <div className="w-full flex items-center justify-between gap-4 rounded-md border border-blue-200 bg-blue-50/50 px-5 py-3 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-700 mr-2">레이어 조정:</span>
-                <button
-                  onClick={bringToFront}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                  title="맨 앞으로"
-                >
-                  <ChevronsUp className="size-4" />
-                  {/* 맨 앞 */}
-                </button>
-                <button
-                  onClick={bringForward}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                  title="앞으로"
-                >
-                  <ArrowUp className="size-4" />
-                  {/* 앞으로 */}
-                </button>
-                <button
-                  onClick={sendBackward}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                  title="뒤로"
-                >
-                  <ArrowDown className="size-4" />
-                  {/* 뒤로 */}
-                </button>
-                <button
-                  onClick={sendToBack}
-                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                  title="맨 뒤로"
-                >
-                  <ChevronsDown className="size-4" />
-                  {/* 맨 뒤 */}
-                </button>
-              </div>
-
-              <button
-                onClick={handleDeleteObject}
-                className="flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50 transition"
-                title="삭제"
-              >
-                <Trash2 className="size-4" />
-                삭제
-              </button>
-            </div>
-          )}
+          {/* Plus Toggle Button */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`w-14 h-14 ${isExpanded ? "bg-black text-white" : "bg-white text-black"} shadow-xl rounded-full flex items-center justify-center hover:bg-gray-100 transition-all duration-300 border border-gray-200`}
+            aria-label={isExpanded ? 'Close menu' : 'Open menu'}
+          >
+            <Plus className={`${isExpanded ? 'rotate-45' : ''} size-6 transition-all duration-300`}/>
+          </button>
         </div>
 
-        {selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text" || isCurvedText(selectedObject)) && (
+        {!isDesktop && selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text" || isCurvedText(selectedObject)) && (
           <TextStylePanel
             selectedObject={selectedObject as fabric.IText}
             onClose={() => setSelectedObject(null)}
