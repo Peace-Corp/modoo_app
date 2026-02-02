@@ -412,8 +412,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
             </div>
           </div>
 
-          {/* Right Side */}
-          <aside className="rounded-md bg-white p-4 border border-gray-200 h-full overflow-hidden flex flex-col">
+          {/* Right Side - Fixed height with sticky pricing */}
+          <aside className="rounded-md bg-white p-4 border border-gray-200 h-[calc(100vh-80px)] sticky top-18 overflow-hidden flex flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.manufacturer_name || '제조사'}</p>
