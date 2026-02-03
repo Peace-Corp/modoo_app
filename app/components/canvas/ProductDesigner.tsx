@@ -135,7 +135,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
 
         <div className={`${containerWidthClass} overflow-hidden transition-all relative duration-300 ${containerHeightClass} bg-[#EBEBEB] flex flex-col justify-center items-center`}>
           {isDesktop && isEditMode && (
-            <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full border border-gray-200 bg-white/90 px-2 py-1.5 shadow-sm backdrop-blur">
+            <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full border border-gray-200 bg-white/90 shadow-sm backdrop-blur">
               <button
                 onClick={() => zoomOut()}
                 className="p-2 hover:bg-gray-100 rounded-full transition"
