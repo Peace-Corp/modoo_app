@@ -70,8 +70,8 @@ function InquiryForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim()) {
-      alert('제목을 입력해주세요.');
+    if (!title) {
+      alert('제목을 선택해주세요.');
       return;
     }
 
@@ -147,44 +147,6 @@ function InquiryForm() {
       {/* Form */}
       <div className="max-w-4xl mx-auto p-4 pb-20">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title */}
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              제목 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="제목을 입력해주세요"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition"
-              disabled={isSubmitting}
-              maxLength={100}
-            />
-            <div className="text-xs text-gray-500 mt-1 text-right">
-              {title.length}/100
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              문의 내용 <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="문의 내용을 입력해주세요"
-              rows={8}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition resize-none"
-              disabled={isSubmitting}
-              maxLength={1000}
-            />
-            <div className="text-xs text-gray-500 mt-1 text-right">
-              {content.length}/1000
-            </div>
-          </div>
-
           {/* Product Selection */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
@@ -241,12 +203,51 @@ function InquiryForm() {
               </div>
             )}
           </div>
+          {/* Title */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              제목 <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition appearance-none bg-white"
+              disabled={isSubmitting}
+            >
+              <option value="">제목을 선택해주세요</option>
+              <option value="design">디자인/견적 문의합니다.</option>
+              <option value="delivery">주문/배송 문의합니다.</option>
+              <option value="other">기타 문의</option>
+            </select>
+          </div>
+
+          {/* Content */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              문의 내용 <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="문의 내용을 입력해주세요"
+              rows={8}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition resize-none"
+              disabled={isSubmitting}
+              maxLength={1000}
+            />
+            <div className="text-xs text-gray-500 mt-1 text-right">
+              {content.length}/1000
+            </div>
+          </div>
+
+          
 
           {/* Submit Button */}
           <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-4">
             <button
               type="submit"
-              disabled={isSubmitting || !title.trim() || !content.trim()}
+              disabled={isSubmitting || !title || !content.trim()}
               className="w-full py-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {isSubmitting ? '등록 중...' : '문의 등록하기'}
