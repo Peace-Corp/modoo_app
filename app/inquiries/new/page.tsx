@@ -49,23 +49,18 @@ function InquiryForm() {
   const [consent, setConsent] = useState<'agree' | 'disagree' | ''>('');
 
   useEffect(() => {
-    checkUser();
+    const init = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUser(user);
+    };
+    init();
+
     const productIdsParam = searchParams.get('products');
     if (productIdsParam) {
       fetchProductsByIds(productIdsParam.split(','));
     }
   }, [searchParams]);
-
-  const checkUser = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      router.push('/login?redirect=/inquiries/new');
-      return;
-    }
-    setUser(user);
-  };
 
   const fetchProductsByIds = async (productIds: string[]) => {
     const supabase = createClient();
@@ -138,7 +133,6 @@ function InquiryForm() {
     if (!expectedQty.trim()) { alert('예상수량을 입력해주세요.'); return; }
     if (!password.trim()) { alert('비밀번호를 입력해주세요.'); return; }
     if (consent !== 'agree') { alert('개인정보 수집 및 이용에 동의해주세요.'); return; }
-    if (!user) { alert('로그인이 필요합니다.'); router.push('/login'); return; }
 
     setIsSubmitting(true);
 
@@ -147,7 +141,7 @@ function InquiryForm() {
       const { data: inquiry, error: inquiryError } = await supabase
         .from('inquiries')
         .insert({
-          user_id: user.id,
+          user_id: user?.id ?? null,
           title: title.trim(),
           content: content.trim() || '',
           status: 'pending',
@@ -319,7 +313,7 @@ function InquiryForm() {
                     type="text"
                     value={kakaoId}
                     onChange={(e) => setKakaoId(e.target.value)}
-                    placeholder="안녕하세요 카톡 친구추가를 하면 자판단 정보..."
+                    placeholder="카카오톡 아이디"
                     className={inputClass + ' flex-1 min-w-[180px]'}
                     disabled={isSubmitting}
                   />
@@ -379,7 +373,7 @@ function InquiryForm() {
                 <li>프린팅 방식에 대한 지정이 없을 경우, 가장 적합한 방식으로 적용하여 시안을 전달합니다.</li>
                 <li>시안 작업에 참고할 사진 및 이미지(jpg, png 등)가 있으시다면 같이 파일 첨부해주세요.</li>
                 <li>이미지 원본 파일(ai 확장자)을 첨부해주시면 시안 작업이 빠르게 진행됩니다.</li>
-                <li>용량을 초과할 경우 about-us@about-us.co.kr 메일로 첨부해주세요.</li>
+                <li>용량을 초과할 경우 <span className='text-blue-600'>modoo.contact@gmail.com</span> 메일로 첨부해주세요.</li>
               </ul>
             </FormRow>
 

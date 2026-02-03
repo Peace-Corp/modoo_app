@@ -148,7 +148,7 @@ export default function InquiriesPage() {
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="w-full mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <button
@@ -223,7 +223,7 @@ export default function InquiriesPage() {
           </div>
 
           {/* Search */}
-          <div className="relative">
+          {/* <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
@@ -232,12 +232,12 @@ export default function InquiriesPage() {
               placeholder={activeTab === 'faq' ? '질문으로 검색...' : '제목이나 내용으로 검색...'}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition"
             />
-          </div>
+          </div> */}
         </div>
       </header>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto">
+      <div className="">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
         ) : activeTab === 'faq' ? (

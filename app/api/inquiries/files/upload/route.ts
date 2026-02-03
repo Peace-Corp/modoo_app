@@ -31,9 +31,7 @@ export async function POST(req: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const uploaderFolder = user?.id ?? 'guest';
 
   const formData = await req.formData();
   const files = formData.getAll('files').filter((v): v is File => v instanceof File);
@@ -62,7 +60,7 @@ export async function POST(req: Request) {
 
   for (const file of files) {
     const extension = pickExtension(file);
-    const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+    const path = `${uploaderFolder}/${crypto.randomUUID()}.${extension}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const { error: uploadError } = await admin.storage
