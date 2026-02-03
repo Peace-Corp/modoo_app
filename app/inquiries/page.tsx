@@ -145,7 +145,7 @@ export default function InquiriesPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen pb-20">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="w-full mx-auto px-4 py-4">
@@ -161,7 +161,7 @@ export default function InquiriesPage() {
             </div>
             <button
               onClick={() => router.push('/inquiries/new')}
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
+              className="flex items-center gap-2 px-4 py-2 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition"
             >
               <Plus className="w-4 h-4" />
               <span className="text-sm font-medium">문의하기</span>
@@ -178,7 +178,7 @@ export default function InquiriesPage() {
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'all'
-                  ? 'bg-black text-white'
+                  ? 'bg-[#3B55A5] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
@@ -198,7 +198,7 @@ export default function InquiriesPage() {
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'my'
-                  ? 'bg-black text-white'
+                  ? 'bg-[#3B55A5] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
@@ -213,7 +213,7 @@ export default function InquiriesPage() {
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'faq'
-                  ? 'bg-black text-white'
+                  ? 'bg-[#3B55A5] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
@@ -296,7 +296,7 @@ export default function InquiriesPage() {
             {!searchQuery && (
               <button
                 onClick={() => router.push('/inquiries/new')}
-                className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition"
+                className="px-6 py-3 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition"
               >
                 첫 문의 등록하기
               </button>
@@ -308,6 +308,7 @@ export default function InquiriesPage() {
             <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium uppercase tracking-wider">
               <span className="flex-1">제목</span>
               <span className="w-28 text-center shrink-0">작성자</span>
+              <span className="w-20 text-center shrink-0">답변 상태</span>
               <span className="w-24 text-right shrink-0">날짜</span>
             </div>
             {inquiries.map((inquiry) => (
@@ -330,6 +331,16 @@ export default function InquiriesPage() {
                 {/* Writer */}
                 <span className="w-28 text-center text-sm text-gray-700 shrink-0 truncate">
                   {inquiry.manager_name ?? ''}
+                </span>
+                {/* Status */}
+                <span className={`w-20 text-center text-xs font-medium shrink-0 ${
+                  inquiry.status === 'completed'
+                    ? 'text-green-600'
+                    : inquiry.status === 'ongoing'
+                    ? 'text-blue-600'
+                    : 'text-gray-400'
+                }`}>
+                  {inquiry.status === 'completed' ? '답변완료' : inquiry.status === 'ongoing' ? '진행중' : '대기중'}
                 </span>
                 {/* Date */}
                 <span className="w-24 text-right text-sm text-gray-500 shrink-0">
@@ -381,7 +392,7 @@ export default function InquiriesPage() {
                         min-w-[40px] px-3 py-2 rounded-lg transition
                         ${
                           currentPage === page
-                            ? 'bg-black text-white'
+                            ? 'bg-[#3B55A5] text-white'
                             : 'border border-gray-300 hover:bg-gray-50'
                         }
                       `}

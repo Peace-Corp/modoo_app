@@ -171,6 +171,25 @@ function InquiryForm() {
         if (productsError) throw productsError;
       }
 
+      // Send email notification to admin (non-blocking)
+      fetch('/api/inquiries/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          groupName: groupName.trim(),
+          managerName: managerName.trim(),
+          phone: phone.trim(),
+          kakaoId: kakaoId.trim() || undefined,
+          desiredDate: desiredDate || undefined,
+          expectedQty: expectedQty ? parseInt(expectedQty, 10) : undefined,
+          content: content.trim() || undefined,
+          fabricColor: fabricColor.trim() || undefined,
+          fileCount: uploadedFiles.length,
+          productNames: selectedProducts.map(p => p.title),
+        }),
+      }).catch(() => {}); // email failure should not affect the user
+
       alert('문의가 등록되었습니다.');
       router.push('/inquiries');
     } catch (error) {
@@ -210,7 +229,7 @@ function InquiryForm() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center">
+        <div className="w-full px-4 py-4 flex items-center">
           <button
             onClick={() => router.back()}
             className="p-2 hover:bg-gray-100 rounded-full transition mr-2"
@@ -221,7 +240,7 @@ function InquiryForm() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
+      <div className="w-full px-4 py-6 pb-24">
         <p className="text-sm text-gray-600 mb-6">
           작성해주시면 그래픽 시안 및 빠른 견적을 카카오톡으로 받아 보실 수 있습니다.
         </p>
