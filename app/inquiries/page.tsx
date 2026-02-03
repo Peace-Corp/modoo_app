@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Faq, InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
-import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle } from 'lucide-react';
-import Image from 'next/image';
+import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle, Lock, Paperclip } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -97,7 +96,6 @@ export default function InquiriesPage() {
           .from('inquiries')
           .select(`
             *,
-            user:profiles!inquiries_user_id_fkey(name),
             products:inquiry_products(
               id,
               product_id,
@@ -139,36 +137,12 @@ export default function InquiriesPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-    if (diffInHours < 24) {
-      return `${diffInHours}시간 전`;
-    } else if (diffInHours < 48) {
-      return '어제';
-    } else {
-      return date.toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
-  const getProductImageUrl = (product: any) => {
-    if (product?.configuration && product.configuration.length > 0) {
-      return product.configuration[0].imageUrl;
-    }
-    return '/placeholder-product.png';
-  };
-
-  const censorName = (name: string) => {
-    if (!name || name.length === 0) return '';
-    if (name.length === 1) return name;
-
-    // Show first character and replace the rest with asterisks
-    return name[0] + '*'.repeat(name.length - 1);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -330,64 +304,37 @@ export default function InquiriesPage() {
           </div>
         ) : (
           <div className="">
+            {/* Table Header */}
+            <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium uppercase tracking-wider">
+              <span className="flex-1">Subject</span>
+              <span className="w-28 text-center shrink-0">Writer</span>
+              <span className="w-24 text-right shrink-0">Date</span>
+            </div>
             {inquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
                 onClick={() => router.push(`/inquiries/${inquiry.id}`)}
-                className="bg-white p-4 transition cursor-pointer border-b border-black/30"
+                className="flex items-center px-4 py-3 transition cursor-pointer border-b border-gray-200 hover:bg-gray-50"
               >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {inquiry.content}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Products */}
-                {inquiry.products && inquiry.products.length > 0 && (
-                  <div className="flex gap-2 mb-3 overflow-x-auto">
-                    {inquiry.products.slice(0, 3).map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden relative"
-                      >
-                        <Image
-                          src={getProductImageUrl(item.product)}
-                          alt={item.product?.title || 'Product'}
-                          fill
-                          className="object-contain"
-                        />
-                      </div>
-                    ))}
-                    {inquiry.products.length > 3 && (
-                      <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <span className="text-xs text-gray-600 font-medium">
-                          +{inquiry.products.length - 3}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Footer */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-2">
-                    {inquiry.user && (
-                      <span className="font-medium">{censorName(inquiry.user.name)}</span>
-                    )}
-                    <span>•</span>
-                    <span>{formatDate(inquiry.created_at)}</span>
-                  </div>
+                {/* Subject */}
+                <div className="flex-1 min-w-0 flex items-center gap-1">
+                  <span className="text-sm truncate">{inquiry.title}</span>
                   {inquiry.replies && inquiry.replies.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>{inquiry.replies.length}</span>
-                    </div>
+                    <span className="text-xs text-red-500 font-bold shrink-0">+{inquiry.replies.length}</span>
+                  )}
+                  <Lock className="w-3 h-3 text-gray-400 shrink-0" />
+                  {inquiry.file_urls && inquiry.file_urls.length > 0 && (
+                    <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
                   )}
                 </div>
+                {/* Writer */}
+                <span className="w-28 text-center text-sm text-gray-700 shrink-0 truncate">
+                  {inquiry.manager_name ?? ''}
+                </span>
+                {/* Date */}
+                <span className="w-24 text-right text-sm text-gray-500 shrink-0">
+                  {formatDate(inquiry.created_at)}
+                </span>
               </div>
             ))}
           </div>

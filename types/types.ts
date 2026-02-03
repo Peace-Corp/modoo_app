@@ -128,6 +128,9 @@ export interface Inquiry {
   title: string;
   content: string;
   status: InquiryStatus;
+  manager_name?: string;
+  password?: string;
+  file_urls?: string[];
   created_at: string;
   updated_at: string;
 }
