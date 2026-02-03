@@ -11,9 +11,7 @@ interface DesktopToolbarProps {
 
 const DesktopToolbar: React.FC<DesktopToolbarProps> = ({ sides, productId }) => {
   return (
-    <div className="mb-4">
-      <Toolbar sides={sides} variant="desktop" productId={productId} />
-    </div>
+    <Toolbar sides={sides} variant="desktop" productId={productId} />
   );
 };
 

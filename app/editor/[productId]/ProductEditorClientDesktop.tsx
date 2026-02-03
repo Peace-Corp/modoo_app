@@ -9,10 +9,13 @@ import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
-import { Share } from "lucide-react";
+import { Share, X, Trash2, ChevronsUp, ArrowUp, ArrowDown, ChevronsDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { calculateAllSidesPricing, type PricingSummary } from "@/app/utils/canvasPricing";
 import { saveDesign } from "@/lib/designService";
+import * as fabric from 'fabric';
+import { isCurvedText } from '@/lib/curvedText';
+import TextStylePanel from '@/app/components/canvas/TextStylePanel';
 import { addToCartDB } from "@/lib/cartService";
 import { generateProductThumbnail } from "@/lib/thumbnailGenerator";
 import QuantitySelectorModal from "@/app/components/QuantitySelectorModal";
@@ -63,6 +66,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
   const [isRecallGuestDesignOpen, setIsRecallGuestDesignOpen] = useState(false);
   const [guestDesign, setGuestDesign] = useState<GuestDesign | null>(null);
+  const [selectedTextObject, setSelectedTextObject] = useState<fabric.IText | fabric.Text | null>(null);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -72,6 +76,90 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 
   const handleColorChange = (color: string) => {
     setProductColor(color);
+  };
+
+  // Layer manipulation functions
+  const bringToFront = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectToFront(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendToBack = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+      const currentIndex = objects.indexOf(activeObject);
+      const targetIndex = maxSystemIndex + 1;
+
+      if (currentIndex > targetIndex) {
+        canvas.remove(activeObject);
+        canvas.insertAt(targetIndex, activeObject);
+        canvas.setActiveObject(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const bringForward = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectForward(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendBackward = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+      const currentIndex = objects.indexOf(activeObject);
+      if (currentIndex > maxSystemIndex + 1) {
+        canvas.sendObjectBackwards(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const handleDeleteObject = () => {
+    const canvas = canvasMap[activeSideId];
+    const selectedObject = canvas?.getActiveObject();
+    const selectedObjects = canvas?.getActiveObjects();
+
+    if (selectedObjects && selectedObjects.length > 0) {
+      selectedObjects.forEach(obj => canvas?.remove(obj));
+      canvas?.discardActiveObject();
+      canvas?.renderAll();
+      incrementCanvasVersion();
+    } else if (selectedObject) {
+      canvas?.remove(selectedObject);
+      canvas?.renderAll();
+      incrementCanvasVersion();
+    }
   };
 
   const handlePurchaseClick = () => {
@@ -377,6 +465,42 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
     return () => setEditMode(false);
   }, [setEditMode]);
 
+  // Listen for canvas selection changes
+  useEffect(() => {
+    const activeCanvas = canvasMap[activeSideId];
+    if (!activeCanvas) return;
+
+    const handleSelectionCreated = (e: any) => {
+      const selected = e.selected?.[0];
+      if (selected && (selected.type === 'i-text' || selected.type === 'text' || isCurvedText(selected))) {
+        setSelectedTextObject(selected);
+      }
+    };
+
+    const handleSelectionUpdated = (e: any) => {
+      const selected = e.selected?.[0];
+      if (selected && (selected.type === 'i-text' || selected.type === 'text' || isCurvedText(selected))) {
+        setSelectedTextObject(selected);
+      } else {
+        setSelectedTextObject(null);
+      }
+    };
+
+    const handleSelectionCleared = () => {
+      setSelectedTextObject(null);
+    };
+
+    activeCanvas.on('selection:created', handleSelectionCreated);
+    activeCanvas.on('selection:updated', handleSelectionUpdated);
+    activeCanvas.on('selection:cleared', handleSelectionCleared);
+
+    return () => {
+      activeCanvas.off('selection:created', handleSelectionCreated);
+      activeCanvas.off('selection:updated', handleSelectionUpdated);
+      activeCanvas.off('selection:cleared', handleSelectionCleared);
+    };
+  }, [activeSideId, canvasMap]);
+
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 
   // Calculate price per item including canvas design costs
@@ -402,34 +526,123 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
         <Header back={true} />
       </div>
 
-      <div className="">
+      <div className="py-4">
         {/* Editor Container */}
-        <div className="grid gap-2 grid-cols-2 min-h-175">
+        <div className="grid gap-2 grid-cols-2 h-175">
           {/* Left Side */}
-          <div className="flex flex-col gap-2 h-full">
-            <div className="rounded-md bg-white p-6 h-full">
+          <div className="flex flex-col gap-2 h-175 relative overflow-hidden">
+            <div className="rounded-md bg-white h-175">
               <ProductDesigner config={productConfig} layout="desktop" />
+            </div>
+
+            {/* Layer Controls positioned at top left - Only shown when object is selected */}
+            {selectedTextObject && (
+              <div className="absolute top-16 left-4 z-10 flex items-center gap-2 rounded-lg border border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-2.5">
+                <span className="text-sm font-semibold text-gray-700 mr-1">레이어 조정:</span>
+                <button
+                  onClick={bringToFront}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="맨 앞으로"
+                >
+                  <ChevronsUp className="size-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={bringForward}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="앞으로"
+                >
+                  <ArrowUp className="size-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={sendBackward}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="뒤로"
+                >
+                  <ArrowDown className="size-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={sendToBack}
+                  className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  title="맨 뒤로"
+                >
+                  <ChevronsDown className="size-4 text-gray-700" />
+                </button>
+                <div className="h-6 w-px bg-gray-300 mx-1" />
+                <button
+                  onClick={handleDeleteObject}
+                  className="p-2 rounded-full border border-red-200 bg-white hover:bg-red-50 transition"
+                  title="삭제"
+                >
+                  <Trash2 className="size-4 text-red-600" />
+                </button>
+              </div>
+            )}
+
+            {/* Toolbar positioned at bottom right */}
+            <div className="absolute bottom-6 right-4 z-10">
+              <DesktopToolbar sides={productConfig.sides} productId={productConfig.productId} />
             </div>
           </div>
 
-          {/* Right Side */}
+          {/* Right Side - Fixed height with sticky pricing */}
           <aside className="rounded-md bg-white p-4 border border-gray-200 h-full overflow-hidden flex flex-col">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.manufacturer_name || '제조사'}</p>
-                <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
-              </div>
-              <ShareProductButton
-              url={`/editor/${product.id}`}
-              />
-            </div>
+            {selectedTextObject ? (
+              // Text Editing Panel
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">텍스트 편집</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const activeCanvas = canvasMap[activeSideId];
+                        if (activeCanvas && selectedTextObject) {
+                          activeCanvas.remove(selectedTextObject);
+                          activeCanvas.requestRenderAll();
+                          setSelectedTextObject(null);
+                        }
+                      }}
+                      className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition"
+                      title="삭제"
+                    >
+                      <Trash2 className="size-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const activeCanvas = canvasMap[activeSideId];
+                        if (activeCanvas) {
+                          activeCanvas.discardActiveObject();
+                          activeCanvas.requestRenderAll();
+                        }
+                        setSelectedTextObject(null);
+                      }}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition"
+                      title="닫기"
+                    >
+                      <X className="size-5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <TextStylePanel selectedObject={selectedTextObject} layout="sidebar" />
+                </div>
+              </>
+            ) : (
+              // Normal Product Info Panel
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{product.manufacturer_name || '제조사'}</p>
+                    <h2 className="text-lg font-semibold text-gray-900 leading-snug mt-1">{product.title}</h2>
+                  </div>
+                  <ShareProductButton
+                  url={`/editor/${product.id}`}
+                  />
+                </div>
 
             <div className="mt-4 rounded-md border border-gray-200 p-2 flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
-                <span className="text-xs text-gray-500">캔버스 편집</span>
               </div>
-              <DesktopToolbar sides={productConfig.sides} productId={productConfig.productId} />
               <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
                 {(() => {
                   const currentSide = product.configuration.find(side => side.id === activeSideId);
@@ -504,6 +717,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                 </button>
               </div>
             </div>
+              </>
+            )}
           </aside>
 	        </div>
 
@@ -587,13 +802,6 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
 	          setIsRecallGuestDesignOpen(false);
 	        }}
 	      />
-
-	      {/* Saved Designs Modal */}
-	      {/* <SavedDesignsModal
-	        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSelectDesign={handleLoadDesign}
-      /> */}
     </div>
   );
 }

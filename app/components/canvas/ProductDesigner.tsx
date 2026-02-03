@@ -10,7 +10,7 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 
 const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSideCanvas'), {
   ssr: false,
-  loading: () => <div className="w-125 h-125 bg-gray-100 animate-pulse" />,
+  loading: () => <div className="w-125 h-125 bg-[#EBEBEB] animate-pulse" />,
 });
 
 interface ProductDesignerProps {

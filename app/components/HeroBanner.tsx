@@ -74,12 +74,11 @@ export default function HeroBanner() {
         breakpoints={{
           640: {
             slidesPerView: 1.5,
-            spaceBetween: 10,
           },
           1024: {
-            slidesPerView: 2.8,
-            spaceBetween: 8,
+            slidesPerView: 3,
             centeredSlides: true,
+            centeredSlidesBounds: true
           },
         }}
         className="h-70 sm:h-72 lg:h-84 hero-swiper"
