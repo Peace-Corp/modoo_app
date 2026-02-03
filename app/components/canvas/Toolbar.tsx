@@ -509,15 +509,20 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     return (
       <>
         <div className="flex flex-col items-center gap-3">
-          {/* Expandable Toolbar Items */}
-          <div className={`flex flex-col items-center gap-3 transition-all duration-300 overflow-hidden ${
-            isExpanded ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0'
-          }`}>
+          {/* Toolbar Items */}
+          <div className="flex flex-col items-center gap-3">
             <button
-              onClick={() => {
-                addText();
-                setIsExpanded(false);
-              }}
+              onClick={handleResetCanvas}
+              className="flex flex-col items-center gap-1.5 group"
+              title="초기화"
+            >
+              <div className="w-12 h-12 rounded-full border border-gray-200 bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition shadow-sm">
+                <RefreshCcw className="size-5 text-white" />
+              </div>
+              <span className="text-xs text-gray-600 font-medium">초기화</span>
+            </button>
+            <button
+              onClick={addText}
               className="flex flex-col items-center gap-1.5 group"
               title="텍스트 추가"
             >
@@ -527,10 +532,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
               <span className="text-xs text-gray-600 font-medium">텍스트</span>
             </button>
             <button
-              onClick={() => {
-                handleAddImageClick();
-                setIsExpanded(false);
-              }}
+              onClick={handleAddImageClick}
               className="flex flex-col items-center gap-1.5 group"
               title="이미지 추가"
             >
@@ -539,25 +541,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
               </div>
               <span className="text-xs text-gray-600 font-medium">이미지</span>
             </button>
-            <button
-              onClick={() => {
-                handleResetCanvas();
-                setIsExpanded(false);
-              }}
-              className="flex flex-col items-center gap-1.5 group"
-              title="초기화"
-            >
-              <div className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition shadow-sm">
-                <RefreshCcw className="size-5 text-gray-700" />
-              </div>
-              <span className="text-xs text-gray-600 font-medium">초기화</span>
-            </button>
             {productId && (
               <button
-                onClick={() => {
-                  setIsTemplatePickerOpen(true);
-                  setIsExpanded(false);
-                }}
+                onClick={() => setIsTemplatePickerOpen(true)}
                 className="flex flex-col items-center gap-1.5 group"
                 title="템플릿"
               >
@@ -568,23 +554,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
               </button>
             )}
           </div>
-
-          {/* Plus Toggle Button */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`w-14 h-14 ${isExpanded ? "bg-black text-white" : "bg-white text-black"} shadow-xl rounded-full flex items-center justify-center hover:bg-gray-100 transition-all duration-300 border border-gray-200`}
-            aria-label={isExpanded ? 'Close menu' : 'Open menu'}
-          >
-            <Plus className={`${isExpanded ? 'rotate-45' : ''} size-6 transition-all duration-300`}/>
-          </button>
         </div>
-
-        {!isDesktop && selectedObject && (selectedObject.type === "i-text" || selectedObject.type === "text" || isCurvedText(selectedObject)) && (
-          <TextStylePanel
-            selectedObject={selectedObject as fabric.IText}
-            onClose={() => setSelectedObject(null)}
-          />
-        )}
 
         {/* Loading Modal for file conversion */}
         <LoadingModal
