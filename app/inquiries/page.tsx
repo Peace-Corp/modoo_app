@@ -306,9 +306,9 @@ export default function InquiriesPage() {
           <div className="">
             {/* Table Header */}
             <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium uppercase tracking-wider">
-              <span className="flex-1">Subject</span>
-              <span className="w-28 text-center shrink-0">Writer</span>
-              <span className="w-24 text-right shrink-0">Date</span>
+              <span className="flex-1">제목</span>
+              <span className="w-28 text-center shrink-0">작성자</span>
+              <span className="w-24 text-right shrink-0">날짜</span>
             </div>
             {inquiries.map((inquiry) => (
               <div

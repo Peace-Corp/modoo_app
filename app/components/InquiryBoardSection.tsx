@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase-client';
 import { InquiryWithDetails } from '@/types/types';
-import { MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MessageSquare, ChevronRight, ChevronLeft, Lock, Paperclip } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,7 +21,6 @@ export default function InquiryBoardSection() {
     async function fetchInquiries() {
       setLoading(true);
 
-      // Get total count
       const { count } = await supabase
         .from('inquiries')
         .select('*', { count: 'exact', head: true });
@@ -30,7 +29,6 @@ export default function InquiryBoardSection() {
         setTotalCount(count);
       }
 
-      // Fetch inquiries for current page
       const { data } = await supabase
         .from('inquiries')
         .select(`
@@ -52,19 +50,10 @@ export default function InquiryBoardSection() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-    if (diffInHours < 24) {
-      return `${diffInHours}시간 전`;
-    } else if (diffInHours < 48) {
-      return '어제';
-    } else {
-      return date.toLocaleDateString('ko-KR', {
-        month: 'long',
-        day: 'numeric'
-      });
-    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   return (
@@ -91,35 +80,40 @@ export default function InquiryBoardSection() {
         </div>
       ) : (
         <>
-          {/* Inquiries List */}
           {inquiries && inquiries.length > 0 ? (
             <>
-              <div className="space-y-2 lg:space-y-3">
+              <div>
+                {/* Table Header */}
+                <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium tracking-wider">
+                  <span className="flex-1">제목</span>
+                  <span className="w-28 text-center shrink-0">작성자</span>
+                  <span className="w-24 text-right shrink-0">날짜</span>
+                </div>
                 {inquiries.map((inquiry) => (
                   <Link
                     key={inquiry.id}
                     href={`/inquiries/${inquiry.id}`}
-                    className="block bg-white p-2 lg:p-4 border-b border-black/20 transition"
+                    className="flex items-center px-4 py-3 transition cursor-pointer border-b border-gray-200 hover:bg-gray-50"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1 lg:mb-2">
-                          <h3 className="text-sm lg:text-base font-medium line-clamp-1">{inquiry.title}</h3>
-                          {inquiry.replies && inquiry.replies.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500 ml-2 shrink-0">
-                              <MessageSquare className="w-3 h-3" />
-                              <span>{inquiry.replies.length}</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs lg:text-sm text-gray-600 line-clamp-1 mb-1 lg:mb-2">
-                          {inquiry.content}
-                        </p>
-                        <p className="text-[10px] lg:text-xs text-gray-500">
-                          {formatDate(inquiry.created_at)}
-                        </p>
-                      </div>
+                    {/* Subject */}
+                    <div className="flex-1 min-w-0 flex items-center gap-1">
+                      <span className="text-sm truncate">{inquiry.title}</span>
+                      {inquiry.replies && inquiry.replies.length > 0 && (
+                        <span className="text-xs text-red-500 font-bold shrink-0">+{inquiry.replies.length}</span>
+                      )}
+                      <Lock className="w-3 h-3 text-gray-400 shrink-0" />
+                      {inquiry.file_urls && inquiry.file_urls.length > 0 && (
+                        <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
+                      )}
                     </div>
+                    {/* Writer */}
+                    <span className="w-28 text-center text-sm text-gray-700 shrink-0 truncate">
+                      {inquiry.manager_name ?? ''}
+                    </span>
+                    {/* Date */}
+                    <span className="w-24 text-right text-sm text-gray-500 shrink-0">
+                      {formatDate(inquiry.created_at)}
+                    </span>
                   </Link>
                 ))}
               </div>
