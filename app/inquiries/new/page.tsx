@@ -216,9 +216,9 @@ function InquiryForm() {
               disabled={isSubmitting}
             >
               <option value="">제목을 선택해주세요</option>
-              <option value="design">디자인/견적 문의합니다.</option>
-              <option value="delivery">주문/배송 문의합니다.</option>
-              <option value="other">기타 문의</option>
+              <option value="디자인/견적 문의합니다.">디자인/견적 문의합니다.</option>
+              <option value="주문/배송 문의합니다.">주문/배송 문의합니다.</option>
+              <option value="기타 문의">기타 문의</option>
             </select>
           </div>
 
