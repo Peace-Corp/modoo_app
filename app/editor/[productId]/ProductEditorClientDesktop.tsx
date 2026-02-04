@@ -639,10 +639,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                   />
                 </div>
 
-            <div className="mt-4 rounded-md border border-gray-200 p-2 flex flex-col flex-1 min-h-0">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-800">디자인 옵션</h3>
-              </div>
+            <div className="mt-4 rounded-md flex flex-col flex-1 min-h-0">
               <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
                 {(() => {
                   const currentSide = product.configuration.find(side => side.id === activeSideId);
@@ -652,8 +649,8 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
                     <LayerColorSelector side={currentSide!} />
                   ) : (
                     productColors.length > 0 && (
-                      <div className="overflow-hidden rounded-lg border border-gray-200 p-3">
-                        <p className="text-xs font-semibold text-gray-600 mb-3">컬러 선택</p>
+                      <div className="overflow-hidden rounded-lg">
+                        <p className="text-xs font-semibold text-gray-600 mb-3">색상 선택</p>
                         <div className="flex flex-wrap gap-3">
                           {productColors.map((color) => (
                             <button

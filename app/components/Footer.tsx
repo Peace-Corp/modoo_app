@@ -38,7 +38,7 @@ const Footer = () => {
           <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
             <Link href="/policies" className="hover:underline">이용약관</Link>
             <span>|</span>
-            <Link href="/policies#privacy" className="hover:underline">개인정보처리방침</Link>
+            <Link href="/support/privacy" className="hover:underline">개인정보처리방침</Link>
           </div>
           <p className="mt-4 text-center text-xs text-gray-400">
             © {new Date().getFullYear()} 피스코프. All rights reserved.

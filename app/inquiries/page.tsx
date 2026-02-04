@@ -4,10 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Faq, InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
-import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle } from 'lucide-react';
-import Image from 'next/image';
+import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle, Lock, Paperclip } from 'lucide-react';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 20;
 
 export default function InquiriesPage() {
   const router = useRouter();
@@ -22,6 +21,13 @@ export default function InquiriesPage() {
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [faqTotalCount, setFaqTotalCount] = useState(0);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Password modal
+  const [passwordModalId, setPasswordModalId] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Calculate total pages
   const totalPages = Math.ceil((activeTab === 'faq' ? faqTotalCount : totalCount) / ITEMS_PER_PAGE);
@@ -43,6 +49,16 @@ export default function InquiriesPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user || null);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(profile?.role === 'admin');
+      }
+
       setAuthChecked(true);
     };
 
@@ -97,7 +113,6 @@ export default function InquiriesPage() {
           .from('inquiries')
           .select(`
             *,
-            user:profiles!inquiries_user_id_fkey(name),
             products:inquiry_products(
               id,
               product_id,
@@ -139,42 +154,57 @@ export default function InquiriesPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
-    if (diffInHours < 24) {
-      return `${diffInHours}시간 전`;
-    } else if (diffInHours < 48) {
-      return '어제';
-    } else {
-      return date.toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+  const handleInquiryClick = (inquiry: InquiryWithDetails) => {
+    // Admins and owners skip password
+    if (isAdmin || (user && inquiry.user_id === user.id)) {
+      sessionStorage.setItem(`inquiry_verified_${inquiry.id}`, 'true');
+      router.push(`/inquiries/${inquiry.id}`);
+      return;
+    }
+    setPasswordModalId(inquiry.id);
+    setPasswordInput('');
+    setPasswordError('');
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!passwordInput.trim() || !passwordModalId) return;
+
+    setIsVerifying(true);
+    setPasswordError('');
+
+    try {
+      const res = await fetch('/api/inquiries/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiryId: passwordModalId, password: passwordInput.trim() }),
       });
+      const data = await res.json();
+
+      if (data.match) {
+        sessionStorage.setItem(`inquiry_verified_${passwordModalId}`, 'true');
+        router.push(`/inquiries/${passwordModalId}`);
+        setPasswordModalId(null);
+      } else {
+        setPasswordError('비밀번호가 일치하지 않습니다.');
+      }
+    } catch {
+      setPasswordError('오류가 발생했습니다.');
+    } finally {
+      setIsVerifying(false);
     }
-  };
-
-  const getProductImageUrl = (product: any) => {
-    if (product?.configuration && product.configuration.length > 0) {
-      return product.configuration[0].imageUrl;
-    }
-    return '/placeholder-product.png';
-  };
-
-  const censorName = (name: string) => {
-    if (!name || name.length === 0) return '';
-    if (name.length === 1) return name;
-
-    // Show first character and replace the rest with asterisks
-    return name[0] + '*'.repeat(name.length - 1);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen pb-20">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="w-full mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <button
@@ -187,7 +217,7 @@ export default function InquiriesPage() {
             </div>
             <button
               onClick={() => router.push('/inquiries/new')}
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
+              className="flex items-center gap-2 px-4 py-2 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition"
             >
               <Plus className="w-4 h-4" />
               <span className="text-sm font-medium">문의하기</span>
@@ -204,7 +234,7 @@ export default function InquiriesPage() {
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'all'
-                  ? 'bg-black text-white'
+                  ? 'bg-[#3B55A5] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
@@ -224,7 +254,7 @@ export default function InquiriesPage() {
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'my'
-                  ? 'bg-black text-white'
+                  ? 'bg-[#3B55A5] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
@@ -239,7 +269,7 @@ export default function InquiriesPage() {
               className={`
                 flex-1 px-4 py-2 rounded-lg text-sm font-medium transition
                 ${activeTab === 'faq'
-                  ? 'bg-black text-white'
+                  ? 'bg-[#3B55A5] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
@@ -249,7 +279,7 @@ export default function InquiriesPage() {
           </div>
 
           {/* Search */}
-          <div className="relative">
+          {/* <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
@@ -258,12 +288,12 @@ export default function InquiriesPage() {
               placeholder={activeTab === 'faq' ? '질문으로 검색...' : '제목이나 내용으로 검색...'}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition"
             />
-          </div>
+          </div> */}
         </div>
       </header>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto">
+      <div className="">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
         ) : activeTab === 'faq' ? (
@@ -322,7 +352,7 @@ export default function InquiriesPage() {
             {!searchQuery && (
               <button
                 onClick={() => router.push('/inquiries/new')}
-                className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition"
+                className="px-6 py-3 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition"
               >
                 첫 문의 등록하기
               </button>
@@ -330,64 +360,48 @@ export default function InquiriesPage() {
           </div>
         ) : (
           <div className="">
+            {/* Table Header */}
+            <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium uppercase tracking-wider">
+              <span className="flex-1">제목</span>
+              <span className="w-28 text-center shrink-0">작성자</span>
+              <span className="w-20 text-center shrink-0">답변 상태</span>
+              <span className="w-24 text-right shrink-0">날짜</span>
+            </div>
             {inquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
-                onClick={() => router.push(`/inquiries/${inquiry.id}`)}
-                className="bg-white p-4 transition cursor-pointer border-b border-black/30"
+                onClick={() => handleInquiryClick(inquiry)}
+                className="flex items-center px-4 py-3 transition cursor-pointer border-b border-gray-200 hover:bg-gray-50"
               >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg mb-1">{inquiry.title}</h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {inquiry.content}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Products */}
-                {inquiry.products && inquiry.products.length > 0 && (
-                  <div className="flex gap-2 mb-3 overflow-x-auto">
-                    {inquiry.products.slice(0, 3).map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden relative"
-                      >
-                        <Image
-                          src={getProductImageUrl(item.product)}
-                          alt={item.product?.title || 'Product'}
-                          fill
-                          className="object-contain"
-                        />
-                      </div>
-                    ))}
-                    {inquiry.products.length > 3 && (
-                      <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <span className="text-xs text-gray-600 font-medium">
-                          +{inquiry.products.length - 3}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Footer */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-2">
-                    {inquiry.user && (
-                      <span className="font-medium">{censorName(inquiry.user.name)}</span>
-                    )}
-                    <span>•</span>
-                    <span>{formatDate(inquiry.created_at)}</span>
-                  </div>
+                {/* Subject */}
+                <div className="flex-1 min-w-0 flex items-center gap-1">
+                  <span className="text-sm truncate">{inquiry.title}</span>
                   {inquiry.replies && inquiry.replies.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>{inquiry.replies.length}</span>
-                    </div>
+                    <span className="text-xs text-red-500 font-bold shrink-0">+{inquiry.replies.length}</span>
+                  )}
+                  <Lock className="w-3 h-3 text-gray-400 shrink-0" />
+                  {inquiry.file_urls && inquiry.file_urls.length > 0 && (
+                    <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
                   )}
                 </div>
+                {/* Writer */}
+                <span className="w-28 text-center text-sm text-gray-700 shrink-0 truncate">
+                  {inquiry.manager_name ?? ''}
+                </span>
+                {/* Status */}
+                <span className={`w-20 text-center text-xs font-medium shrink-0 ${
+                  inquiry.status === 'completed'
+                    ? 'text-green-600'
+                    : inquiry.status === 'ongoing'
+                    ? 'text-blue-600'
+                    : 'text-gray-400'
+                }`}>
+                  {inquiry.status === 'completed' ? '답변완료' : inquiry.status === 'ongoing' ? '진행중' : '대기중'}
+                </span>
+                {/* Date */}
+                <span className="w-24 text-right text-sm text-gray-500 shrink-0">
+                  {formatDate(inquiry.created_at)}
+                </span>
               </div>
             ))}
           </div>
@@ -434,7 +448,7 @@ export default function InquiriesPage() {
                         min-w-[40px] px-3 py-2 rounded-lg transition
                         ${
                           currentPage === page
-                            ? 'bg-black text-white'
+                            ? 'bg-[#3B55A5] text-white'
                             : 'border border-gray-300 hover:bg-gray-50'
                         }
                       `}
@@ -455,6 +469,45 @@ export default function InquiriesPage() {
             </div>
           )}
       </div>
+
+      {/* Password Modal */}
+      {passwordModalId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4" onClick={() => setPasswordModalId(null)}>
+          <div className="bg-white rounded-lg p-8 shadow-lg w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <Lock className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h2 className="text-lg font-bold mb-2">비밀글입니다</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              이 문의를 보려면 비밀번호를 입력해주세요.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePasswordSubmit();
+              }}
+            >
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="비밀번호 입력"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#3B55A5] transition mb-3"
+                autoFocus
+                disabled={isVerifying}
+              />
+              {passwordError && (
+                <p className="text-sm text-red-500 mb-3">{passwordError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={isVerifying || !passwordInput.trim()}
+                className="w-full py-3 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {isVerifying ? '확인 중...' : '확인'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

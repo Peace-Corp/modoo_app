@@ -2,26 +2,52 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { InquiryWithDetails } from '@/types/types';
-import { MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MessageSquare, ChevronRight, ChevronLeft, Lock, Paperclip } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function InquiryBoardSection() {
+  const router = useRouter();
   const [inquiries, setInquiries] = useState<InquiryWithDetails[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Password modal
+  const [passwordModalId, setPasswordModalId] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const supabase = createClient();
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   useEffect(() => {
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user || null);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(profile?.role === 'admin');
+      }
+    }
+    loadUser();
+  }, []);
+
+  useEffect(() => {
     async function fetchInquiries() {
       setLoading(true);
 
-      // Get total count
       const { count } = await supabase
         .from('inquiries')
         .select('*', { count: 'exact', head: true });
@@ -30,7 +56,6 @@ export default function InquiryBoardSection() {
         setTotalCount(count);
       }
 
-      // Fetch inquiries for current page
       const { data } = await supabase
         .from('inquiries')
         .select(`
@@ -52,18 +77,48 @@ export default function InquiryBoardSection() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
-    if (diffInHours < 24) {
-      return `${diffInHours}시간 전`;
-    } else if (diffInHours < 48) {
-      return '어제';
-    } else {
-      return date.toLocaleDateString('ko-KR', {
-        month: 'long',
-        day: 'numeric'
+  const handleInquiryClick = (inquiry: InquiryWithDetails) => {
+    if (isAdmin || (user && inquiry.user_id === user.id)) {
+      sessionStorage.setItem(`inquiry_verified_${inquiry.id}`, 'true');
+      router.push(`/inquiries/${inquiry.id}`);
+      return;
+    }
+    setPasswordModalId(inquiry.id);
+    setPasswordInput('');
+    setPasswordError('');
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!passwordInput.trim() || !passwordModalId) return;
+
+    setIsVerifying(true);
+    setPasswordError('');
+
+    try {
+      const res = await fetch('/api/inquiries/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiryId: passwordModalId, password: passwordInput.trim() }),
       });
+      const data = await res.json();
+
+      if (data.match) {
+        sessionStorage.setItem(`inquiry_verified_${passwordModalId}`, 'true');
+        router.push(`/inquiries/${passwordModalId}`);
+        setPasswordModalId(null);
+      } else {
+        setPasswordError('비밀번호가 일치하지 않습니다.');
+      }
+    } catch {
+      setPasswordError('오류가 발생했습니다.');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -91,36 +146,41 @@ export default function InquiryBoardSection() {
         </div>
       ) : (
         <>
-          {/* Inquiries List */}
           {inquiries && inquiries.length > 0 ? (
             <>
-              <div className="space-y-2 lg:space-y-3">
+              <div>
+                {/* Table Header */}
+                <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium tracking-wider">
+                  <span className="flex-1">제목</span>
+                  <span className="w-28 text-center shrink-0">작성자</span>
+                  <span className="w-24 text-right shrink-0">날짜</span>
+                </div>
                 {inquiries.map((inquiry) => (
-                  <Link
+                  <div
                     key={inquiry.id}
-                    href={`/inquiries/${inquiry.id}`}
-                    className="block bg-white p-2 lg:p-4 border-b border-black/20 transition"
+                    onClick={() => handleInquiryClick(inquiry)}
+                    className="flex items-center px-4 py-3 transition cursor-pointer border-b border-gray-200 hover:bg-gray-50"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1 lg:mb-2">
-                          <h3 className="text-sm lg:text-base font-medium line-clamp-1">{inquiry.title}</h3>
-                          {inquiry.replies && inquiry.replies.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500 ml-2 shrink-0">
-                              <MessageSquare className="w-3 h-3" />
-                              <span>{inquiry.replies.length}</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs lg:text-sm text-gray-600 line-clamp-1 mb-1 lg:mb-2">
-                          {inquiry.content}
-                        </p>
-                        <p className="text-[10px] lg:text-xs text-gray-500">
-                          {formatDate(inquiry.created_at)}
-                        </p>
-                      </div>
+                    {/* Subject */}
+                    <div className="flex-1 min-w-0 flex items-center gap-1">
+                      <span className="text-sm truncate">{inquiry.title}</span>
+                      {inquiry.replies && inquiry.replies.length > 0 && (
+                        <span className="text-xs text-red-500 font-bold shrink-0">+{inquiry.replies.length}</span>
+                      )}
+                      <Lock className="w-3 h-3 text-gray-400 shrink-0" />
+                      {inquiry.file_urls && inquiry.file_urls.length > 0 && (
+                        <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
+                      )}
                     </div>
-                  </Link>
+                    {/* Writer */}
+                    <span className="w-28 text-center text-sm text-gray-700 shrink-0 truncate">
+                      {inquiry.manager_name ?? ''}
+                    </span>
+                    {/* Date */}
+                    <span className="w-24 text-right text-sm text-gray-500 shrink-0">
+                      {formatDate(inquiry.created_at)}
+                    </span>
+                  </div>
                 ))}
               </div>
 
@@ -172,6 +232,45 @@ export default function InquiryBoardSection() {
             </div>
           )}
         </>
+      )}
+
+      {/* Password Modal */}
+      {passwordModalId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4" onClick={() => setPasswordModalId(null)}>
+          <div className="bg-white rounded-lg p-8 shadow-lg w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <Lock className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h2 className="text-lg font-bold mb-2">비밀글입니다</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              이 문의를 보려면 비밀번호를 입력해주세요.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePasswordSubmit();
+              }}
+            >
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="비밀번호 입력"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#3B55A5] transition mb-3"
+                autoFocus
+                disabled={isVerifying}
+              />
+              {passwordError && (
+                <p className="text-sm text-red-500 mb-3">{passwordError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={isVerifying || !passwordInput.trim()}
+                className="w-full py-3 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {isVerifying ? '확인 중...' : '확인'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </section>
   );
