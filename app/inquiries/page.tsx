@@ -363,9 +363,9 @@ export default function InquiriesPage() {
             {/* Table Header */}
             <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium uppercase tracking-wider">
               <span className="flex-1">제목</span>
-              <span className="w-28 text-center shrink-0">작성자</span>
-              <span className="w-20 text-center shrink-0">답변 상태</span>
-              <span className="w-24 text-right shrink-0">날짜</span>
+              <span className="hidden sm:block w-28 text-center shrink-0">작성자</span>
+              <span className="w-16 sm:w-20 text-center shrink-0">답변 상태</span>
+              <span className="w-20 sm:w-24 text-right shrink-0">날짜</span>
             </div>
             {inquiries.map((inquiry) => (
               <div
@@ -385,11 +385,11 @@ export default function InquiriesPage() {
                   )}
                 </div>
                 {/* Writer */}
-                <span className="w-28 text-center text-sm text-gray-700 shrink-0 truncate">
+                <span className="hidden sm:block w-28 text-center text-sm text-gray-700 shrink-0 truncate">
                   {inquiry.manager_name ?? ''}
                 </span>
                 {/* Status */}
-                <span className={`w-20 text-center text-xs font-medium shrink-0 ${
+                <span className={`w-16 sm:w-20 text-center text-xs font-medium shrink-0 ${
                   inquiry.status === 'completed'
                     ? 'text-green-600'
                     : inquiry.status === 'ongoing'
@@ -399,7 +399,7 @@ export default function InquiriesPage() {
                   {inquiry.status === 'completed' ? '답변완료' : inquiry.status === 'ongoing' ? '진행중' : '대기중'}
                 </span>
                 {/* Date */}
-                <span className="w-24 text-right text-sm text-gray-500 shrink-0">
+                <span className="w-20 sm:w-24 text-right text-sm text-gray-500 shrink-0">
                   {formatDate(inquiry.created_at)}
                 </span>
               </div>
