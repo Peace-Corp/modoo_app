@@ -212,7 +212,7 @@ function InquiryForm() {
       }).catch(() => {}); // email failure should not affect the user
 
       alert('문의가 등록되었습니다.');
-      router.push('/inquiries');
+      router.replace('/inquiries');
     } catch (error) {
       console.error('Error submitting inquiry:', error);
       alert('문의 등록 중 오류가 발생했습니다.');
@@ -524,7 +524,7 @@ function InquiryForm() {
           <div className="flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => router.push('/inquiries')}
+              onClick={() => router.replace('/inquiries')}
               className="px-8 py-3 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition"
               disabled={isSubmitting}
             >
