@@ -26,11 +26,11 @@ function FormRow({
   className?: string;
 }) {
   return (
-    <div className={`flex border-b border-gray-300 ${className ?? ''}`}>
-      <div className="w-[140px] sm:w-[160px] shrink-0 bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700 flex items-center border-r border-gray-300">
+    <div className={`flex flex-col sm:flex-row border-b border-gray-300 ${className ?? ''}`}>
+      <div className="sm:w-40 shrink-0 bg-gray-100 px-4 py-2 sm:py-3 text-sm font-medium text-gray-700 flex items-center sm:border-r border-gray-300">
         {label} {required && <span className="text-red-500 ml-0.5">*</span>}
       </div>
-      <div className="flex-1 px-4 py-3">{children}</div>
+      <div className="flex-1 px-4 py-2 sm:py-3">{children}</div>
     </div>
   );
 }
@@ -319,22 +319,22 @@ function InquiryForm() {
             {/* 연락처 */}
             <FormRow label="연락처" required>
               <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="전화번호 기재(숫자만 입력)"
-                    className={inputClass + ' flex-1 min-w-[180px]'}
-                    disabled={isSubmitting}
-                  />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="전화번호 기재(숫자만 입력)"
+                  className={inputClass}
+                  disabled={isSubmitting}
+                />
+                <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500 shrink-0">카카오톡 아이디</span>
                   <input
                     type="text"
                     value={kakaoId}
                     onChange={(e) => setKakaoId(e.target.value)}
                     placeholder="카카오톡 아이디"
-                    className={inputClass + ' flex-1 min-w-[180px]'}
+                    className={inputClass + ' flex-1'}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -491,7 +491,7 @@ function InquiryForm() {
                   <p className="font-medium mb-1">■ 개인정보의 수집·이용 목적</p>
                   <p>서비스 제공 및 계약의 이행, 구매 및 대금결제, 물품배송 또는 청구지 발송, 회원관리 등을 위한 목적</p>
                 </div>
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
                   <span>개인정보 수집 및 이용에 동의하십니까?</span>
                   <label className="flex items-center gap-1 cursor-pointer">
                     <input
