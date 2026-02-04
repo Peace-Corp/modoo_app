@@ -6,7 +6,7 @@ import { Faq, InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
 import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle, Lock, Paperclip } from 'lucide-react';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 20;
 
 export default function InquiriesPage() {
   const router = useRouter();
