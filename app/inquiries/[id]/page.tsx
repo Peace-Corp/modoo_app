@@ -184,6 +184,13 @@ export default function InquiryDetailPage() {
 
       if (error) throw error;
 
+      // Send email notification to inquiry writer (fire-and-forget)
+      fetch('/api/inquiries/reply-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiryId, replyContent: replyContent.trim() }),
+      }).catch((err) => console.error('Failed to send reply notification:', err));
+
       setReplyContent('');
       await fetchInquiry();
     } catch (error) {
