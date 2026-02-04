@@ -136,7 +136,7 @@ export default async function HomePage() {
         <section className="w-full">
           <div className="flex items-center justify-between mb-3 lg:mb-4">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900">인기 상품</h2>
-            <Link href="/search" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <Link href="/home/search" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
               전체보기
               <ChevronRight className="w-4 h-4" />
             </Link>
