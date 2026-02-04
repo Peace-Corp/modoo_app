@@ -128,7 +128,13 @@ export interface Inquiry {
   title: string;
   content: string;
   status: InquiryStatus;
+  group_name?: string;
   manager_name?: string;
+  phone?: string;
+  kakao_id?: string;
+  desired_date?: string;
+  expected_qty?: number;
+  fabric_color?: string;
   password?: string;
   file_urls?: string[];
   created_at: string;

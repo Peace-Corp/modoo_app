@@ -21,6 +21,13 @@ export default function InquiriesPage() {
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [faqTotalCount, setFaqTotalCount] = useState(0);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Password modal
+  const [passwordModalId, setPasswordModalId] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Calculate total pages
   const totalPages = Math.ceil((activeTab === 'faq' ? faqTotalCount : totalCount) / ITEMS_PER_PAGE);
@@ -42,6 +49,16 @@ export default function InquiriesPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user || null);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(profile?.role === 'admin');
+      }
+
       setAuthChecked(true);
     };
 
@@ -143,6 +160,45 @@ export default function InquiriesPage() {
     return `${y}-${m}-${d}`;
   };
 
+  const handleInquiryClick = (inquiry: InquiryWithDetails) => {
+    // Admins and owners skip password
+    if (isAdmin || (user && inquiry.user_id === user.id)) {
+      sessionStorage.setItem(`inquiry_verified_${inquiry.id}`, 'true');
+      router.push(`/inquiries/${inquiry.id}`);
+      return;
+    }
+    setPasswordModalId(inquiry.id);
+    setPasswordInput('');
+    setPasswordError('');
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!passwordInput.trim() || !passwordModalId) return;
+
+    setIsVerifying(true);
+    setPasswordError('');
+
+    try {
+      const res = await fetch('/api/inquiries/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiryId: passwordModalId, password: passwordInput.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.match) {
+        sessionStorage.setItem(`inquiry_verified_${passwordModalId}`, 'true');
+        router.push(`/inquiries/${passwordModalId}`);
+        setPasswordModalId(null);
+      } else {
+        setPasswordError('비밀번호가 일치하지 않습니다.');
+      }
+    } catch {
+      setPasswordError('오류가 발생했습니다.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   return (
     <div className="min-h-screen pb-20">
@@ -314,7 +370,7 @@ export default function InquiriesPage() {
             {inquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
-                onClick={() => router.push(`/inquiries/${inquiry.id}`)}
+                onClick={() => handleInquiryClick(inquiry)}
                 className="flex items-center px-4 py-3 transition cursor-pointer border-b border-gray-200 hover:bg-gray-50"
               >
                 {/* Subject */}
@@ -413,6 +469,45 @@ export default function InquiriesPage() {
             </div>
           )}
       </div>
+
+      {/* Password Modal */}
+      {passwordModalId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4" onClick={() => setPasswordModalId(null)}>
+          <div className="bg-white rounded-lg p-8 shadow-lg w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <Lock className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h2 className="text-lg font-bold mb-2">비밀글입니다</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              이 문의를 보려면 비밀번호를 입력해주세요.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePasswordSubmit();
+              }}
+            >
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="비밀번호 입력"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#3B55A5] transition mb-3"
+                autoFocus
+                disabled={isVerifying}
+              />
+              {passwordError && (
+                <p className="text-sm text-red-500 mb-3">{passwordError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={isVerifying || !passwordInput.trim()}
+                className="w-full py-3 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {isVerifying ? '확인 중...' : '확인'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

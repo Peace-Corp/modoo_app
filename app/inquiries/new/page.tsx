@@ -14,6 +14,27 @@ interface UploadedFile {
   name: string;
 }
 
+function FormRow({
+  label,
+  required,
+  children,
+  className,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex border-b border-gray-300 ${className ?? ''}`}>
+      <div className="w-[140px] sm:w-[160px] shrink-0 bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700 flex items-center border-r border-gray-300">
+        {label} {required && <span className="text-red-500 ml-0.5">*</span>}
+      </div>
+      <div className="flex-1 px-4 py-3">{children}</div>
+    </div>
+  );
+}
+
 function InquiryForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -199,26 +220,6 @@ function InquiryForm() {
       setIsSubmitting(false);
     }
   };
-
-  // ── Reusable row component ──
-  const FormRow = ({
-    label,
-    required,
-    children,
-    className,
-  }: {
-    label: string;
-    required?: boolean;
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <div className={`flex border-b border-gray-300 ${className ?? ''}`}>
-      <div className="w-[140px] sm:w-[160px] shrink-0 bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700 flex items-center border-r border-gray-300">
-        {label} {required && <span className="text-red-500 ml-0.5">*</span>}
-      </div>
-      <div className="flex-1 px-4 py-3">{children}</div>
-    </div>
-  );
 
   const inputClass =
     'w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-black transition';

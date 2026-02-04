@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { InquiryWithDetails, InquiryStatus } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
-import { ChevronLeft, MessageSquare, Send } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Send, Lock, Paperclip, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 
 const STATUS_LABELS: Record<InquiryStatus, string> = {
@@ -19,6 +19,18 @@ const STATUS_COLORS: Record<InquiryStatus, string> = {
   completed: 'bg-green-100 text-green-800'
 };
 
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex border-b border-gray-100 last:border-b-0">
+      <div className="w-30 sm:w-35 shrink-0 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600 flex items-center">
+        {label}
+      </div>
+      <div className="flex-1 px-4 py-3 text-sm text-gray-800">{value}</div>
+    </div>
+  );
+}
+
 export default function InquiryDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -32,6 +44,12 @@ export default function InquiryDetailPage() {
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // Password gate
+  const [isVerified, setIsVerified] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+
   useEffect(() => {
     checkUserAndFetchInquiry();
   }, [inquiryId]);
@@ -40,25 +58,68 @@ export default function InquiryDetailPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      router.push('/login?redirect=/inquiries/' + inquiryId);
-      return;
+    setUser(user || null);
+
+    let isAdminUser = false;
+    let isOwner = false;
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      isAdminUser = profile?.role === 'admin';
+      setIsAdmin(isAdminUser);
+
+      // Check if user owns this inquiry
+      const { data: inquiryData } = await supabase
+        .from('inquiries')
+        .select('user_id')
+        .eq('id', inquiryId)
+        .single();
+
+      isOwner = inquiryData?.user_id === user.id;
     }
 
-    setUser(user);
+    // Admins, owners, and session-verified users skip password check
+    const sessionVerified = sessionStorage.getItem(`inquiry_verified_${inquiryId}`) === 'true';
+    if (isAdminUser || isOwner || sessionVerified) {
+      setIsVerified(true);
+      await fetchInquiry();
+    } else {
+      setIsLoading(false);
+    }
+  };
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+  const handlePasswordSubmit = async () => {
+    if (!passwordInput.trim()) return;
 
-    const isAdminUser = profile?.role === 'admin';
-    setIsAdmin(isAdminUser);
+    setIsVerifying(true);
+    setPasswordError('');
 
-    await fetchInquiry();
+    try {
+      const res = await fetch('/api/inquiries/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiryId, password: passwordInput.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (data.match) {
+        setIsVerified(true);
+        setIsLoading(true);
+        await fetchInquiry();
+      } else {
+        setPasswordError('비밀번호가 일치하지 않습니다.');
+      }
+    } catch {
+      setPasswordError('오류가 발생했습니다.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const fetchInquiry = async () => {
@@ -181,6 +242,63 @@ export default function InquiryDetailPage() {
     );
   }
 
+  if (!isVerified) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="w-full px-4 py-4">
+            <div className="flex items-center">
+              <button
+                onClick={() => router.back()}
+                className="p-2 hover:bg-gray-100 rounded-full transition mr-2"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <h1 className="text-lg font-bold">비밀번호 확인</h1>
+            </div>
+          </div>
+        </header>
+        <div className="flex items-center justify-center px-4" style={{ minHeight: 'calc(100vh - 64px)' }}>
+          <div className="w-full max-w-sm">
+            <div className="bg-white rounded-lg p-8 shadow-sm text-center">
+              <Lock className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+              <h2 className="text-lg font-bold mb-2">비밀글입니다</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                이 문의를 보려면 비밀번호를 입력해주세요.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handlePasswordSubmit();
+                }}
+              >
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="비밀번호 입력"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#3B55A5] transition mb-3"
+                  autoFocus
+                  disabled={isVerifying}
+                />
+                {passwordError && (
+                  <p className="text-sm text-red-500 mb-3">{passwordError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={isVerifying || !passwordInput.trim()}
+                  className="w-full py-3 bg-[#3B55A5] text-white rounded-lg hover:bg-[#2f4584] transition disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  {isVerifying ? '확인 중...' : '확인'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!inquiry) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -209,38 +327,80 @@ export default function InquiryDetailPage() {
       {/* Content */}
       <div className="w-full p-4 space-y-4">
         {/* Inquiry Details */}
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          {/* Status and User Info */}
-          <div className="flex items-center justify-between mb-4">
-            <span className={`
-              px-3 py-1 rounded text-sm font-medium
-              ${STATUS_COLORS[inquiry.status]}
-            `}>
-              {STATUS_LABELS[inquiry.status]}
-            </span>
-            {isAdmin && inquiry.user && (
-              <span className="text-sm text-gray-500">
-                {inquiry.user.name}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          {/* Header: Status + Title + Date */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <span className={`
+                px-3 py-1 rounded text-sm font-medium
+                ${STATUS_COLORS[inquiry.status]}
+              `}>
+                {STATUS_LABELS[inquiry.status]}
               </span>
+              <span className="text-sm text-gray-500">
+                {formatDate(inquiry.created_at)}
+              </span>
+            </div>
+            <h2 className="text-xl font-bold">{inquiry.title}</h2>
+          </div>
+
+          {/* Info Table */}
+          <div className="border-b border-gray-200">
+            <DetailRow label="단체명" value={inquiry.group_name} />
+            <DetailRow label="담당자명" value={inquiry.manager_name} />
+            <DetailRow label="연락처" value={inquiry.phone} />
+            {inquiry.kakao_id && (
+              <DetailRow label="카카오톡 ID" value={inquiry.kakao_id} />
+            )}
+            {inquiry.desired_date && (
+              <DetailRow label="착용희망날짜" value={inquiry.desired_date} />
+            )}
+            {inquiry.expected_qty && (
+              <DetailRow label="예상수량" value={`${inquiry.expected_qty}개`} />
+            )}
+            {inquiry.fabric_color && (
+              <DetailRow label="원단 색상" value={inquiry.fabric_color} />
             )}
           </div>
 
-          {/* Title */}
-          <h2 className="text-2xl font-bold mb-2">{inquiry.title}</h2>
-
-          {/* Date */}
-          <p className="text-sm text-gray-500 mb-6">
-            {formatDate(inquiry.created_at)}
-          </p>
-
           {/* Content */}
-          <div className="prose max-w-none mb-6">
-            <p className="text-gray-700 whitespace-pre-wrap">{inquiry.content}</p>
-          </div>
+          {inquiry.content && (
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">추가 내용</h3>
+              <p className="text-gray-700 whitespace-pre-wrap text-sm">{inquiry.content}</p>
+            </div>
+          )}
+
+          {/* File Attachments */}
+          {inquiry.file_urls && inquiry.file_urls.length > 0 && (
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                <Paperclip className="w-4 h-4 inline-block mr-1" />
+                첨부파일 ({inquiry.file_urls.length})
+              </h3>
+              <div className="space-y-2">
+                {inquiry.file_urls.map((url: string, idx: number) => {
+                  const fileName = decodeURIComponent(url.split('/').pop() || `파일 ${idx + 1}`);
+                  return (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-[#3B55A5] hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{fileName}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Products */}
           {inquiry.products && inquiry.products.length > 0 && (
-            <div>
+            <div className="p-6 border-b border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-3">관련 제품</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {inquiry.products.map((item: any) => (
@@ -268,7 +428,7 @@ export default function InquiryDetailPage() {
 
           {/* Admin Status Change */}
           {isAdmin && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="p-6">
               <h3 className="text-sm font-medium text-gray-700 mb-3">상태 변경</h3>
               <div className="flex gap-2">
                 {Object.entries(STATUS_LABELS).map(([status, label]) => (
@@ -279,7 +439,7 @@ export default function InquiryDetailPage() {
                     className={`
                       px-4 py-2 rounded-lg text-sm font-medium transition
                       ${inquiry.status === status
-                        ? 'bg-black text-white cursor-default'
+                        ? 'bg-[#3B55A5] text-white cursor-default'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }
                       disabled:opacity-50 disabled:cursor-not-allowed
