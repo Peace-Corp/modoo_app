@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'godomall-storage.cdn-nhncommerce.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
