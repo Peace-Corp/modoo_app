@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, Package, Heart, CreditCard, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare, Users, Star } from 'lucide-react';
+import { User, Package, Heart, CreditCard, LogOut, ChevronRight, ShoppingBag, Shield, MessageSquare, Users, Star, Ticket } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { useAuthStore } from '@/store/useAuthStore';
 import { createClient } from '@/lib/supabase-client';
@@ -20,6 +20,7 @@ const shoppingMenuItems: MenuItem[] = [
   { icon: Package, label: '주문 내역', href: '/home/my-page/orders', badge: null },
   { icon: ShoppingBag, label: '나의 디자인', href: '/home/designs', badge: null },
   { icon: Users, label: '공동구매', href: '/home/my-page/cobuy', badge: null },
+  { icon: Ticket, label: '내 쿠폰', href: '/home/my-page/coupons', badge: null },
   { icon: Heart, label: '찜한 상품', href: '/home/designs?tab=favorites', badge: null },
   { icon: Star, label: '나의 후기', href: '/reviews/my', badge: null },
   // { icon: CreditCard, label: '결제 수단', href: '/home/my-page/payment', badge: null },

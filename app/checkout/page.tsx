@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
@@ -8,9 +8,18 @@ import {
   getCartItemsWithDesigns,
   type CartItemWithDesign
 } from '@/lib/cartService';
+import {
+  getAvailableCoupons,
+  registerCoupon,
+  validateCouponForOrder,
+  calculateCouponDiscount,
+  getCouponDisplayInfo,
+} from '@/lib/couponService';
 import TossPaymentWidget from '../components/toss/TossPaymentWidget';
 import { useAuthStore } from '@/store/useAuthStore';
 import { generateOrderId } from '@/lib/orderIdUtils';
+import { CouponUsage } from '@/types/types';
+import { Ticket, ChevronDown, ChevronUp, X, Check, AlertCircle } from 'lucide-react';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -68,6 +77,14 @@ export default function CheckoutPage() {
     addressLine1: '',
     addressLine2: '',
   });
+
+  // Coupon state
+  const [availableCoupons, setAvailableCoupons] = useState<CouponUsage[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState<CouponUsage | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [showCouponList, setShowCouponList] = useState(false);
 
   // Group items by design for display
   const groupedItems = items.reduce<Array<{
@@ -161,6 +178,23 @@ export default function CheckoutPage() {
     fetchCartItems();
   }, [router]);
 
+  // Fetch available coupons
+  const fetchCoupons = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const coupons = await getAvailableCoupons();
+      setAvailableCoupons(coupons);
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCoupons();
+    }
+  }, [isAuthenticated, fetchCoupons]);
+
   // Auto-fill customer info from user profile when authenticated and useProfileInfo is true
   useEffect(() => {
     if (isAuthenticated && user && useProfileInfo) {
@@ -182,7 +216,8 @@ export default function CheckoutPage() {
   // Calculate totals
   const totalPrice = items.reduce((total, item) => total + item.price_per_item * item.quantity, 0);
   const deliveryFee = shippingMethod === 'pickup' ? 0 : shippingMethod === 'domestic' ? 3000 : 5000;
-  const finalTotal = totalPrice + deliveryFee;
+  const couponDiscount = selectedCoupon ? calculateCouponDiscount(selectedCoupon, totalPrice) : 0;
+  const finalTotal = totalPrice + deliveryFee - couponDiscount;
 
   // Open Daum Address API
   const handleAddressSearch = () => {
@@ -196,6 +231,47 @@ export default function CheckoutPage() {
         });
       }
     }).open();
+  };
+
+  // Coupon handlers
+  const handleRegisterCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponMessage({ type: 'error', text: '쿠폰 코드를 입력해주세요.' });
+      return;
+    }
+    setCouponLoading(true);
+    setCouponMessage(null);
+
+    const result = await registerCoupon(couponCode);
+
+    if (result.valid && result.couponUsage) {
+      setCouponMessage({ type: 'success', text: '쿠폰이 등록되었습니다!' });
+      setCouponCode('');
+      await fetchCoupons();
+      // Auto-select the newly registered coupon
+      setSelectedCoupon(result.couponUsage);
+      setShowCouponList(false);
+    } else {
+      setCouponMessage({ type: 'error', text: result.error || '쿠폰 등록에 실패했습니다.' });
+    }
+
+    setCouponLoading(false);
+  };
+
+  const handleSelectCoupon = (couponUsage: CouponUsage) => {
+    const validation = validateCouponForOrder(couponUsage, totalPrice);
+    if (validation.valid) {
+      setSelectedCoupon(couponUsage);
+      setCouponMessage(null);
+      setShowCouponList(false);
+    } else {
+      setCouponMessage({ type: 'error', text: validation.error || '쿠폰을 사용할 수 없습니다.' });
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setSelectedCoupon(null);
+    setCouponMessage(null);
   };
 
   const handlePayPalPayment = () => {
@@ -253,6 +329,9 @@ export default function CheckoutPage() {
       shipping_method: shippingMethod,
       delivery_fee: deliveryFee,
       total_amount: finalTotal,
+      // Coupon data
+      coupon_usage_id: selectedCoupon?.id || null,
+      coupon_discount: couponDiscount,
     };
 
     // Store in sessionStorage for use in success page
@@ -612,6 +691,157 @@ export default function CheckoutPage() {
         </div>
       )}
 
+      {/* Coupon Section - Only show for authenticated users */}
+      {isAuthenticated && (
+        <div className="bg-white mt-2 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-medium text-black">쿠폰</h2>
+            {availableCoupons.length > 0 && (
+              <span className="text-sm text-gray-500">보유 {availableCoupons.length}장</span>
+            )}
+          </div>
+
+          {/* Coupon Selection - Radio style */}
+          <div className="space-y-2">
+            {/* No Coupon Option */}
+            <button
+              onClick={handleRemoveCoupon}
+              className={`w-full p-3 rounded-lg border-2 text-left transition ${
+                !selectedCoupon
+                  ? 'border-black bg-gray-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-black">쿠폰 사용 안함</span>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  !selectedCoupon ? 'border-black' : 'border-gray-300'
+                }`}>
+                  {!selectedCoupon && (
+                    <div className="w-3 h-3 rounded-full bg-black"></div>
+                  )}
+                </div>
+              </div>
+            </button>
+
+            {/* Available Coupons */}
+            {availableCoupons.map((couponUsage) => {
+              const coupon = couponUsage.coupon;
+              if (!coupon) return null;
+              const displayInfo = getCouponDisplayInfo(coupon);
+              const validation = validateCouponForOrder(couponUsage, totalPrice);
+              const isDisabled = !validation.valid;
+              const isSelected = selectedCoupon?.id === couponUsage.id;
+              const discountAmount = isSelected ? couponDiscount : calculateCouponDiscount(couponUsage, totalPrice);
+
+              return (
+                <button
+                  key={couponUsage.id}
+                  onClick={() => !isDisabled && handleSelectCoupon(couponUsage)}
+                  disabled={isDisabled}
+                  className={`w-full p-3 rounded-lg border-2 text-left transition ${
+                    isDisabled
+                      ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                      : isSelected
+                        ? 'border-[#3B55A5] bg-[#3B55A5]/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Ticket className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#3B55A5]' : 'text-gray-400'}`} />
+                        <p className="font-medium text-black text-sm truncate">
+                          {coupon.display_name || coupon.code}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className={`font-bold text-sm ${isSelected ? 'text-[#3B55A5]' : 'text-gray-700'}`}>
+                          {displayInfo.discountText}
+                        </p>
+                        {!isDisabled && (
+                          <span className="text-xs text-red-500 font-medium">
+                            (-{discountAmount.toLocaleString()}원)
+                          </span>
+                        )}
+                      </div>
+                      {displayInfo.minOrderText && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {displayInfo.minOrderText}
+                        </p>
+                      )}
+                      {isDisabled && validation.error && (
+                        <p className="text-xs text-red-500 mt-1">{validation.error}</p>
+                      )}
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      isSelected ? 'border-[#3B55A5]' : 'border-gray-300'
+                    }`}>
+                      {isSelected && (
+                        <div className="w-3 h-3 rounded-full bg-[#3B55A5]"></div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Register New Coupon */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => setShowCouponList(!showCouponList)}
+              className="w-full flex items-center justify-between py-2 text-sm text-gray-600 hover:text-black"
+            >
+              <span>쿠폰 코드 등록하기</span>
+              {showCouponList ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+
+            {showCouponList && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="쿠폰 코드 입력"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#3B55A5]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleRegisterCoupon()}
+                />
+                <button
+                  onClick={handleRegisterCoupon}
+                  disabled={couponLoading || !couponCode.trim()}
+                  className="px-4 py-2.5 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {couponLoading ? '...' : '등록'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Coupon Message */}
+          {couponMessage && (
+            <div
+              className={`mt-3 p-2 rounded-lg flex items-center gap-2 text-sm ${
+                couponMessage.type === 'success'
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
+              }`}
+            >
+              {couponMessage.type === 'success' ? (
+                <Check className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              {couponMessage.text}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Payment Summary */}
       <div className="bg-white mt-2 p-4">
         <h2 className="font-medium text-black mb-3">결제 금액</h2>
@@ -624,12 +854,28 @@ export default function CheckoutPage() {
             <span className="text-gray-600">배송비</span>
             <span className="text-black">{deliveryFee.toLocaleString('ko-KR')}원</span>
           </div>
+          {couponDiscount > 0 && (
+            <div className="flex justify-between text-sm p-2 -mx-2 bg-red-50 rounded-lg">
+              <span className="text-red-600 font-medium flex items-center gap-1">
+                <Ticket className="w-4 h-4" />
+                쿠폰 할인
+              </span>
+              <span className="text-red-600 font-bold">-{couponDiscount.toLocaleString('ko-KR')}원</span>
+            </div>
+          )}
           <div className="h-px bg-gray-200 my-3"></div>
           <div className="flex justify-between items-center">
             <span className="font-medium text-black">총 결제금액</span>
-            <span className="text-xl font-bold text-black">
-              {finalTotal.toLocaleString('ko-KR')}원
-            </span>
+            <div className="text-right">
+              {couponDiscount > 0 && (
+                <span className="text-sm text-gray-400 line-through mr-2">
+                  {(totalPrice + deliveryFee).toLocaleString('ko-KR')}원
+                </span>
+              )}
+              <span className={`text-xl font-bold ${couponDiscount > 0 ? 'text-[#3B55A5]' : 'text-black'}`}>
+                {finalTotal.toLocaleString('ko-KR')}원
+              </span>
+            </div>
           </div>
         </div>
       </div>
