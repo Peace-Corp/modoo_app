@@ -476,13 +476,8 @@ export default function InquiryDetailPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-[#3B55A5]">
-                        관리자
+                        모두 유니폼
                       </span>
-                      {reply.admin && (
-                        <span className="text-xs text-gray-500">
-                          {reply.admin.email}
-                        </span>
-                      )}
                     </div>
                     <span className="text-xs text-gray-500">
                       {formatDate(reply.created_at)}

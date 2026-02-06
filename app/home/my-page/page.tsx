@@ -58,13 +58,13 @@ export default function MyPage() {
             .eq('id', supabaseUser.id)
             .single();
 
-          // Set user data from Supabase
+          // Set user data from Supabase - prefer profile data over user_metadata
           setUser({
             id: supabaseUser.id,
-            email: supabaseUser.email || profile?.email || '',
-            name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
+            email: profile?.email || supabaseUser.email || '',
+            name: profile?.name || supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
             avatar_url: supabaseUser.user_metadata?.avatar_url,
-            phone: supabaseUser.phone || profile?.phone_number,
+            phone: profile?.phone_number || supabaseUser.phone,
             role: profile?.role || 'customer',
           });
         } else {
