@@ -68,21 +68,21 @@ export default function CouponsPage() {
     if (usage.used_at) {
       return {
         label: '사용완료',
-        color: 'bg-gray-100 text-gray-600',
-        icon: <Check className="w-3 h-3" />,
+        color: 'bg-gray-100 text-gray-500',
+        icon: <Check className="w-2.5 h-2.5" />,
       };
     }
     if (usage.expires_at && new Date(usage.expires_at) < new Date()) {
       return {
         label: '만료',
-        color: 'bg-red-100 text-red-600',
-        icon: <X className="w-3 h-3" />,
+        color: 'bg-red-50 text-red-500',
+        icon: <X className="w-2.5 h-2.5" />,
       };
     }
     return {
       label: '사용가능',
-      color: 'bg-green-100 text-green-600',
-      icon: <Ticket className="w-3 h-3" />,
+      color: 'bg-green-50 text-green-600',
+      icon: <Ticket className="w-2.5 h-2.5" />,
     };
   };
 
@@ -95,13 +95,13 @@ export default function CouponsPage() {
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-        <Ticket className="w-16 h-16 text-gray-400 mb-4" />
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">로그인이 필요합니다</h2>
-        <p className="text-gray-500 mb-4">쿠폰을 확인하려면 로그인해주세요.</p>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <Ticket className="w-12 h-12 text-gray-300 mb-3" />
+        <h2 className="text-sm font-medium text-gray-900 mb-1">로그인이 필요합니다</h2>
+        <p className="text-xs text-gray-500 mb-4">쿠폰을 확인하려면 로그인해주세요.</p>
         <button
           onClick={() => router.push('/login')}
-          className="px-6 py-2 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors"
+          className="px-4 py-2 bg-black text-white text-xs rounded-lg font-medium hover:bg-gray-800 transition-colors"
         >
           로그인
         </button>
@@ -110,43 +110,43 @@ export default function CouponsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-white pb-20">
       {/* Header */}
       <div className="hidden md:block">
         <Header showHomeNav />
       </div>
 
       {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="md:hidden bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="flex items-center px-4 py-3">
           <button onClick={() => router.back()} className="p-1 -ml-1 mr-2">
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <h1 className="text-lg font-semibold text-gray-900">내 쿠폰</h1>
+          <h1 className="text-sm font-semibold text-gray-900">내 쿠폰</h1>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-lg mx-auto">
         {/* Tabs */}
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-white border-b border-gray-100">
           <div className="flex">
             <button
               onClick={() => setActiveTab('my-coupons')}
-              className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${
+              className={`flex-1 py-2.5 text-xs font-medium text-center border-b-2 transition-colors ${
                 activeTab === 'my-coupons'
-                  ? 'border-[#3B55A5] text-[#3B55A5]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
               내 쿠폰
             </button>
             <button
               onClick={() => setActiveTab('register')}
-              className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${
+              className={`flex-1 py-2.5 text-xs font-medium text-center border-b-2 transition-colors ${
                 activeTab === 'register'
-                  ? 'border-[#3B55A5] text-[#3B55A5]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
               쿠폰 등록
@@ -157,42 +157,42 @@ export default function CouponsPage() {
         {/* Message */}
         {message && (
           <div
-            className={`mx-4 mt-4 p-3 rounded-lg flex items-center gap-2 ${
+            className={`mx-3 mt-3 p-2.5 rounded-lg flex items-center gap-2 ${
               message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
             }`}
           >
             {message.type === 'success' ? (
-              <Check className="w-5 h-5 flex-shrink-0" />
+              <Check className="w-4 h-4 shrink-0" />
             ) : (
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <AlertCircle className="w-4 h-4 shrink-0" />
             )}
-            <span className="text-sm">{message.text}</span>
+            <span className="text-xs">{message.text}</span>
           </div>
         )}
 
         {/* Register Tab */}
         {activeTab === 'register' && (
-          <div className="p-4">
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">쿠폰 코드 등록</h2>
+          <div className="p-3">
+            <div className="bg-white rounded-lg p-3 border border-gray-100">
+              <h2 className="text-sm font-medium text-gray-900 mb-3">쿠폰 코드 등록</h2>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                   placeholder="쿠폰 코드 입력"
-                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-black focus:border-black outline-none"
                   onKeyDown={(e) => e.key === 'Enter' && handleRegisterCoupon()}
                 />
                 <button
                   onClick={handleRegisterCoupon}
                   disabled={registering || !couponCode.trim()}
-                  className="px-6 py-2.5 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-black text-white text-xs rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {registering ? '등록중...' : '등록'}
+                  {registering ? '...' : '등록'}
                 </button>
               </div>
-              <p className="mt-3 text-sm text-gray-500">
+              <p className="mt-2 text-xs text-gray-400">
                 쿠폰 코드를 입력하고 등록 버튼을 눌러주세요.
               </p>
             </div>
@@ -201,19 +201,19 @@ export default function CouponsPage() {
 
         {/* My Coupons Tab */}
         {activeTab === 'my-coupons' && (
-          <div className="p-4 space-y-3">
+          <div className="p-3 space-y-2">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-10 h-10 border-4 border-[#3B55A5] border-t-transparent rounded-full animate-spin"></div>
+              <div className="flex items-center justify-center py-10">
+                <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : coupons.length === 0 ? (
-              <div className="text-center py-12">
-                <Ticket className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">등록된 쿠폰이 없습니다</h3>
-                <p className="text-gray-500 mb-4">쿠폰 코드를 등록해 보세요!</p>
+              <div className="text-center py-10">
+                <Ticket className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">등록된 쿠폰이 없습니다</h3>
+                <p className="text-xs text-gray-400 mb-3">쿠폰 코드를 등록해 보세요!</p>
                 <button
                   onClick={() => setActiveTab('register')}
-                  className="px-6 py-2 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors"
+                  className="px-4 py-2 bg-black text-white text-xs rounded-lg font-medium hover:bg-gray-800 transition-colors"
                 >
                   쿠폰 등록하기
                 </button>
@@ -225,29 +225,30 @@ export default function CouponsPage() {
 
                 const status = getCouponStatus(usage);
                 const displayInfo = getCouponDisplayInfo(coupon);
+                const isInactive = usage.used_at || (usage.expires_at && new Date(usage.expires_at) < new Date());
 
                 return (
                   <div
                     key={usage.id}
-                    className={`bg-white rounded-lg overflow-hidden shadow-sm border ${
-                      usage.used_at || (usage.expires_at && new Date(usage.expires_at) < new Date())
-                        ? 'border-gray-200 opacity-60'
-                        : 'border-[#3B55A5]/20'
+                    className={`bg-white rounded-lg overflow-hidden border ${
+                      isInactive
+                        ? 'border-gray-100 opacity-50'
+                        : 'border-gray-200'
                     }`}
                   >
-                    <div className="p-4">
+                    <div className="p-3">
                       {/* Header */}
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
+                      <div className="flex items-start justify-between mb-1.5">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-xs font-medium text-gray-900 truncate">
                             {coupon.display_name || coupon.code}
                           </h3>
                           {coupon.display_name && (
-                            <p className="text-xs font-mono text-gray-400 mt-0.5">{coupon.code}</p>
+                            <p className="text-[10px] font-mono text-gray-400 mt-0.5">{coupon.code}</p>
                           )}
                         </div>
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
+                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-2 ${status.color}`}
                         >
                           {status.icon}
                           {status.label}
@@ -255,17 +256,17 @@ export default function CouponsPage() {
                       </div>
 
                       {/* Discount */}
-                      <div className="text-2xl font-bold text-[#3B55A5] mb-2">
+                      <div className="text-base font-bold text-black mb-1.5">
                         {displayInfo.discountText}
                       </div>
 
                       {/* Info */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
                         {displayInfo.minOrderText && (
                           <span>{displayInfo.minOrderText}</span>
                         )}
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="w-3 h-3" />
                           {usage.expires_at
                             ? `${formatDate(usage.expires_at)}까지`
                             : displayInfo.expiryText}
@@ -274,7 +275,7 @@ export default function CouponsPage() {
 
                       {/* Used info */}
                       {usage.used_at && (
-                        <p className="mt-2 text-xs text-gray-400">
+                        <p className="mt-1.5 text-[10px] text-gray-400">
                           {formatDate(usage.used_at)} 사용완료
                         </p>
                       )}
