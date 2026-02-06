@@ -24,6 +24,9 @@ interface OrderData {
   shipping_method: 'domestic' | 'international' | 'pickup';
   delivery_fee: number;
   total_amount: number;
+  // Coupon data
+  coupon_usage_id: string | null;
+  coupon_discount: number;
 }
 
 interface CartItem {
@@ -126,6 +129,9 @@ export async function POST(request: NextRequest) {
         payment_key: paymentKey,
         payment_status: 'completed',
         order_status: 'pending',
+        // Coupon data
+        coupon_usage_id: orderData.coupon_usage_id || null,
+        coupon_discount: orderData.coupon_discount || 0,
       })
       .select()
       .single();
@@ -137,6 +143,52 @@ export async function POST(request: NextRequest) {
         { success: false, error: '주문 생성에 실패했습니다.' },
         { status: 500 }
       );
+    }
+
+    // Mark coupon as used if a coupon was applied
+    if (orderData.coupon_usage_id && user?.id) {
+      try {
+        // Update coupon usage record
+        const { error: usageError } = await supabase
+          .from('coupon_usages')
+          .update({
+            used_at: new Date().toISOString(),
+            order_id: order.id,
+            discount_applied: orderData.coupon_discount,
+          })
+          .eq('id', orderData.coupon_usage_id)
+          .eq('user_id', user.id);
+
+        if (usageError) {
+          console.error('Error updating coupon usage:', usageError);
+          // Don't fail the order, just log the error
+        } else {
+          // Increment coupon current_uses
+          const { data: usage } = await supabase
+            .from('coupon_usages')
+            .select('coupon_id')
+            .eq('id', orderData.coupon_usage_id)
+            .single();
+
+          if (usage?.coupon_id) {
+            const { data: coupon } = await supabase
+              .from('coupons')
+              .select('current_uses')
+              .eq('id', usage.coupon_id)
+              .single();
+
+            if (coupon) {
+              await supabase
+                .from('coupons')
+                .update({ current_uses: (coupon.current_uses || 0) + 1 })
+                .eq('id', usage.coupon_id);
+            }
+          }
+        }
+      } catch (couponError) {
+        console.error('Error processing coupon usage:', couponError);
+        // Don't fail the order for coupon errors
+      }
     }
 
     // Fetch all unique saved_designs for cart items that have design_id
