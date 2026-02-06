@@ -367,6 +367,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                   selectable: isEditMode,
                   evented: isEditMode
                 });
+
+                // Set default printMethod for legacy objects that don't have one
+                // @ts-expect-error - Accessing custom data property
+                if (fabricObj.data?.id !== 'background-product-image') {
+                  // @ts-expect-error - Accessing custom data property
+                  if (!fabricObj.data) fabricObj.data = {};
+                  // @ts-expect-error - Accessing custom data property
+                  if (!fabricObj.data.printMethod) fabricObj.data.printMethod = 'dtf';
+                }
               }
             });
             canvas.requestRenderAll();
@@ -481,6 +490,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                 selectable: isEditMode,
                 evented: isEditMode
               });
+
+              // Set default printMethod for legacy objects that don't have one
+              // @ts-expect-error - Accessing custom data property
+              if (fabricObj.data?.id !== 'background-product-image') {
+                // @ts-expect-error - Accessing custom data property
+                if (!fabricObj.data) fabricObj.data = {};
+                // @ts-expect-error - Accessing custom data property
+                if (!fabricObj.data.printMethod) fabricObj.data.printMethod = 'dtf';
+              }
             }
           });
           canvas.requestRenderAll();
