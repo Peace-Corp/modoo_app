@@ -138,7 +138,8 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     text.data = {
       // @ts-expect-error - Reading data property
       ...(text.data || {}),
-      objectId: objectId
+      objectId: objectId,
+      printMethod: 'dtf',
     };
 
     canvas.add(text);
@@ -319,6 +320,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
             fileType: file.type || 'unknown',
             isConverted: isAiOrPsdFile(file), // Flag to indicate if file was converted
             uploadedAt: new Date().toISOString(),
+            printMethod: 'dtf',
           };
 
           canvas.add(img);
