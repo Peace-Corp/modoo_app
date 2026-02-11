@@ -1200,107 +1200,176 @@ export default function CreateCoBuyPage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      {/* Header */}
-      <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
-          <div className="flex items-center gap-3 md:gap-4">
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-gray-900">공동구매 만들기</h1>
-              {currentStep !== 'welcome' && currentStep !== 'success' && (
-                <p className="text-xs md:text-sm text-gray-500">
-                  {STEPS.find(s => s.id === currentStep)?.label}
-                </p>
-              )}
-            </div>
+    <div className="fixed inset-0 bg-white lg:bg-gray-100/80 z-50 flex flex-col lg:items-center lg:justify-center">
+      <div className="flex-1 flex flex-col lg:flex-none lg:flex-row lg:w-full lg:max-w-5xl lg:max-h-[90vh] lg:mx-4 lg:bg-white lg:rounded-2xl lg:shadow-2xl lg:border lg:border-gray-200 lg:overflow-hidden">
+
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:flex flex-col w-72 shrink-0 bg-gray-50/80 border-r border-gray-200 p-6">
+          <div className="mb-8">
+            <h1 className="text-lg font-bold text-gray-900">공동구매 만들기</h1>
+            {design && (
+              <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-200">
+                {design.preview_url && (
+                  <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
+                    <img src={design.preview_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-700 truncate">{design.title || design.product.title}</p>
+                  <p className="text-xs text-gray-500">₩{design.price_per_item.toLocaleString()}</p>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Step Navigation */}
+          <nav className="flex-1 overflow-y-auto -mx-2">
+            <div className="space-y-0.5 px-2">
+              {STEPS.map((step, index) => {
+                const isCurrent = step.id === currentStep;
+                const isPast = currentStepIndex > index;
+                const isSuccess = currentStep === 'success';
+                return (
+                  <div
+                    key={step.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+                      isCurrent && !isSuccess
+                        ? 'bg-[#3B55A5]/10 text-[#3B55A5] font-semibold'
+                        : isPast || isSuccess
+                        ? 'text-gray-500'
+                        : 'text-gray-300'
+                    }`}
+                  >
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                      isCurrent && !isSuccess
+                        ? 'bg-[#3B55A5] text-white shadow-md shadow-[#3B55A5]/25'
+                        : isPast || isSuccess
+                        ? 'bg-green-100 text-green-600'
+                        : 'bg-gray-100 text-gray-300'
+                    }`}>
+                      {isPast || isSuccess ? <Check className="w-3.5 h-3.5" /> : step.icon}
+                    </div>
+                    <span>{step.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </nav>
+
           <button
             onClick={handleClose}
             disabled={isCreating}
-            className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="mt-4 w-full py-2.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all disabled:opacity-50"
           >
-            <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
+            취소하기
           </button>
-        </div>
+        </aside>
 
-        {/* Progress Bar */}
-        {currentStep !== 'success' && (
-          <div className="px-4 pb-3 md:px-6 md:pb-4">
-            <div className="h-1 md:h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-[10px] md:text-xs text-gray-500 mt-1.5 md:mt-2">
-              {currentStepIndex + 1} / {STEPS.length}
-            </p>
-          </div>
-        )}
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto">
-        {renderStepContent()}
-      </main>
-
-      {/* Footer Navigation */}
-      {currentStep !== 'welcome' && currentStep !== 'success' && (
-        <footer className="shrink-0 border-t border-gray-200 bg-white p-3 md:p-4 safe-area-inset-bottom">
-          <div className="max-w-lg mx-auto space-y-2 md:space-y-3">
-            {/* Skip Button - only for description and quantity steps */}
-            {(currentStep === 'description' || currentStep === 'quantity') && (
-              <button
-                onClick={handleNext}
-                className="w-full py-2.5 md:py-3 border-2 border-gray-200 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm md:text-base text-gray-500"
-              >
-                건너뛰기
-              </button>
-            )}
-
-            {/* Back and Next Buttons Row */}
-            <div className="flex gap-2 md:gap-3">
-              {/* Back Button */}
-              <button
-                onClick={handleBack}
-                className="py-3 md:py-4 px-5 md:px-6 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base text-gray-700"
-              >
-                <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-                <span>이전</span>
-              </button>
-
-              {/* Next / Create Button */}
-              {currentStep !== 'review' ? (
-                <button
-                  onClick={handleNext}
-                  className="flex-1 py-3 md:py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
-                >
-                  <span>다음</span>
-                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleCreate}
-                  disabled={isCreating}
-                  className="flex-1 py-3 md:py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isCreating ? (
-                    <>
-                      <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>생성 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
-                      <span>공동구매 만들기</span>
-                    </>
+        {/* Right Content Panel */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Header */}
+          <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
+              <div className="flex items-center gap-3 md:gap-4">
+                <div>
+                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">공동구매 만들기</h1>
+                  {currentStep !== 'welcome' && currentStep !== 'success' && (
+                    <p className="text-xs md:text-sm text-gray-500">
+                      <span className="hidden lg:inline text-gray-400">단계 {currentStepIndex + 1}/{STEPS.length} — </span>
+                      {STEPS.find(s => s.id === currentStep)?.label}
+                    </p>
                   )}
-                </button>
-              )}
+                </div>
+              </div>
+              <button
+                onClick={handleClose}
+                disabled={isCreating}
+                className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 lg:hidden"
+              >
+                <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
+              </button>
             </div>
-          </div>
-        </footer>
-      )}
+
+            {/* Progress Bar - mobile/tablet only */}
+            {currentStep !== 'success' && (
+              <div className="px-4 pb-3 md:px-6 md:pb-4 lg:hidden">
+                <div className="h-1 md:h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-1.5 md:mt-2">
+                  {currentStepIndex + 1} / {STEPS.length}
+                </p>
+              </div>
+            )}
+          </header>
+
+          {/* Content */}
+          <main className="flex-1 overflow-y-auto">
+            {renderStepContent()}
+          </main>
+
+          {/* Footer Navigation */}
+          {currentStep !== 'welcome' && currentStep !== 'success' && (
+            <footer className="shrink-0 border-t border-gray-200 bg-white p-3 md:p-4 safe-area-inset-bottom">
+              <div className="max-w-lg mx-auto space-y-2 md:space-y-3">
+                {/* Skip Button - only for description and quantity steps */}
+                {(currentStep === 'description' || currentStep === 'quantity') && (
+                  <button
+                    onClick={handleNext}
+                    className="w-full py-2.5 md:py-3 border-2 border-gray-200 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm md:text-base text-gray-500"
+                  >
+                    건너뛰기
+                  </button>
+                )}
+
+                {/* Back and Next Buttons Row */}
+                <div className="flex gap-2 md:gap-3">
+                  {/* Back Button */}
+                  <button
+                    onClick={handleBack}
+                    className="py-3 md:py-4 px-5 md:px-6 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base text-gray-700"
+                  >
+                    <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>이전</span>
+                  </button>
+
+                  {/* Next / Create Button */}
+                  {currentStep !== 'review' ? (
+                    <button
+                      onClick={handleNext}
+                      className="flex-1 py-3 md:py-4 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] transition-all shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base"
+                    >
+                      <span>다음</span>
+                      <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleCreate}
+                      disabled={isCreating}
+                      className="flex-1 py-3 md:py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 md:gap-2 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCreating ? (
+                        <>
+                          <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>생성 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+                          <span>공동구매 만들기</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </footer>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
