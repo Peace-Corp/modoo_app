@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
 import {
-  X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Plus, Trash2,
+  X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2,
   Truck, MapPin, Search, Package, Globe, Lock, Calendar, Tag, FileText,
   Sparkles, Gift, ChevronRight, Check, Copy, AlertCircle
 } from 'lucide-react';
-import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
+import { CoBuyCustomField, SizeOption, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from '@/app/components/cobuy/CustomFieldBuilder';
 import type { CoBuySession } from '@/types/types';
@@ -28,26 +28,12 @@ interface SavedDesign {
   };
 }
 
-// Generate pricing tiers based on base price
-const generatePricingTiers = (basePrice: number): CoBuyPricingTier[] => {
-  // Round to nearest 1000
-  const roundTo1000 = (n: number) => Math.round(n / 1000) * 1000;
-
-  return [
-    { minQuantity: 10, pricePerItem: basePrice },
-    { minQuantity: 30, pricePerItem: roundTo1000(basePrice * 0.95) }, // 5% discount
-    { minQuantity: 50, pricePerItem: roundTo1000(basePrice * 0.90) }, // 10% discount
-    { minQuantity: 100, pricePerItem: roundTo1000(basePrice * 0.85) }, // 15% discount
-  ];
-};
-
 type Step =
   | 'welcome'
   | 'title'
   | 'description'
   | 'visibility'
   | 'schedule'
-  | 'pricing'
   | 'quantity'
   | 'delivery-address'
   | 'pickup-address'
@@ -62,8 +48,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode; group: string }[]
   { id: 'description', label: '설명', icon: <FileText className="w-4 h-4" />, group: '기본 정보' },
   { id: 'visibility', label: '공개 설정', icon: <Globe className="w-4 h-4" />, group: '기본 정보' },
   { id: 'schedule', label: '일정', icon: <Calendar className="w-4 h-4" />, group: '일정' },
-  { id: 'pricing', label: '가격 구간', icon: <Tag className="w-4 h-4" />, group: '가격' },
-  { id: 'quantity', label: '수량 제한', icon: <Package className="w-4 h-4" />, group: '가격' },
+  { id: 'quantity', label: '수량 제한', icon: <Package className="w-4 h-4" />, group: '수량' },
   { id: 'delivery-address', label: '배송 주소', icon: <Truck className="w-4 h-4" />, group: '배송' },
   { id: 'pickup-address', label: '배부 장소', icon: <MapPin className="w-4 h-4" />, group: '배송' },
   { id: 'delivery-option', label: '배송 옵션', icon: <Gift className="w-4 h-4" />, group: '배송' },
@@ -95,7 +80,6 @@ export default function CreateCoBuyPage() {
   const [receiveByDate, setReceiveByDate] = useState('');
   const [minQuantity, setMinQuantity] = useState<number | ''>('');
   const [maxQuantity, setMaxQuantity] = useState<number | ''>('');
-  const [pricingTiers, setPricingTiers] = useState<CoBuyPricingTier[]>([]);
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<CoBuyDeliverySettings>({
     enabled: false,
@@ -177,9 +161,6 @@ export default function CreateCoBuyPage() {
         const productData = Array.isArray(data.product) ? data.product[0] : data.product;
         setTitle(`${data.title || productData?.title || ''} 공동구매`);
 
-        // Initialize pricing tiers based on design's base price
-        setPricingTiers(generatePricingTiers(data.price_per_item));
-
         // Add size dropdown field
         const sizeField: CoBuyCustomField = {
           id: 'size-dropdown-fixed',
@@ -201,30 +182,6 @@ export default function CreateCoBuyPage() {
 
     fetchDesign();
   }, [designId, isAuthenticated, user?.id]);
-
-  // Pricing tier handlers
-  const addPricingTier = () => {
-    const lastTier = pricingTiers[pricingTiers.length - 1];
-    const basePrice = design?.price_per_item || 25000;
-    const newMinQuantity = lastTier ? lastTier.minQuantity + 50 : 10;
-    // Decrease by ~5% from last tier, rounded to 1000, with minimum of 1000
-    const newPrice = lastTier
-      ? Math.max(1000, Math.round((lastTier.pricePerItem * 0.95) / 1000) * 1000)
-      : basePrice;
-    setPricingTiers([...pricingTiers, { minQuantity: newMinQuantity, pricePerItem: newPrice }]);
-  };
-
-  const updatePricingTier = (index: number, field: 'minQuantity' | 'pricePerItem', value: number) => {
-    const newTiers = [...pricingTiers];
-    newTiers[index] = { ...newTiers[index], [field]: value };
-    newTiers.sort((a, b) => a.minQuantity - b.minQuantity);
-    setPricingTiers(newTiers);
-  };
-
-  const removePricingTier = (index: number) => {
-    if (pricingTiers.length <= 1) return;
-    setPricingTiers(pricingTiers.filter((_, i) => i !== index));
-  };
 
   // Check if Daum Postcode script is already loaded
   useEffect(() => {
@@ -294,7 +251,7 @@ export default function CreateCoBuyPage() {
   };
 
   const getNextStep = (): Step | null => {
-    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'pricing', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
+    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
       return steps[currentIndex + 1];
@@ -303,7 +260,7 @@ export default function CreateCoBuyPage() {
   };
 
   const getPrevStep = (): Step | null => {
-    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'pricing', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
+    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex > 0) {
       return steps[currentIndex - 1];
@@ -330,10 +287,6 @@ export default function CreateCoBuyPage() {
         alert('수령 희망일을 선택해주세요.');
         return;
       }
-    }
-    if (currentStep === 'pricing' && pricingTiers.length === 0) {
-      alert('최소 하나의 가격 구간을 설정해주세요.');
-      return;
     }
     if (currentStep === 'delivery-address' && !deliverySettings.deliveryAddress?.roadAddress) {
       alert('배송받을 장소를 입력해주세요.');
@@ -376,7 +329,7 @@ export default function CreateCoBuyPage() {
         receiveByDate: receiveByDate ? new Date(receiveByDate) : null,
         minQuantity: minQuantity === '' ? null : Number(minQuantity),
         maxQuantity: maxQuantity === '' ? null : Number(maxQuantity),
-        pricingTiers,
+        pricingTiers: [],
         customFields,
         deliverySettings,
         isPublic,
@@ -502,7 +455,7 @@ export default function CreateCoBuyPage() {
                 {[
                   { icon: <Tag className="w-3.5 h-3.5 md:w-4 md:h-4" />, text: '공동구매 제목과 설명' },
                   { icon: <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />, text: '시작일, 종료일, 수령일' },
-                  { icon: <Package className="w-3.5 h-3.5 md:w-4 md:h-4" />, text: '수량별 가격 설정' },
+                  { icon: <Package className="w-3.5 h-3.5 md:w-4 md:h-4" />, text: '수량 제한 설정' },
                   { icon: <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4" />, text: '배송 및 수령 장소' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 md:gap-3 text-gray-600">
@@ -726,75 +679,6 @@ export default function CreateCoBuyPage() {
               <div className="bg-[#3B55A5]/10 border border-blue-200 rounded-xl p-3 md:p-4">
                 <p className="text-xs md:text-sm text-[#2D4280]">
                   <strong>📅 참고:</strong> 종료일 이후에는 더 이상 참여를 받지 않아요. 충분한 기간을 설정해주세요.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pricing Step */}
-        {currentStep === 'pricing' && (
-          <div className="max-w-lg mx-auto py-8 px-4 md:py-12 md:px-6">
-            <div className="mb-6 md:mb-8">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-3 md:mb-4">
-                <Tag className="w-5 h-5 md:w-6 md:h-6 text-emerald-600" />
-              </div>
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">수량별 가격을 설정해주세요</h2>
-              <p className="text-sm md:text-base text-gray-600">
-                주문 수량에 따라 단가를 다르게 설정할 수 있어요.
-              </p>
-            </div>
-
-            <div className="space-y-3 md:space-y-4">
-              <div className="space-y-2 md:space-y-3">
-                {pricingTiers.map((tier, idx) => (
-                  <div key={idx} className="flex items-center gap-2 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-xl">
-                    <div className="flex-1 flex items-center gap-1.5 md:gap-2">
-                      <input
-                        type="number"
-                        value={tier.minQuantity}
-                        onChange={(e) => updatePricingTier(idx, 'minQuantity', Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 md:w-20 px-2 md:px-3 py-1.5 md:py-2 text-sm md:text-base border-2 border-gray-200 rounded-lg text-center font-medium focus:outline-none focus:border-emerald-500"
-                        min="1"
-                      />
-                      <span className="text-xs md:text-sm text-gray-600">벌 이상</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 md:gap-2">
-                      <span className="text-xs md:text-sm text-gray-500">₩</span>
-                      <input
-                        type="number"
-                        value={tier.pricePerItem}
-                        onChange={(e) => updatePricingTier(idx, 'pricePerItem', Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-24 md:w-28 px-2 md:px-3 py-1.5 md:py-2 text-sm md:text-base border-2 border-gray-200 rounded-lg text-right font-medium focus:outline-none focus:border-emerald-500"
-                        min="0"
-                        step="1000"
-                      />
-                    </div>
-                    {pricingTiers.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removePricingTier(idx)}
-                        className="p-1.5 md:p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addPricingTier}
-                className="w-full py-2.5 md:py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
-              >
-                <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                단가 구간 추가
-              </button>
-
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 md:p-4">
-                <p className="text-xs md:text-sm text-emerald-800">
-                  <strong>💰 팁:</strong> 수량이 많을수록 단가를 낮게 설정하면 더 많은 참여를 유도할 수 있어요!
                 </p>
               </div>
             </div>
@@ -1198,22 +1082,15 @@ export default function CreateCoBuyPage() {
                   </div>
                 </div>
 
-                {/* Pricing */}
-                <div className="pb-3 md:pb-4 border-b border-gray-200">
-                  <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 md:mb-2">가격 구간</p>
-                  <div className="flex flex-wrap gap-1.5 md:gap-2">
-                    {pricingTiers.map((tier, idx) => (
-                      <span key={idx} className="bg-emerald-100 text-emerald-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-medium">
-                        {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
-                      </span>
-                    ))}
-                  </div>
-                  {(minQuantity || maxQuantity) && (
-                    <p className="text-xs md:text-sm text-gray-600 mt-2">
+                {/* Quantity */}
+                {(minQuantity || maxQuantity) && (
+                  <div className="pb-3 md:pb-4 border-b border-gray-200">
+                    <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 md:mb-2">수량 제한</p>
+                    <p className="text-xs md:text-sm text-gray-600">
                       수량: {minQuantity || '제한없음'} ~ {maxQuantity || '제한없음'}
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Delivery */}
                 <div className="pb-3 md:pb-4 border-b border-gray-200">

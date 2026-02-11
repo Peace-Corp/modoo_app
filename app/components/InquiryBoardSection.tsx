@@ -152,6 +152,7 @@ export default function InquiryBoardSection() {
                 {/* Table Header */}
                 <div className="flex items-center px-4 py-2 border-b border-gray-300 bg-gray-50 text-xs text-gray-500 font-medium tracking-wider">
                   <span className="flex-1">제목</span>
+                  <span className="w-16 sm:w-20 text-center shrink-0">상태</span>
                   <span className="hidden sm:block w-28 text-center shrink-0">작성자</span>
                   <span className="w-20 sm:w-24 text-right shrink-0">날짜</span>
                 </div>
@@ -164,14 +165,23 @@ export default function InquiryBoardSection() {
                     {/* Subject */}
                     <div className="flex-1 min-w-0 flex items-center gap-1">
                       <span className="text-sm truncate">{inquiry.title}</span>
-                      {inquiry.replies && inquiry.replies.length > 0 && (
-                        <span className="text-xs text-red-500 font-bold shrink-0">+{inquiry.replies.length}</span>
-                      )}
                       <Lock className="w-3 h-3 text-gray-400 shrink-0" />
                       {inquiry.file_urls && inquiry.file_urls.length > 0 && (
                         <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
                       )}
                     </div>
+                    {/* Status */}
+                    <span className="w-16 sm:w-20 text-center shrink-0">
+                      {inquiry.replies && inquiry.replies.length > 0 ? (
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-green-100 text-green-700 rounded">
+                          답변완료
+                        </span>
+                      ) : (
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-500 rounded">
+                          답변대기
+                        </span>
+                      )}
+                    </span>
                     {/* Writer */}
                     <span className="hidden sm:block w-28 text-center text-sm text-gray-700 shrink-0 truncate">
                       {inquiry.manager_name ?? ''}

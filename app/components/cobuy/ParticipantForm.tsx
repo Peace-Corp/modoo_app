@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Script from 'next/script';
-import { CoBuyCustomField, CoBuySelectedItem, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
+import { CoBuyCustomField, CoBuySelectedItem, CoBuyDeliverySettings, CoBuyDeliveryMethod, CoBuyDeliveryInfo } from '@/types/types';
 import { Plus, Minus, Trash2, Truck, MapPin, Search } from 'lucide-react';
 
 interface ParticipantFormProps {
@@ -11,8 +11,6 @@ interface ParticipantFormProps {
   onSubmit: (data: ParticipantFormData) => void;
   isSubmitting?: boolean;
   pricePerItem?: number;
-  pricingTiers?: CoBuyPricingTier[];
-  currentTotalQuantity?: number; // Current total quantity in the session
   deliverySettings?: CoBuyDeliverySettings | null; // Delivery configuration
 }
 
@@ -34,8 +32,6 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
   onSubmit,
   isSubmitting = false,
   pricePerItem = 0,
-  pricingTiers = [],
-  currentTotalQuantity = 0,
   deliverySettings = null,
 }) => {
   const [formData, setFormData] = useState<ParticipantFormData>({
@@ -200,49 +196,8 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
     return formData.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  // Calculate price per item based on total quantity and pricing tiers
-  const getApplicablePricePerItem = (quantity: number) => {
-    if (pricingTiers.length === 0) return pricePerItem;
-
-    // Calculate projected total quantity (current session total + this order)
-    const projectedTotal = currentTotalQuantity + quantity;
-
-    // Sort tiers by minQuantity descending to find the highest applicable tier
-    const sortedTiers = [...pricingTiers].sort((a, b) => b.minQuantity - a.minQuantity);
-
-    // Find the highest tier that applies to the projected total
-    const applicableTier = sortedTiers.find(tier => projectedTotal >= tier.minQuantity);
-
-    return applicableTier?.pricePerItem ?? pricePerItem;
-  };
-
-  const getCurrentPricePerItem = () => {
-    return getApplicablePricePerItem(getTotalQuantity());
-  };
-
   const getTotalPrice = () => {
-    return getTotalQuantity() * getCurrentPricePerItem() + formData.deliveryFee;
-  };
-
-  // Get the next tier info for displaying potential savings
-  const getNextTierInfo = () => {
-    if (pricingTiers.length === 0) return null;
-
-    const currentQuantity = getTotalQuantity();
-    const projectedTotal = currentTotalQuantity + currentQuantity;
-    const sortedTiers = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity);
-
-    // Find the next tier that hasn't been reached yet
-    const nextTier = sortedTiers.find(tier => projectedTotal < tier.minQuantity);
-
-    if (!nextTier) return null;
-
-    const quantityNeeded = nextTier.minQuantity - projectedTotal;
-    return {
-      quantityNeeded,
-      nextPrice: nextTier.pricePerItem,
-      minQuantity: nextTier.minQuantity,
-    };
+    return getTotalQuantity() * pricePerItem + formData.deliveryFee;
   };
 
   const validateForm = (): boolean => {
@@ -529,15 +484,15 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
               <span className="text-gray-700">총 수량</span>
               <span className="font-bold text-[#3B55A5]">{getTotalQuantity()}벌</span>
             </div>
-            {(pricePerItem > 0 || pricingTiers.length > 0) && (
+            {pricePerItem > 0 && (
               <>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-700">단가</span>
-                  <span className="font-medium text-[#3B55A5]">₩{getCurrentPricePerItem().toLocaleString()}</span>
+                  <span className="font-medium text-[#3B55A5]">₩{pricePerItem.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-700">상품 금액</span>
-                  <span className="font-medium text-[#3B55A5]">₩{(getTotalQuantity() * getCurrentPricePerItem()).toLocaleString()}</span>
+                  <span className="font-medium text-[#3B55A5]">₩{(getTotalQuantity() * pricePerItem).toLocaleString()}</span>
                 </div>
                 {formData.deliveryFee > 0 && (
                   <div className="flex justify-between items-center text-sm">
@@ -551,39 +506,6 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({
                 </div>
               </>
             )}
-            {/* Next tier hint */}
-            {getNextTierInfo() && (
-              <div className="text-xs text-[#2D4280] bg-[#3B55A5]/20 rounded px-2 py-1.5 mt-2">
-                💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 ₩{getNextTierInfo()?.nextPrice?.toLocaleString()}으로 할인! <span className="text-black/80">(차액은 캐시백으로 환불됩니다.)</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Pricing tiers display */}
-        {pricingTiers.length > 0 && (
-          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs font-medium text-gray-700 mb-2">수량별 단가 안내</p>
-            <div className="flex flex-wrap gap-1.5">
-              {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => {
-                const isActive = currentTotalQuantity + getTotalQuantity() >= tier.minQuantity;
-                return (
-                  <span
-                    key={idx}
-                    className={`px-2 py-1 rounded text-xs ${
-                      isActive
-                        ? 'bg-[#3B55A5] text-white'
-                        : 'bg-white border border-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
-                  </span>
-                );
-              })}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              현재 총 주문량: {currentTotalQuantity}벌 → 내 주문 포함: {currentTotalQuantity + getTotalQuantity()}벌
-            </p>
           </div>
         )}
       </div>

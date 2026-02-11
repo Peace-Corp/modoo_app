@@ -151,7 +151,6 @@ export default function CoBuySharePage() {
   // Derived state
   const design = session?.saved_design_screenshot as DesignWithProduct | undefined;
   const product = design?.product;
-  const pricingTiers = useMemo(() => session?.pricing_tiers || [], [session]);
   const deliverySettings = useMemo(() => session?.delivery_settings || null, [session]);
   const customFields = useMemo(() => (session?.custom_fields || []).filter(f => !f.fixed), [session]);
   const sizeOptions = useMemo(() => product?.size_options || [], [product]);
@@ -175,62 +174,9 @@ export default function CoBuySharePage() {
     return selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  // Calculate applicable price
-  const getApplicablePrice = (quantity: number) => {
-    const projectedTotal = currentTotalQuantity + quantity;
-    if (pricingTiers.length === 0) return design?.price_per_item ?? 0;
-
-    const sortedTiers = [...pricingTiers].sort((a, b) => b.minQuantity - a.minQuantity);
-    const applicableTier = sortedTiers.find(tier => projectedTotal >= tier.minQuantity);
-    return applicableTier?.pricePerItem ?? design?.price_per_item ?? 0;
-  };
-
-  const currentPrice = getApplicablePrice(getTotalQuantity());
+  const currentPrice = design?.price_per_item ?? 0;
   const deliveryFee = deliveryMethod === 'delivery' ? (deliverySettings?.deliveryFee || 0) : 0;
   const totalAmount = Math.round(currentPrice * getTotalQuantity()) + deliveryFee;
-
-  // Get progress info
-  const getProgressInfo = useMemo(() => {
-    const tiers = pricingTiers;
-    if (tiers.length === 0) {
-      return {
-        progressPercent: 0,
-        targetQuantity: 100,
-        currentQuantity: currentTotalQuantity,
-        nextTierQuantity: null,
-        currentPrice: design?.price_per_item ?? 0,
-      };
-    }
-
-    const sortedTiers = [...tiers].sort((a, b) => a.minQuantity - b.minQuantity);
-    const maxTierQuantity = sortedTiers[sortedTiers.length - 1]?.minQuantity || 100;
-    const sortedDesc = [...tiers].sort((a, b) => b.minQuantity - a.minQuantity);
-    const currentTier = sortedDesc.find(tier => currentTotalQuantity >= tier.minQuantity);
-    const nextTier = sortedTiers.find(tier => currentTotalQuantity < tier.minQuantity);
-
-    return {
-      progressPercent: Math.min(100, Math.round((currentTotalQuantity / maxTierQuantity) * 100)),
-      targetQuantity: maxTierQuantity,
-      currentQuantity: currentTotalQuantity,
-      nextTierQuantity: nextTier?.minQuantity || null,
-      currentPrice: currentTier?.pricePerItem ?? design?.price_per_item ?? 0,
-      nextTierPrice: nextTier?.pricePerItem || null,
-    };
-  }, [pricingTiers, currentTotalQuantity, design?.price_per_item]);
-
-  // Get next tier info
-  const getNextTierInfo = () => {
-    if (pricingTiers.length === 0) return null;
-    const projectedTotal = currentTotalQuantity + getTotalQuantity();
-    const sortedTiers = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity);
-    const nextTier = sortedTiers.find(tier => projectedTotal < tier.minQuantity);
-
-    if (!nextTier) return null;
-    return {
-      quantityNeeded: nextTier.minQuantity - projectedTotal,
-      nextPrice: nextTier.pricePerItem,
-    };
-  };
 
   // Closed reason check
   const closedReason = useMemo(() => {
@@ -621,61 +567,11 @@ export default function CoBuySharePage() {
                 </div>
               </div>
 
-              {/* Pricing Progress */}
-              {pricingTiers.length > 0 && (
-                <div className="bg-[#3B55A5]/10 rounded-xl p-4 mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-[#2D4280]">할인 진행률</span>
-                    <span className="text-sm text-[#3B55A5]">{getProgressInfo.currentQuantity}벌</span>
-                  </div>
-
-                  {/* Progress Bar with Checkpoints */}
-                  <div className="relative pt-1 pb-8">
-                    <div className="absolute left-0 right-0 top-3 h-1.5 bg-[#3B55A5]/30 rounded-full" />
-                    <div
-                      className="absolute left-0 top-3 h-1.5 bg-[#3B55A5] rounded-full transition-all duration-300"
-                      style={{ width: `${getProgressInfo.progressPercent}%` }}
-                    />
-
-                    {/* Checkpoints */}
-                    <div className="relative">
-                      {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, index) => {
-                        const maxQty = [...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).slice(-1)[0]?.minQuantity || 100;
-                        const isReached = currentTotalQuantity >= tier.minQuantity;
-                        const position = (tier.minQuantity / maxQty) * 100;
-
-                        return (
-                          <div
-                            key={index}
-                            className="absolute flex flex-col items-center"
-                            style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
-                          >
-                            <div className={`w-3 h-3 rounded-full border-2 ${isReached ? 'bg-[#3B55A5] border-[#3B55A5]' : 'bg-white border-[#3B55A5]/50'}`} />
-                            <span className={`text-[10px] mt-1 ${isReached ? 'text-[#3B55A5] font-medium' : 'text-gray-400'}`}>
-                              {tier.minQuantity}벌
-                            </span>
-                            <span className={`text-[10px] ${isReached ? 'text-[#3B55A5]' : 'text-gray-400'}`}>
-                              {formatPrice(tier.pricePerItem)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {getProgressInfo.nextTierQuantity && (
-                    <p className="text-xs text-[#2D4280] mt-2">
-                      💡 {getProgressInfo.nextTierQuantity - getProgressInfo.currentQuantity}벌 더 모이면 {formatPrice(getProgressInfo.nextTierPrice)}으로 할인!
-                    </p>
-                  )}
-                </div>
-              )}
-
               {/* Base Price */}
               <div className="text-center mb-6">
-                <p className="text-sm text-gray-500 mb-1">현재 적용 단가</p>
+                <p className="text-sm text-gray-500 mb-1">단가</p>
                 <p className="text-2xl md:text-3xl font-bold text-gray-900">
-                  {formatPrice(getProgressInfo.currentPrice)}
+                  {formatPrice(currentPrice)}
                 </p>
               </div>
 
@@ -790,36 +686,6 @@ export default function CoBuySharePage() {
                     <span className="font-bold text-[#3B55A5] text-lg">{formatPrice(currentPrice * getTotalQuantity())}</span>
                   </div>
 
-                  {getNextTierInfo() && (
-                    <div className="text-xs text-[#2D4280] bg-[#3B55A5]/20 rounded-lg px-3 py-2 mt-2">
-                      💡 {getNextTierInfo()?.quantityNeeded}벌 더 모이면 단가 {formatPrice(getNextTierInfo()?.nextPrice)}으로 할인!
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Pricing Tiers */}
-              {pricingTiers.length > 0 && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                  <p className="text-xs font-medium text-gray-700 mb-2">수량별 단가 안내</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[...pricingTiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => {
-                      const isActive = currentTotalQuantity + getTotalQuantity() >= tier.minQuantity;
-                      return (
-                        <span
-                          key={idx}
-                          className={`px-2 py-1 rounded-lg text-xs ${
-                            isActive ? 'bg-[#3B55A5] text-white' : 'bg-white border border-gray-200 text-gray-600'
-                          }`}
-                        >
-                          {tier.minQuantity}벌↑ {formatPrice(tier.pricePerItem)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    현재 총 주문량: {currentTotalQuantity}벌 → 내 주문 포함: {currentTotalQuantity + getTotalQuantity()}벌
-                  </p>
                 </div>
               )}
             </div>

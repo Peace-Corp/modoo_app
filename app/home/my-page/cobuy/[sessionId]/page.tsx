@@ -671,40 +671,20 @@ export default function CoBuyDetailPage() {
             </div>
           </div>
 
-          {/* Pricing Tiers Info */}
-          {session.pricing_tiers && session.pricing_tiers.length > 0 && (
+          {/* Min Quantity Info */}
+          {session.min_quantity && (
             <div className="mt-4 p-4 bg-[#3B55A5]/10 rounded-xl">
               <div className="flex items-start gap-2">
                 <Info className="w-5 h-5 text-[#3B55A5] shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900 mb-2">수량별 단가</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[...session.pricing_tiers].sort((a, b) => a.minQuantity - b.minQuantity).map((tier, idx) => {
-                      const isActive = totalQuantity >= tier.minQuantity;
-                      return (
-                        <span
-                          key={idx}
-                          className={`px-3 py-1.5 rounded-lg text-sm ${
-                            isActive
-                              ? 'bg-[#3B55A5]/100 text-white font-medium'
-                              : 'bg-white border border-gray-200 text-gray-600'
-                          }`}
-                        >
-                          {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {session.min_quantity && (
-                    <p className="text-xs text-gray-600 mt-2">
-                      최소 수량: {session.min_quantity}벌
-                      {totalQuantity < session.min_quantity && (
-                        <span className="text-red-600 ml-2">
-                          ({session.min_quantity - totalQuantity}벌 더 필요)
-                        </span>
-                      )}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-600">
+                    최소 수량: {session.min_quantity}벌
+                    {totalQuantity < session.min_quantity && (
+                      <span className="text-red-600 ml-2">
+                        ({session.min_quantity - totalQuantity}벌 더 필요)
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
             </div>

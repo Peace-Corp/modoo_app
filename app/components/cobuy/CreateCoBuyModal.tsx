@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
 import {
-  X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2, Plus, Trash2,
+  X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2,
   Truck, MapPin, Search, Package, Globe, Lock, Calendar, Tag, FileText,
   Sparkles, Gift, ChevronRight, Check, Copy
 } from 'lucide-react';
-import { CoBuyCustomField, SizeOption, CoBuyPricingTier, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
+import { CoBuyCustomField, SizeOption, CoBuyDeliverySettings, CoBuyAddressInfo } from '@/types/types';
 import { createCoBuySession } from '@/lib/cobuyService';
 import CustomFieldBuilder from './CustomFieldBuilder';
 import type { CoBuySession } from '@/types/types';
@@ -25,13 +25,6 @@ interface SavedDesign {
   };
 }
 
-const DEFAULT_PRICING_TIERS: CoBuyPricingTier[] = [
-  { minQuantity: 10, pricePerItem: 25000 },
-  { minQuantity: 30, pricePerItem: 22000 },
-  { minQuantity: 50, pricePerItem: 20000 },
-  { minQuantity: 100, pricePerItem: 18000 },
-];
-
 interface CreateCoBuyModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,7 +37,6 @@ type Step =
   | 'description'
   | 'visibility'
   | 'schedule'
-  | 'pricing'
   | 'quantity'
   | 'delivery-address'
   | 'pickup-address'
@@ -59,8 +51,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode; group: string }[]
   { id: 'description', label: '설명', icon: <FileText className="w-4 h-4" />, group: '기본 정보' },
   { id: 'visibility', label: '공개 설정', icon: <Globe className="w-4 h-4" />, group: '기본 정보' },
   { id: 'schedule', label: '일정', icon: <Calendar className="w-4 h-4" />, group: '일정' },
-  { id: 'pricing', label: '가격 구간', icon: <Tag className="w-4 h-4" />, group: '가격' },
-  { id: 'quantity', label: '수량 제한', icon: <Package className="w-4 h-4" />, group: '가격' },
+  { id: 'quantity', label: '수량 제한', icon: <Package className="w-4 h-4" />, group: '수량' },
   { id: 'delivery-address', label: '배송 주소', icon: <Truck className="w-4 h-4" />, group: '배송' },
   { id: 'pickup-address', label: '배부 장소', icon: <MapPin className="w-4 h-4" />, group: '배송' },
   { id: 'delivery-option', label: '배송 옵션', icon: <Gift className="w-4 h-4" />, group: '배송' },
@@ -86,7 +77,6 @@ export default function CreateCoBuyModal({
   const [receiveByDate, setReceiveByDate] = useState('');
   const [minQuantity, setMinQuantity] = useState<number | ''>('');
   const [maxQuantity, setMaxQuantity] = useState<number | ''>('');
-  const [pricingTiers, setPricingTiers] = useState<CoBuyPricingTier[]>(DEFAULT_PRICING_TIERS);
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<CoBuyDeliverySettings>({
     enabled: false,
@@ -104,26 +94,6 @@ export default function CreateCoBuyModal({
 
   const currentStepIndex = STEPS.findIndex(s => s.id === currentStep);
   const progress = currentStep === 'success' ? 100 : ((currentStepIndex) / STEPS.length) * 100;
-
-  // Pricing tier handlers
-  const addPricingTier = () => {
-    const lastTier = pricingTiers[pricingTiers.length - 1];
-    const newMinQuantity = lastTier ? lastTier.minQuantity + 50 : 10;
-    const newPrice = lastTier ? Math.max(1000, lastTier.pricePerItem - 2000) : 25000;
-    setPricingTiers([...pricingTiers, { minQuantity: newMinQuantity, pricePerItem: newPrice }]);
-  };
-
-  const updatePricingTier = (index: number, field: 'minQuantity' | 'pricePerItem', value: number) => {
-    const newTiers = [...pricingTiers];
-    newTiers[index] = { ...newTiers[index], [field]: value };
-    newTiers.sort((a, b) => a.minQuantity - b.minQuantity);
-    setPricingTiers(newTiers);
-  };
-
-  const removePricingTier = (index: number) => {
-    if (pricingTiers.length <= 1) return;
-    setPricingTiers(pricingTiers.filter((_, i) => i !== index));
-  };
 
   // Check if Daum Postcode script is already loaded
   useEffect(() => {
@@ -189,7 +159,6 @@ export default function CreateCoBuyModal({
         setReceiveByDate('');
         setMinQuantity('');
         setMaxQuantity('');
-        setPricingTiers(DEFAULT_PRICING_TIERS);
         setCustomFields([]);
         setDeliverySettings({ enabled: false, deliveryFee: 4000, pickupLocation: '', deliveryAddress: undefined, pickupAddress: undefined });
         setIsPublic(false);
@@ -244,7 +213,7 @@ export default function CreateCoBuyModal({
   };
 
   const getNextStep = (): Step | null => {
-    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'pricing', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
+    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
       return steps[currentIndex + 1];
@@ -253,7 +222,7 @@ export default function CreateCoBuyModal({
   };
 
   const getPrevStep = (): Step | null => {
-    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'pricing', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
+    const steps: Step[] = ['welcome', 'title', 'description', 'visibility', 'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option', 'custom-fields', 'review'];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex > 0) {
       return steps[currentIndex - 1];
@@ -280,10 +249,6 @@ export default function CreateCoBuyModal({
         alert('수령 희망일을 선택해주세요.');
         return;
       }
-    }
-    if (currentStep === 'pricing' && pricingTiers.length === 0) {
-      alert('최소 하나의 가격 구간을 설정해주세요.');
-      return;
     }
     if (currentStep === 'delivery-address' && !deliverySettings.deliveryAddress?.roadAddress) {
       alert('배송받을 장소를 입력해주세요.');
@@ -324,7 +289,6 @@ export default function CreateCoBuyModal({
         receiveByDate: receiveByDate ? new Date(receiveByDate) : null,
         minQuantity: minQuantity === '' ? null : Number(minQuantity),
         maxQuantity: maxQuantity === '' ? null : Number(maxQuantity),
-        pricingTiers,
         customFields,
         deliverySettings,
         isPublic,
@@ -647,75 +611,6 @@ export default function CreateCoBuyModal({
               <div className="bg-[#3B55A5]/10 border border-[#3B55A5]/30 rounded-xl p-4">
                 <p className="text-sm text-[#2D4280]">
                   <strong>📅 참고:</strong> 종료일 이후에는 더 이상 참여를 받지 않아요. 충분한 기간을 설정해주세요.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pricing Step */}
-        {currentStep === 'pricing' && (
-          <div className="max-w-lg mx-auto py-12 px-6">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                <Tag className="w-6 h-6 text-emerald-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">수량별 가격을 설정해주세요</h2>
-              <p className="text-gray-600">
-                주문 수량에 따라 단가를 다르게 설정할 수 있어요.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-3">
-                {pricingTiers.map((tier, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex-1 flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={tier.minQuantity}
-                        onChange={(e) => updatePricingTier(idx, 'minQuantity', Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 px-3 py-2 border-2 border-gray-200 rounded-lg text-center font-medium focus:outline-none focus:border-emerald-500"
-                        min="1"
-                      />
-                      <span className="text-sm text-gray-600">벌 이상</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">₩</span>
-                      <input
-                        type="number"
-                        value={tier.pricePerItem}
-                        onChange={(e) => updatePricingTier(idx, 'pricePerItem', Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-28 px-3 py-2 border-2 border-gray-200 rounded-lg text-right font-medium focus:outline-none focus:border-emerald-500"
-                        min="0"
-                        step="1000"
-                      />
-                    </div>
-                    {pricingTiers.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removePricingTier(idx)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addPricingTier}
-                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                단가 구간 추가
-              </button>
-
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                <p className="text-sm text-emerald-800">
-                  <strong>💰 팁:</strong> 수량이 많을수록 단가를 낮게 설정하면 더 많은 참여를 유도할 수 있어요!
                 </p>
               </div>
             </div>
@@ -1139,22 +1034,15 @@ export default function CreateCoBuyModal({
                   </div>
                 </div>
 
-                {/* Pricing */}
-                <div className="pb-4 border-b border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">가격 구간</p>
-                  <div className="flex flex-wrap gap-2">
-                    {pricingTiers.map((tier, idx) => (
-                      <span key={idx} className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-medium">
-                        {tier.minQuantity}벌↑ ₩{tier.pricePerItem.toLocaleString()}
-                      </span>
-                    ))}
-                  </div>
-                  {(minQuantity || maxQuantity) && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      수량: {minQuantity || '제한없음'} ~ {maxQuantity || '제한없음'}
+                {/* Quantity Limits */}
+                {(minQuantity || maxQuantity) && (
+                  <div className="pb-4 border-b border-gray-200">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">수량 제한</p>
+                    <p className="text-sm text-gray-600">
+                      {minQuantity || '제한없음'} ~ {maxQuantity || '제한없음'}
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Delivery */}
                 <div className="pb-4 border-b border-gray-200">
