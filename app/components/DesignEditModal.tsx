@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Trash2, ChevronsUp, ArrowUp, ArrowDown, ChevronsDown } from 'lucide-react';
 import ProductDesigner from './canvas/ProductDesigner';
 import EditButton from './canvas/EditButton';
 import PricingInfo from './canvas/PricingInfo';
 import ColorInfo from './canvas/ColorInfo';
 import ObjectPreviewPanel from './canvas/ObjectPreviewPanel';
 import LayerColorSelector from './canvas/LayerColorSelector';
+import DesktopToolbar from './canvas/DesktopToolbar';
+import TextStylePanel from './canvas/TextStylePanel';
 import { useCanvasStore } from '@/store/useCanvasStore';
 import { useFontStore } from '@/store/useFontStore';
 import { ProductConfig, ProductColor } from '@/types/types';
@@ -15,6 +17,8 @@ import { generateProductThumbnail } from '@/lib/thumbnailGenerator';
 import { createClient } from '@/lib/supabase-client';
 import { calculateAllSidesPricing, type PricingSummary } from '@/app/utils/canvasPricing';
 import { FontMetadata } from '@/lib/fontUtils';
+import * as fabric from 'fabric';
+import { isCurvedText } from '@/lib/curvedText';
 
 interface DesignEditModalProps {
   isOpen: boolean;
@@ -55,6 +59,8 @@ export default function DesignEditModal({
     sidePricing: [],
     totalObjectCount: 0
   });
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [selectedTextObject, setSelectedTextObject] = useState<fabric.IText | fabric.Text | null>(null);
 
   // Calculate pricing data asynchronously
   useEffect(() => {
@@ -372,6 +378,139 @@ export default function DesignEditModal({
     };
   }, [isEditMode]);
 
+  // Desktop detection
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // On desktop, always enable edit mode after design is restored
+  useEffect(() => {
+    if (isDesktop && hasRestoredDesign && isOpen) {
+      setEditMode(true);
+    }
+  }, [isDesktop, hasRestoredDesign, isOpen, setEditMode]);
+
+  // Listen for canvas selection changes (desktop text editing)
+  useEffect(() => {
+    if (!isDesktop) return;
+    const activeCanvas = canvasMap[activeSideId];
+    if (!activeCanvas) return;
+
+    const handleSelectionCreated = (e: { selected?: fabric.FabricObject[] }) => {
+      const selected = e.selected?.[0];
+      if (selected && (selected.type === 'i-text' || selected.type === 'text' || isCurvedText(selected))) {
+        setSelectedTextObject(selected as fabric.IText | fabric.Text);
+      }
+    };
+
+    const handleSelectionUpdated = (e: { selected?: fabric.FabricObject[] }) => {
+      const selected = e.selected?.[0];
+      if (selected && (selected.type === 'i-text' || selected.type === 'text' || isCurvedText(selected))) {
+        setSelectedTextObject(selected as fabric.IText | fabric.Text);
+      } else {
+        setSelectedTextObject(null);
+      }
+    };
+
+    const handleSelectionCleared = () => {
+      setSelectedTextObject(null);
+    };
+
+    activeCanvas.on('selection:created', handleSelectionCreated);
+    activeCanvas.on('selection:updated', handleSelectionUpdated);
+    activeCanvas.on('selection:cleared', handleSelectionCleared);
+
+    return () => {
+      activeCanvas.off('selection:created', handleSelectionCreated);
+      activeCanvas.off('selection:updated', handleSelectionUpdated);
+      activeCanvas.off('selection:cleared', handleSelectionCleared);
+    };
+  }, [isDesktop, activeSideId, canvasMap]);
+
+  // Layer manipulation functions (desktop)
+  const bringToFront = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectToFront(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendToBack = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+      const currentIndex = objects.indexOf(activeObject);
+      const targetIndex = maxSystemIndex + 1;
+      if (currentIndex > targetIndex) {
+        canvas.remove(activeObject);
+        canvas.insertAt(targetIndex, activeObject);
+        canvas.setActiveObject(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const bringForward = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      canvas.bringObjectForward(activeObject);
+      canvas.renderAll();
+    }
+  };
+
+  const sendBackward = () => {
+    const canvas = canvasMap[activeSideId];
+    const activeObject = canvas?.getActiveObject();
+    if (canvas && activeObject) {
+      const objects = canvas.getObjects();
+      const systemObjects = objects.filter(obj => {
+        const objData = obj.get('data') as { id?: string } | undefined;
+        return objData?.id === 'background-product-image' ||
+               objData?.id === 'center-line' ||
+               objData?.id === 'visual-guide-box' ||
+               obj.get('excludeFromExport') === true;
+      });
+      const maxSystemIndex = Math.max(...systemObjects.map(obj => objects.indexOf(obj)), -1);
+      const currentIndex = objects.indexOf(activeObject);
+      if (currentIndex > maxSystemIndex + 1) {
+        canvas.sendObjectBackwards(activeObject);
+        canvas.renderAll();
+      }
+    }
+  };
+
+  const handleDeleteObject = () => {
+    const canvas = canvasMap[activeSideId];
+    const selectedObjects = canvas?.getActiveObjects();
+    const selectedObject = canvas?.getActiveObject();
+
+    if (selectedObjects && selectedObjects.length > 0) {
+      selectedObjects.forEach(obj => canvas?.remove(obj));
+      canvas?.discardActiveObject();
+      canvas?.renderAll();
+      incrementCanvasVersion();
+    } else if (selectedObject) {
+      canvas?.remove(selectedObject);
+      canvas?.renderAll();
+      incrementCanvasVersion();
+    }
+  };
+
   // Handle close - exit edit mode and reset
   const handleClose = useCallback(() => {
     console.log('Closing modal, cleaning up...');
@@ -539,10 +678,70 @@ export default function DesignEditModal({
 
   if (!isOpen) return null;
 
+  // Color selector renderer shared between desktop and mobile
+  const renderColorSelector = (layout: 'desktop' | 'mobile') => {
+    const currentSide = productConfig?.sides.find(side => side.id === activeSideId);
+    const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
+
+    if (hasLayers || (currentSide?.colorOptions && currentSide.colorOptions.length > 0)) {
+      return layout === 'desktop' ? (
+        <LayerColorSelector side={currentSide!} />
+      ) : (
+        <div className="mb-4">
+          <LayerColorSelector side={currentSide!} />
+        </div>
+      );
+    }
+
+    if (productColors.length === 0) return null;
+
+    return layout === 'desktop' ? (
+      <div className="overflow-hidden rounded-lg">
+        <p className="text-xs font-semibold text-gray-600 mb-3">색상 선택</p>
+        <div className="flex flex-wrap gap-3">
+          {productColors.map((color) => (
+            <button
+              key={color.id}
+              onClick={() => handleColorChange(color.manufacturer_colors.hex)}
+              className="flex items-center gap-2"
+            >
+              <div
+                className={`w-8 h-8 rounded-full border-2 ${
+                  productColor === color.manufacturer_colors.hex ? 'border-black' : 'border-gray-300'
+                }`}
+                style={{ backgroundColor: color.manufacturer_colors.hex }}
+              ></div>
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="mb-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-3 pb-2">
+          {productColors.map((color) => (
+            <button
+              key={color.id}
+              onClick={() => handleColorChange(color.manufacturer_colors.hex)}
+              className="shrink-0 flex flex-col items-center gap-2"
+            >
+              <div
+                className={`w-12 h-12 rounded-full border-2 ${
+                  productColor === color.manufacturer_colors.hex ? 'border-black' : 'border-gray-300'
+                }`}
+                style={{ backgroundColor: color.manufacturer_colors.hex }}
+              ></div>
+              <span className="text-xs">{color.manufacturer_colors.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-[200] bg-white flex flex-col">
-      {/* Header - only show when NOT in edit mode */}
-      {!isEditMode && (
+    <div className="fixed inset-0 z-200 bg-white flex flex-col">
+      {/* Header - desktop: always visible, mobile: only when NOT in edit mode */}
+      {(isDesktop || !isEditMode) && (
         <div className="shrink-0 bg-white z-50 border-b border-gray-200">
           <div className="flex items-center justify-between px-4 py-3">
             <button
@@ -574,64 +773,135 @@ export default function DesignEditModal({
           </div>
         </div>
       ) : productConfig ? (
-        <div className={isEditMode ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto'}>
-          {/* Product Designer */}
-          <ProductDesigner config={productConfig as ProductConfig} />
+        isDesktop ? (
+          /* ===== Desktop two-column layout ===== */
+          <div className="flex-1 grid grid-cols-2 gap-2 p-4 overflow-hidden">
+            {/* Left: Canvas */}
+            <div className="relative overflow-hidden rounded-md bg-white">
+              <ProductDesigner config={productConfig as ProductConfig} layout="desktop" />
 
-          {/* Color Selector and Pricing - show only when NOT in edit mode */}
-          {!isEditMode && (
-            <div className="bg-white p-4 pb-24">
-              {/* Layer Color Selector (for products with multi-layer support) or Legacy Product Color Selector */}
-              {(() => {
-                const currentSide = productConfig.sides.find(side => side.id === activeSideId);
-                const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
+              {/* Layer Controls - shown when text object is selected */}
+              {selectedTextObject && (
+                <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-lg border border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-2.5">
+                  <span className="text-sm font-semibold text-gray-700 mr-1">레이어 조정:</span>
+                  <button onClick={bringToFront} className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition" title="맨 앞으로">
+                    <ChevronsUp className="size-4 text-gray-700" />
+                  </button>
+                  <button onClick={bringForward} className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition" title="앞으로">
+                    <ArrowUp className="size-4 text-gray-700" />
+                  </button>
+                  <button onClick={sendBackward} className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition" title="뒤로">
+                    <ArrowDown className="size-4 text-gray-700" />
+                  </button>
+                  <button onClick={sendToBack} className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition" title="맨 뒤로">
+                    <ChevronsDown className="size-4 text-gray-700" />
+                  </button>
+                  <div className="h-6 w-px bg-gray-300 mx-1" />
+                  <button onClick={handleDeleteObject} className="p-2 rounded-full border border-red-200 bg-white hover:bg-red-50 transition" title="삭제">
+                    <Trash2 className="size-4 text-red-600" />
+                  </button>
+                </div>
+              )}
 
-                return hasLayers || (currentSide?.colorOptions && currentSide.colorOptions.length > 0) ? (
-                  <div className="mb-4">
-                    <LayerColorSelector side={currentSide!} />
-                  </div>
-                ) : (
-                  /* Legacy Horizontal Color Selector (for products without layers) */
-                  productColors.length > 0 && (
-                    <div className="mb-4 overflow-x-auto scrollbar-hide">
-                      <div className="flex gap-3 pb-2">
-                        {productColors.map((color) => (
-                          <button
-                            key={color.id}
-                            onClick={() => handleColorChange(color.manufacturer_colors.hex)}
-                            className="shrink-0 flex flex-col items-center gap-2"
-                          >
-                            <div
-                              className={`w-12 h-12 rounded-full border-2 ${
-                                productColor === color.manufacturer_colors.hex ? 'border-black' : 'border-gray-300'
-                              }`}
-                              style={{ backgroundColor: color.manufacturer_colors.hex }}
-                            ></div>
-                            <span className="text-xs">{color.manufacturer_colors.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                );
-              })()}
-
-              {/* Dynamic Pricing Info */}
-              <PricingInfo basePrice={basePrice} sides={productConfig.sides} />
-
-              {/* Color Information */}
-              <ColorInfo className="mt-4" />
-
-              {/* Object Preview Panel */}
-              <ObjectPreviewPanel sides={productConfig.sides} />
-
-              {/* Edit Button */}
-              <div className="mt-4">
-                <EditButton />
+              {/* Desktop Toolbar */}
+              <div className="absolute bottom-6 right-4 z-10">
+                <DesktopToolbar sides={productConfig.sides} productId={productConfig.productId} />
               </div>
             </div>
-          )}
-        </div>
+
+            {/* Right: Sidebar */}
+            <aside className="rounded-md bg-white p-4 border border-gray-200 overflow-hidden flex flex-col">
+              {selectedTextObject ? (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">텍스트 편집</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const activeCanvas = canvasMap[activeSideId];
+                          if (activeCanvas && selectedTextObject) {
+                            activeCanvas.remove(selectedTextObject);
+                            activeCanvas.requestRenderAll();
+                            setSelectedTextObject(null);
+                          }
+                        }}
+                        className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition"
+                        title="삭제"
+                      >
+                        <Trash2 className="size-5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const activeCanvas = canvasMap[activeSideId];
+                          if (activeCanvas) {
+                            activeCanvas.discardActiveObject();
+                            activeCanvas.requestRenderAll();
+                          }
+                          setSelectedTextObject(null);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        title="닫기"
+                      >
+                        <X className="size-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <TextStylePanel selectedObject={selectedTextObject} layout="sidebar" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-y-auto space-y-4">
+                    {renderColorSelector('desktop')}
+                    <ObjectPreviewPanel sides={productConfig.sides} />
+                    <ColorInfo />
+                    <PricingInfo basePrice={basePrice} sides={productConfig.sides} />
+                  </div>
+
+                  {/* Bottom pricing summary */}
+                  <div className="mt-auto pt-4 border-t border-gray-200">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">기본가</span>
+                        <span className="text-gray-700">{basePrice.toLocaleString('ko-KR')}원</span>
+                      </div>
+                      {pricingData.totalAdditionalPrice > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">디자인 추가비용</span>
+                          <span className="text-gray-700">+{pricingData.totalAdditionalPrice.toLocaleString('ko-KR')}원</span>
+                        </div>
+                      )}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-900 font-semibold">총가격</span>
+                          <span className="text-lg text-gray-900 font-bold">{(basePrice + pricingData.totalAdditionalPrice).toLocaleString('ko-KR')}원</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </aside>
+          </div>
+        ) : (
+          /* ===== Mobile layout ===== */
+          <div className={isEditMode ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto'}>
+            <ProductDesigner config={productConfig as ProductConfig} />
+
+            {!isEditMode && (
+              <div className="bg-white p-4 pb-24">
+                {renderColorSelector('mobile')}
+                <PricingInfo basePrice={basePrice} sides={productConfig.sides} />
+                <ColorInfo className="mt-4" />
+                <ObjectPreviewPanel sides={productConfig.sides} />
+                <div className="mt-4">
+                  <EditButton />
+                </div>
+              </div>
+            )}
+          </div>
+        )
       ) : null}
     </div>
   );
