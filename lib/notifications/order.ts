@@ -169,6 +169,46 @@ function buildAdminText(params: OrderNotificationParams): string {
   ].join('\n');
 }
 
+async function sendOrderDiscordNotification(params: OrderNotificationParams): Promise<void> {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const itemFields = params.items.map((item) => ({
+    name: item.product_title,
+    value: `${item.quantity}개 × ${formatCurrency(item.price_per_item)}`,
+    inline: true,
+  }));
+
+  const discount = params.couponDiscount || 0;
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      embeds: [{
+        title: `🛒 새 주문 접수 — ${params.orderCategory === 'cobuy' ? '공동구매' : '일반 주문'}`,
+        color: params.orderCategory === 'cobuy' ? 0xF39C12 : 0x2ECC71,
+        fields: [
+          { name: '주문번호', value: params.orderId, inline: false },
+          { name: '고객명', value: params.customerName, inline: true },
+          { name: '이메일', value: params.customerEmail, inline: true },
+          { name: '연락처', value: params.customerPhone, inline: true },
+          ...itemFields,
+          ...(discount > 0 ? [{ name: '쿠폰 할인', value: `-${formatCurrency(discount)}`, inline: true }] : []),
+          { name: '배송비', value: formatCurrency(params.deliveryFee), inline: true },
+          { name: '총 결제금액', value: `**${formatCurrency(params.totalAmount)}**`, inline: true },
+          { name: '배송 방법', value: shippingMethodLabel(params.shippingMethod), inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('Discord order notification failed:', await response.text());
+  }
+}
+
 export async function sendOrderNotificationEmails(
   params: OrderNotificationParams
 ): Promise<void> {
@@ -200,5 +240,12 @@ export async function sendOrderNotificationEmails(
     } catch (error) {
       console.error('Failed to send admin order notification email:', error);
     }
+  }
+
+  // Send Discord notification
+  try {
+    await sendOrderDiscordNotification(params);
+  } catch (error) {
+    console.error('Failed to send Discord order notification:', error);
   }
 }
