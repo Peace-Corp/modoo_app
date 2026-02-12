@@ -171,16 +171,14 @@ export default function InquiryBoardSection() {
                       )}
                     </div>
                     {/* Status */}
-                    <span className="w-16 sm:w-20 text-center shrink-0">
-                      {inquiry.replies && inquiry.replies.length > 0 ? (
-                        <span className="inline-block px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-green-100 text-green-700 rounded">
-                          답변완료
-                        </span>
-                      ) : (
-                        <span className="inline-block px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-500 rounded">
-                          답변대기
-                        </span>
-                      )}
+                    <span className={`w-16 sm:w-20 text-center text-[10px] sm:text-xs font-medium shrink-0 ${
+                      inquiry.status === 'completed'
+                        ? 'text-green-600'
+                        : inquiry.status === 'ongoing'
+                        ? 'text-blue-600'
+                        : 'text-gray-400'
+                    }`}>
+                      {inquiry.status === 'completed' ? '답변완료' : inquiry.status === 'ongoing' ? '진행중' : '대기중'}
                     </span>
                     {/* Writer */}
                     <span className="hidden sm:block w-28 text-center text-sm text-gray-700 shrink-0 truncate">
