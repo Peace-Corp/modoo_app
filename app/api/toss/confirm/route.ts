@@ -5,6 +5,7 @@ import {
   type TextSvgExports,
 } from '@/lib/canvas-svg-export';
 import { FontMetadata } from '@/lib/fontUtils';
+import { sendOrderNotificationEmails } from '@/lib/notifications/order';
 
 const widgetSecretKey = process.env.TOSS_SECRET_KEY;
 
@@ -424,6 +425,30 @@ export async function POST(request: NextRequest) {
           console.error(`Error stack:`, error.stack);
         }
       }
+    }
+
+    // Send order notification emails (non-blocking)
+    try {
+      const notificationItems = Array.from(groupedItems.values()).map((group) => ({
+        product_title: group.product_title,
+        quantity: group.variants.reduce((sum, v) => sum + v.quantity, 0),
+        price_per_item: group.price_per_item,
+      }));
+
+      await sendOrderNotificationEmails({
+        orderId: order.id,
+        customerName: orderData.name,
+        customerEmail: orderData.email,
+        customerPhone: orderData.phone_num,
+        totalAmount: orderData.total_amount,
+        deliveryFee: orderData.delivery_fee,
+        couponDiscount: orderData.coupon_discount || 0,
+        shippingMethod: orderData.shipping_method,
+        orderCategory: 'regular',
+        items: notificationItems,
+      });
+    } catch (emailError) {
+      console.error('Order notification email error:', emailError);
     }
 
     return NextResponse.json({

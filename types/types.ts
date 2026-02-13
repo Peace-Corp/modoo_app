@@ -542,3 +542,35 @@ export interface CouponValidationResult {
   discountAmount?: number;
   finalTotal?: number;
 }
+
+// Partner Mall Types
+// ============================================================================
+
+export interface LogoPlacement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PartnerMallPublic {
+  id: string;
+  name: string;
+  logo_url: string;
+  is_active: boolean;
+  partner_mall_products?: PartnerMallProductPublic[];
+}
+
+export interface PartnerMallProductPublic {
+  id: string;
+  partner_mall_id: string;
+  product_id: string;
+  display_name: string | null;
+  color_hex: string | null;
+  color_name: string | null;
+  color_code: string | null;
+  logo_placements: Record<string, LogoPlacement>;
+  canvas_state: Record<string, unknown>;
+  preview_url: string | null;
+  product?: Product;
+}

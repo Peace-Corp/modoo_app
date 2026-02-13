@@ -5,6 +5,7 @@ import {
   type TextSvgExports,
 } from '@/lib/canvas-svg-export';
 import { FontMetadata } from '@/lib/fontUtils';
+import { sendOrderNotificationEmails } from '@/lib/notifications/order';
 
 interface OrderData {
   id: string;
@@ -310,6 +311,27 @@ export async function POST(request: NextRequest) {
     if (sessionUpdateError) {
       console.error('Failed to update session:', sessionUpdateError);
       // Don't fail the request - order was created successfully
+    }
+
+    // Send order notification emails (non-blocking)
+    try {
+      await sendOrderNotificationEmails({
+        orderId: order.id,
+        customerName: orderData.name,
+        customerEmail: orderData.email,
+        customerPhone: orderData.phone_num,
+        totalAmount: fullOrderAmount,
+        deliveryFee: orderData.delivery_fee,
+        shippingMethod: orderData.shipping_method,
+        orderCategory: 'cobuy',
+        items: [{
+          product_title: product.title,
+          quantity: totalQuantity,
+          price_per_item: designSnapshot.price_per_item,
+        }],
+      });
+    } catch (emailError) {
+      console.error('CoBuy order notification email error:', emailError);
     }
 
     return NextResponse.json({
