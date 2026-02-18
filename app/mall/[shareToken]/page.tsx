@@ -8,13 +8,13 @@ import {
   Plus,
   Minus,
   X,
-  Check,
   Package,
-  ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import { PartnerMallPublic, PartnerMallProductPublic, SizeOption } from '@/types/types';
 import { addToCartDB } from '@/lib/cartService';
 import { createClient } from '@/lib/supabase-client';
+import { calculateLogoAdditionalPrice } from '@/lib/partnerMallPricing';
 import Header from '@/app/components/Header';
 
 const formatPrice = (price: number) => `${price.toLocaleString('ko-KR')}원`;
@@ -86,6 +86,24 @@ export default function PartnerMallPage() {
 
   const basePrice = selectedProduct?.product?.base_price ?? 0;
 
+  // Calculate additional printing cost from logo placements
+  const additionalPrice = useMemo(() => {
+    if (!selectedProduct?.product?.configuration || !selectedProduct?.logo_placements) return 0;
+    return calculateLogoAdditionalPrice(
+      selectedProduct.product.configuration,
+      selectedProduct.logo_placements
+    );
+  }, [selectedProduct]);
+
+  const pricePerItem = basePrice + additionalPrice;
+
+  // Calculate per-product additional price for grid display
+  const getProductPrice = (mp: PartnerMallProductPublic): number => {
+    const base = mp.product?.base_price ?? 0;
+    if (!mp.product?.configuration || !mp.logo_placements) return base;
+    return base + calculateLogoAdditionalPrice(mp.product.configuration, mp.logo_placements);
+  };
+
   const openProductSheet = (product: PartnerMallProductPublic) => {
     setSelectedProduct(product);
     setSelectedSize('');
@@ -98,6 +116,24 @@ export default function PartnerMallPage() {
     setSelectedProduct(null);
     setCartError(null);
     setAddedToCart(false);
+  };
+
+  // Navigate to the editor with the partner mall product's canvas state
+  const handleEditDesign = () => {
+    if (!selectedProduct?.product) return;
+
+    // Store partner mall product data in sessionStorage for the editor to pick up
+    sessionStorage.setItem('partnerMallProduct', JSON.stringify({
+      id: selectedProduct.id,
+      canvasState: selectedProduct.canvas_state || {},
+      color: selectedProduct.color_hex || '',
+      colorName: selectedProduct.color_name || '',
+      colorCode: selectedProduct.color_code || '',
+      displayName: selectedProduct.display_name || selectedProduct.product.title,
+      shareToken,
+    }));
+
+    router.push(`/editor/${selectedProduct.product.id}?fromPartnerMall=true`);
   };
 
   const handleAddToCart = async () => {
@@ -123,7 +159,7 @@ export default function PartnerMallPage() {
         productColorCode: selectedProduct.color_code || '',
         size: selectedSize,
         quantity,
-        pricePerItem: product.base_price,
+        pricePerItem,
         canvasState: (selectedProduct.canvas_state || {}) as Record<string, string>,
         thumbnailUrl: selectedProduct.preview_url || product.thumbnail_image_link || '',
         previewImage: selectedProduct.preview_url || undefined,
@@ -222,7 +258,7 @@ export default function PartnerMallPage() {
                   </p>
                   {mp.product && (
                     <p className="text-sm font-semibold text-gray-900 mt-1">
-                      {formatPrice(mp.product.base_price)}
+                      {formatPrice(getProductPrice(mp))}
                     </p>
                   )}
                 </div>
@@ -299,9 +335,27 @@ export default function PartnerMallPage() {
                   <span className="text-xs text-gray-500">{selectedProduct.color_name}</span>
                 </div>
               )}
-              <p className="text-lg font-bold text-gray-900 mt-2">
-                {formatPrice(basePrice)}
-              </p>
+
+              {/* Price breakdown */}
+              <div className="mt-2">
+                <p className="text-lg font-bold text-gray-900">
+                  {formatPrice(pricePerItem)}
+                </p>
+                {additionalPrice > 0 && (
+                  <p className="text-xs text-gray-500">
+                    제품 {formatPrice(basePrice)} + 인쇄비 {formatPrice(additionalPrice)}
+                  </p>
+                )}
+              </div>
+
+              {/* Edit design button */}
+              <button
+                onClick={handleEditDesign}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                디자인 편집하기
+              </button>
 
               {/* Size selector */}
               {sizeOptions.length > 0 && (
@@ -354,7 +408,7 @@ export default function PartnerMallPage() {
               <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <span className="text-sm text-gray-600">총 금액</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {formatPrice(basePrice * quantity)}
+                  {formatPrice(pricePerItem * quantity)}
                 </span>
               </div>
 
