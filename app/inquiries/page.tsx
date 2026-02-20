@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Faq, InquiryWithDetails } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
+import { isToday } from '@/lib/utils';
 import { ChevronLeft, MessageSquare, Plus, Search, ChevronRight, HelpCircle, Lock, Paperclip } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 20;
@@ -380,6 +381,9 @@ export default function InquiriesPage() {
                     <span className="text-xs text-red-500 font-bold shrink-0">+{inquiry.replies.length}</span>
                   )}
                   <Lock className="w-3 h-3 text-gray-400 shrink-0" />
+                  {isToday(inquiry.created_at) && (
+                    <span className="text-xs text-red-500 font-bold shrink-0">NEW</span>
+                  )}
                   {inquiry.file_urls && inquiry.file_urls.length > 0 && (
                     <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
                   )}
