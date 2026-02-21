@@ -95,10 +95,16 @@ export default function PartnerMallPage() {
     );
   }, [selectedProduct]);
 
-  const pricePerItem = basePrice + additionalPrice;
+  // Use set price if available, otherwise calculate from base + additional
+  const pricePerItem = selectedProduct?.price ?? (basePrice + additionalPrice);
 
-  // Calculate per-product additional price for grid display
+  // Get product price - use set price if available, otherwise calculate
   const getProductPrice = (mp: PartnerMallProductPublic): number => {
+    // If custom price is set, use it
+    if (mp.price !== null && mp.price !== undefined) {
+      return mp.price;
+    }
+    // Otherwise calculate from base price + logo additional price
     const base = mp.product?.base_price ?? 0;
     if (!mp.product?.configuration || !mp.logo_placements) return base;
     return base + calculateLogoAdditionalPrice(mp.product.configuration, mp.logo_placements);
@@ -341,7 +347,8 @@ export default function PartnerMallPage() {
                 <p className="text-lg font-bold text-gray-900">
                   {formatPrice(pricePerItem)}
                 </p>
-                {additionalPrice > 0 && (
+                {/* Only show breakdown if using calculated price (not set price) */}
+                {!selectedProduct.price && additionalPrice > 0 && (
                   <p className="text-xs text-gray-500">
                     제품 {formatPrice(basePrice)} + 인쇄비 {formatPrice(additionalPrice)}
                   </p>

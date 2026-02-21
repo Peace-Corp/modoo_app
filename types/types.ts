@@ -572,5 +572,6 @@ export interface PartnerMallProductPublic {
   logo_placements: Record<string, LogoPlacement>;
   canvas_state: Record<string, unknown>;
   preview_url: string | null;
+  price: number | null;
   product?: Product;
 }
