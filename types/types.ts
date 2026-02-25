@@ -86,6 +86,7 @@ export interface Product {
   discount_rates?: DiscountTier[]; // Quantity-based discount tiers
   category: string | null;
   is_active: boolean;
+  is_featured: boolean;
   created_at: string;
   updated_at: string;
   thumbnail_image_link?: string;
@@ -494,7 +495,7 @@ export interface CoBuyRequestQuantityExpectations {
 
 export interface CoBuyRequest {
   id: string;
-  user_id: string;
+  user_id: string | null;
   product_id: string;
   title: string;
   description: string | null;
@@ -513,6 +514,9 @@ export interface CoBuyRequest {
   custom_fields: CoBuyCustomField[];
   is_public: boolean;
   promo_image_url: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
   created_at: string;
   updated_at: string;
 }

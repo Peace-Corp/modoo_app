@@ -25,6 +25,10 @@ export interface CreateCoBuyRequestData {
   deliveryPreferences?: CoBuyDeliverySettings;
   customFields?: CoBuyCustomField[];
   isPublic?: boolean;
+  // Guest fields (for non-authenticated users)
+  guestName?: string;
+  guestEmail?: string;
+  guestPhone?: string;
 }
 
 // ============================================================================
@@ -37,13 +41,16 @@ export async function createCoBuyRequest(
   const supabase = createClient();
 
   try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('User must be authenticated');
+    // Try to get authenticated user (optional for guest submissions)
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const isGuest = !user;
+    if (isGuest && (!data.guestName || !data.guestEmail)) {
+      throw new Error('Guest submissions require name and email');
     }
 
     const requestData = {
-      user_id: user.id,
+      user_id: user?.id || null,
       product_id: data.productId,
       title: data.title,
       description: data.description || null,
@@ -56,6 +63,9 @@ export async function createCoBuyRequest(
       custom_fields: data.customFields || [],
       is_public: data.isPublic ?? false,
       status: 'pending' as const,
+      guest_name: isGuest ? data.guestName : null,
+      guest_email: isGuest ? data.guestEmail : null,
+      guest_phone: isGuest ? (data.guestPhone || null) : null,
     };
 
     const { data: request, error } = await supabase

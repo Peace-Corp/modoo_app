@@ -8,7 +8,7 @@ import {
   X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2,
   Truck, MapPin, Search, Package, Globe, Lock, Calendar, Tag, FileText,
   Sparkles, Gift, ChevronLeft, ChevronRight, Check, Copy, AlertCircle, ShoppingBag,
-  TextCursor, ImagePlus, Trash2, Palette,
+  TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone,
 } from 'lucide-react';
 import {
   Product, ProductSide, CoBuyCustomField, CoBuyDeliverySettings, CoBuyAddressInfo,
@@ -28,6 +28,7 @@ const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSid
 
 
 type Step =
+  | 'guest-info'
   | 'product-select'
   | 'color-select'
   | 'freeform-design'
@@ -44,6 +45,7 @@ type Step =
   | 'success';
 
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
+  { id: 'guest-info', label: '기본 정보', icon: <UserCircle className="w-4 h-4" /> },
   { id: 'product-select', label: '제품 선택', icon: <ShoppingBag className="w-4 h-4" /> },
   { id: 'color-select', label: '색상 선택', icon: <Palette className="w-4 h-4" /> },
   { id: 'freeform-design', label: '디자인', icon: <Sparkles className="w-4 h-4" /> },
@@ -64,11 +66,16 @@ export default function CreateCoBuyRequestPage() {
   const { isAuthenticated, user } = useAuthStore();
   const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas, setProductColor } = useCanvasStore();
 
-  const [currentStep, setCurrentStep] = useState<Step>('product-select');
+  const [currentStep, setCurrentStep] = useState<Step>(isAuthenticated ? 'product-select' : 'guest-info');
 
   const [isCreating, setIsCreating] = useState(false);
   const [createdShareToken, setCreatedShareToken] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Guest info (for non-authenticated users)
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
 
   // Product selection
   const [products, setProducts] = useState<Product[]>([]);
@@ -116,9 +123,11 @@ export default function CreateCoBuyRequestPage() {
   const hasColorOptions = productColors.length > 0;
 
   const visibleSteps = useMemo(() => {
-    if (hasColorOptions) return STEPS;
-    return STEPS.filter(s => s.id !== 'color-select');
-  }, [hasColorOptions]);
+    let steps = STEPS;
+    if (isAuthenticated) steps = steps.filter(s => s.id !== 'guest-info');
+    if (!hasColorOptions) steps = steps.filter(s => s.id !== 'color-select');
+    return steps;
+  }, [hasColorOptions, isAuthenticated]);
 
   const currentStepIndex = visibleSteps.findIndex(s => s.id === currentStep);
   const progress = currentStep === 'success' ? 100 : ((currentStepIndex) / visibleSteps.length) * 100;
@@ -285,17 +294,22 @@ export default function CreateCoBuyRequestPage() {
   }, []);
 
   const stepOrder: Step[] = [
-    'product-select', 'color-select', 'freeform-design', 'title', 'description', 'visibility',
+    'guest-info', 'product-select', 'color-select', 'freeform-design', 'title', 'description', 'visibility',
     'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option',
     'custom-fields', 'review'
   ];
+
+  const shouldSkipStep = (step: Step): boolean => {
+    if (step === 'guest-info' && isAuthenticated) return true;
+    if (step === 'color-select' && !hasColorOptions) return true;
+    return false;
+  };
 
   const getNextStep = (fromStep: Step): Step | null => {
     const idx = stepOrder.indexOf(fromStep);
     if (idx >= stepOrder.length - 1) return null;
     const next = stepOrder[idx + 1];
-    // Skip color-select if no color options
-    if (next === 'color-select' && !hasColorOptions) return getNextStep(next);
+    if (shouldSkipStep(next)) return getNextStep(next);
     return next;
   };
 
@@ -303,12 +317,17 @@ export default function CreateCoBuyRequestPage() {
     const idx = stepOrder.indexOf(fromStep);
     if (idx <= 0) return null;
     const prev = stepOrder[idx - 1];
-    // Skip color-select if no color options
-    if (prev === 'color-select' && !hasColorOptions) return getPrevStep(prev);
+    if (shouldSkipStep(prev)) return getPrevStep(prev);
     return prev;
   };
 
   const handleNext = async () => {
+    if (currentStep === 'guest-info') {
+      if (!guestName.trim()) { alert('이름을 입력해주세요.'); return; }
+      if (!guestEmail.trim()) { alert('이메일을 입력해주세요.'); return; }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(guestEmail.trim())) { alert('올바른 이메일 형식을 입력해주세요.'); return; }
+    }
     if (currentStep === 'product-select' && !selectedProduct) {
       alert('제품을 선택해주세요.');
       return;
@@ -397,11 +416,11 @@ export default function CreateCoBuyRequestPage() {
       const blob = await (await fetch(dataUrl)).blob();
       const fileName = `cobuy-request-${Date.now()}.png`;
       const { data, error } = await supabase.storage
-        .from('designs')
+        .from('user-designs')
         .upload(`previews/${fileName}`, blob, { contentType: 'image/png' });
 
       if (error) throw error;
-      const { data: urlData } = supabase.storage.from('designs').getPublicUrl(data.path);
+      const { data: urlData } = supabase.storage.from('user-designs').getPublicUrl(data.path);
       return urlData.publicUrl;
     } catch (err) {
       console.error('Failed to generate preview:', err);
@@ -410,7 +429,8 @@ export default function CreateCoBuyRequestPage() {
   };
 
   const handleCreate = async () => {
-    if (!selectedProduct || !isAuthenticated) return;
+    if (!selectedProduct) return;
+    if (!isAuthenticated && (!guestName.trim() || !guestEmail.trim())) return;
     setIsCreating(true);
 
     try {
@@ -440,6 +460,11 @@ export default function CreateCoBuyRequestPage() {
         deliveryPreferences: deliverySettings,
         customFields,
         isPublic,
+        ...(!isAuthenticated ? {
+          guestName: guestName.trim(),
+          guestEmail: guestEmail.trim(),
+          guestPhone: guestPhone.trim() || undefined,
+        } : {}),
       });
 
       if (!result) throw new Error('Failed to create request');
@@ -541,21 +566,6 @@ export default function CreateCoBuyRequestPage() {
     }
   };
 
-  // Auth check
-  if (!isAuthenticated) {
-    return (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <div className="text-center max-w-sm mx-auto px-6">
-          <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-lg font-bold mb-2">로그인이 필요합니다</h2>
-          <button onClick={() => router.push('/login')} className="px-6 py-3 bg-[#3B55A5] text-white rounded-xl font-medium">
-            로그인하기
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const animationClass = isAnimating
     ? slideDirection === 'right' ? 'opacity-0 translate-x-4' : 'opacity-0 -translate-x-4'
     : 'opacity-100 translate-x-0';
@@ -646,6 +656,61 @@ export default function CreateCoBuyRequestPage() {
           {/* Content */}
           <main className={`flex-1 overflow-y-auto ${currentStep === 'freeform-design' ? 'flex flex-col' : ''}`}>
             <div className={`transition-all duration-150 ease-out ${animationClass} ${currentStep === 'freeform-design' ? 'flex-1 flex flex-col' : ''}`}>
+
+              {/* Guest Info (non-authenticated users) */}
+              {currentStep === 'guest-info' && (
+                <div className="max-w-lg mx-auto py-8 px-4">
+                  <div className="mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mb-3">
+                      <UserCircle className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">기본 정보를 입력해주세요</h2>
+                    <p className="text-sm text-gray-600">요청 확인 및 연락을 위해 필요해요.</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이름 <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={guestName}
+                          onChange={e => setGuestName(e.target.value)}
+                          placeholder="홍길동"
+                          className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이메일 <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="email"
+                          value={guestEmail}
+                          onChange={e => setGuestEmail(e.target.value)}
+                          placeholder="example@email.com"
+                          className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">전화번호</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="tel"
+                          value={guestPhone}
+                          onChange={e => setGuestPhone(e.target.value)}
+                          placeholder="010-0000-0000"
+                          className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Product Selection */}
               {currentStep === 'product-select' && (
@@ -1154,6 +1219,14 @@ export default function CreateCoBuyRequestPage() {
                     <h2 className="text-xl font-bold text-gray-900 mb-2">요청 내용 확인</h2>
                   </div>
                   <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
+                    {!isAuthenticated && (
+                      <div className="pb-3 border-b border-gray-200">
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">요청자 정보</p>
+                        <p className="text-sm font-medium text-gray-900">{guestName}</p>
+                        <p className="text-xs text-gray-600">{guestEmail}</p>
+                        {guestPhone && <p className="text-xs text-gray-600">{guestPhone}</p>}
+                      </div>
+                    )}
                     <div className="pb-3 border-b border-gray-200">
                       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">제품</p>
                       <p className="font-semibold text-gray-900 text-sm">{selectedProduct?.title}</p>
@@ -1241,7 +1314,7 @@ export default function CreateCoBuyRequestPage() {
                   </button>
                 )}
                 <div className="flex gap-2">
-                  {currentStep !== 'product-select' && (
+                  {currentStep !== 'product-select' && currentStep !== 'guest-info' && (
                     <button onClick={handleBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">
                       <ArrowLeft className="w-4 h-4" /> 이전
                     </button>

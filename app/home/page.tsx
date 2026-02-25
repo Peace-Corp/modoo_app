@@ -22,6 +22,7 @@ const getActiveProducts = unstable_cache(
       .from('products')
       .select('*, manufacturers(name)')
       .eq('is_active', true)
+      .eq('is_featured', true)
       .order('created_at', { ascending: false })
       .limit(4);
 
@@ -35,7 +36,7 @@ const getActiveProducts = unstable_cache(
       manufacturer_name: product.manufacturers?.name ?? null,
     })) as Product[];
   },
-  ['home-active-products'],
+  ['home-featured-products'],
   { revalidate: 60, tags: ['products'] }
 );
 
