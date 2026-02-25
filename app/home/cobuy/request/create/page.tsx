@@ -8,7 +8,7 @@ import {
   X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2,
   Truck, MapPin, Search, Package, Globe, Lock, Calendar, Tag, FileText,
   Sparkles, Gift, ChevronLeft, ChevronRight, Check, Copy, AlertCircle, ShoppingBag,
-  TextCursor, ImagePlus, Trash2,
+  TextCursor, ImagePlus, Trash2, Palette,
 } from 'lucide-react';
 import {
   Product, ProductSide, CoBuyCustomField, CoBuyDeliverySettings, CoBuyAddressInfo,
@@ -29,6 +29,7 @@ const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSid
 
 type Step =
   | 'product-select'
+  | 'color-select'
   | 'freeform-design'
   | 'title'
   | 'description'
@@ -44,6 +45,7 @@ type Step =
 
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'product-select', label: '제품 선택', icon: <ShoppingBag className="w-4 h-4" /> },
+  { id: 'color-select', label: '색상 선택', icon: <Palette className="w-4 h-4" /> },
   { id: 'freeform-design', label: '디자인', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'title', label: '제목', icon: <Tag className="w-4 h-4" /> },
   { id: 'description', label: '설명', icon: <FileText className="w-4 h-4" /> },
@@ -60,7 +62,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
 export default function CreateCoBuyRequestPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
-  const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas } = useCanvasStore();
+  const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas, setProductColor } = useCanvasStore();
 
   const [currentStep, setCurrentStep] = useState<Step>('product-select');
 
@@ -74,6 +76,10 @@ export default function CreateCoBuyRequestPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Product colors (fetched from product_colors table)
+  const [productColors, setProductColors] = useState<{ id: string; hex: string; name: string; colorCode: string }[]>([]);
+  const [selectedColorHex, setSelectedColorHex] = useState<string | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -94,12 +100,28 @@ export default function CreateCoBuyRequestPage() {
   const [isPublic, setIsPublic] = useState(false);
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
 
+  // Saved canvas data (captured when leaving freeform step, since canvases unmount after)
+  const [savedCanvasState, setSavedCanvasState] = useState<Record<string, string>>({});
+  const [savedPreviewUrl, setSavedPreviewUrl] = useState<string | null>(null);
+  const [savedColorSelections, setSavedColorSelections] = useState<Record<string, Record<string, string>>>({});
+
+  // Color preview side navigation
+  const [colorPreviewIndex, setColorPreviewIndex] = useState(0);
+
   // Animation
   const [isAnimating, setIsAnimating] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
-  const currentStepIndex = STEPS.findIndex(s => s.id === currentStep);
-  const progress = currentStep === 'success' ? 100 : ((currentStepIndex) / STEPS.length) * 100;
+  // Check if selected product has any color options
+  const hasColorOptions = productColors.length > 0;
+
+  const visibleSteps = useMemo(() => {
+    if (hasColorOptions) return STEPS;
+    return STEPS.filter(s => s.id !== 'color-select');
+  }, [hasColorOptions]);
+
+  const currentStepIndex = visibleSteps.findIndex(s => s.id === currentStep);
+  const progress = currentStep === 'success' ? 100 : ((currentStepIndex) / visibleSteps.length) * 100;
 
   // Product config for freeform editor
   const productConfig = useMemo(() => {
@@ -110,11 +132,52 @@ export default function CreateCoBuyRequestPage() {
     };
   }, [selectedProduct]);
 
-  // Derive active side for freeform editor
+  // Derive sides for color preview and freeform editor
+  const colorPreviewSides = productConfig?.sides ?? [];
   const freeformSides = productConfig?.sides ?? [];
   const freeformSideIndex = freeformSides.findIndex(s => s.id === activeSideId);
   const validFreeformIndex = freeformSideIndex !== -1 ? freeformSideIndex : 0;
   const currentFreeformSide = freeformSides[validFreeformIndex];
+
+  // Fetch product colors when product is selected
+  useEffect(() => {
+    if (!selectedProduct) {
+      setProductColors([]);
+      setSelectedColorHex(null);
+      setColorPreviewIndex(0);
+      return;
+    }
+    async function fetchColors() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('product_colors')
+        .select('id, sort_order, manufacturer_color:manufacturer_colors(id, name, hex, color_code)')
+        .eq('product_id', selectedProduct!.id)
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (error || !data) {
+        setProductColors([]);
+        return;
+      }
+      const colors = data
+        .filter((d: any) => d.manufacturer_color)
+        .map((d: any) => ({
+          id: d.id,
+          hex: d.manufacturer_color.hex,
+          name: d.manufacturer_color.name,
+          colorCode: d.manufacturer_color.color_code,
+        }));
+      setProductColors(colors);
+      // Default to first color
+      if (colors.length > 0) {
+        setSelectedColorHex(colors[0].hex);
+        setProductColor(colors[0].hex);
+      }
+    }
+    fetchColors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct]);
 
   // Auto-enable edit mode and initialize active side when entering freeform step
   useEffect(() => {
@@ -222,12 +285,30 @@ export default function CreateCoBuyRequestPage() {
   }, []);
 
   const stepOrder: Step[] = [
-    'product-select', 'freeform-design', 'title', 'description', 'visibility',
+    'product-select', 'color-select', 'freeform-design', 'title', 'description', 'visibility',
     'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option',
     'custom-fields', 'review'
   ];
 
-  const handleNext = () => {
+  const getNextStep = (fromStep: Step): Step | null => {
+    const idx = stepOrder.indexOf(fromStep);
+    if (idx >= stepOrder.length - 1) return null;
+    const next = stepOrder[idx + 1];
+    // Skip color-select if no color options
+    if (next === 'color-select' && !hasColorOptions) return getNextStep(next);
+    return next;
+  };
+
+  const getPrevStep = (fromStep: Step): Step | null => {
+    const idx = stepOrder.indexOf(fromStep);
+    if (idx <= 0) return null;
+    const prev = stepOrder[idx - 1];
+    // Skip color-select if no color options
+    if (prev === 'color-select' && !hasColorOptions) return getPrevStep(prev);
+    return prev;
+  };
+
+  const handleNext = async () => {
     if (currentStep === 'product-select' && !selectedProduct) {
       alert('제품을 선택해주세요.');
       return;
@@ -250,17 +331,32 @@ export default function CreateCoBuyRequestPage() {
       return;
     }
 
-    const idx = stepOrder.indexOf(currentStep);
-    if (idx < stepOrder.length - 1) {
-      navigateToStep(stepOrder[idx + 1], 'right');
+    // Capture canvas state before leaving freeform step (canvases unmount after navigation)
+    if (currentStep === 'freeform-design') {
+      const states = serializeCanvasState();
+      setSavedCanvasState(states);
+      // Save both product-level color and any layer colors
+      const colorData: Record<string, any> = { ...layerColors };
+      if (selectedColorHex) {
+        const selectedColor = productColors.find(c => c.hex === selectedColorHex);
+        colorData._productColor = {
+          hex: selectedColorHex,
+          name: selectedColor?.name,
+          colorCode: selectedColor?.colorCode,
+        };
+      }
+      setSavedColorSelections(colorData);
+      const preview = await generatePreview();
+      setSavedPreviewUrl(preview);
     }
+
+    const next = getNextStep(currentStep);
+    if (next) navigateToStep(next, 'right');
   };
 
   const handleBack = () => {
-    const idx = stepOrder.indexOf(currentStep);
-    if (idx > 0) {
-      navigateToStep(stepOrder[idx - 1], 'left');
-    }
+    const prev = getPrevStep(currentStep);
+    if (prev) navigateToStep(prev, 'left');
   };
 
   // Serialize canvas state for saving
@@ -318,8 +414,8 @@ export default function CreateCoBuyRequestPage() {
     setIsCreating(true);
 
     try {
-      const canvasState = serializeCanvasState();
-      const previewUrl = await generatePreview();
+      const canvasState = savedCanvasState;
+      const previewUrl = savedPreviewUrl;
 
       const schedulePreferences: CoBuyRequestSchedulePreferences = {
         preferredStartDate: startDate || undefined,
@@ -337,7 +433,7 @@ export default function CreateCoBuyRequestPage() {
         title: title.trim(),
         description: description.trim() || undefined,
         freeformCanvasState: canvasState,
-        freeformColorSelections: {},
+        freeformColorSelections: savedColorSelections,
         freeformPreviewUrl: previewUrl || undefined,
         schedulePreferences,
         quantityExpectations,
@@ -492,7 +588,7 @@ export default function CreateCoBuyRequestPage() {
           </div>
           <nav className="flex-1 overflow-y-auto -mx-2">
             <div className="space-y-0.5 px-2">
-              {STEPS.map((step, index) => {
+              {visibleSteps.map((step, index) => {
                 const isCurrent = step.id === currentStep;
                 const isPast = currentStepIndex > index;
                 const isSuccess = currentStep === ('success' as Step);
@@ -541,15 +637,15 @@ export default function CreateCoBuyRequestPage() {
                   <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1.5">{currentStepIndex + 1} / {STEPS.length}</p>
+                  <p className="text-[10px] text-gray-500 mt-1.5">{currentStepIndex + 1} / {visibleSteps.length}</p>
                 </div>
               )}
             </header>
           )}
 
           {/* Content */}
-          <main className="flex-1 overflow-y-auto">
-            <div className={`transition-all duration-150 ease-out ${animationClass}`}>
+          <main className={`flex-1 overflow-y-auto ${currentStep === 'freeform-design' ? 'flex flex-col' : ''}`}>
+            <div className={`transition-all duration-150 ease-out ${animationClass} ${currentStep === 'freeform-design' ? 'flex-1 flex flex-col' : ''}`}>
 
               {/* Product Selection */}
               {currentStep === 'product-select' && (
@@ -628,6 +724,80 @@ export default function CreateCoBuyRequestPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Color Selection */}
+              {currentStep === 'color-select' && selectedProduct && (
+                <div className="max-w-lg mx-auto py-6 px-4 md:py-10 md:px-6">
+                  <div className="mb-4">
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">색상을 선택해주세요</h2>
+                    <p className="text-sm text-gray-500">원하시는 제품 색상을 골라주세요.</p>
+                  </div>
+
+                  {/* Live product mockup preview with color applied */}
+                  {colorPreviewSides.length > 0 && (
+                    <div className="flex items-center justify-center bg-[#EBEBEB] rounded-xl mb-3 relative">
+                      {colorPreviewSides.length > 1 && colorPreviewIndex > 0 && (
+                        <button
+                          onClick={() => setColorPreviewIndex(colorPreviewIndex - 1)}
+                          className="absolute left-1.5 z-10 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-gray-600" />
+                        </button>
+                      )}
+
+                      {colorPreviewSides.map((side, idx) => (
+                        <div key={side.id} className={idx === colorPreviewIndex ? '' : 'hidden'}>
+                          <SingleSideCanvas
+                            side={side}
+                            width={280}
+                            height={340}
+                            isEdit={false}
+                            freeform={true}
+                          />
+                        </div>
+                      ))}
+
+                      {colorPreviewSides.length > 1 && colorPreviewIndex < colorPreviewSides.length - 1 && (
+                        <button
+                          onClick={() => setColorPreviewIndex(colorPreviewIndex + 1)}
+                          className="absolute right-1.5 z-10 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition"
+                        >
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Side name indicator */}
+                  {colorPreviewSides.length > 1 && (
+                    <p className="text-center text-[10px] text-gray-400 mb-3">
+                      {colorPreviewSides[colorPreviewIndex]?.name} ({colorPreviewIndex + 1}/{colorPreviewSides.length})
+                    </p>
+                  )}
+
+                  {/* Selected color name */}
+                  {selectedColorHex && (
+                    <p className="text-center text-sm font-medium text-gray-700 mb-3">
+                      {productColors.find(c => c.hex === selectedColorHex)?.name}
+                    </p>
+                  )}
+
+                  {/* Color swatches */}
+                  <div className="flex gap-2.5 flex-wrap justify-center">
+                    {productColors.map(color => (
+                      <ColorSwatch
+                        key={color.id}
+                        hex={color.hex}
+                        selected={selectedColorHex === color.hex}
+                        onClick={() => {
+                          setSelectedColorHex(color.hex);
+                          setProductColor(color.hex);
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -987,6 +1157,12 @@ export default function CreateCoBuyRequestPage() {
                     <div className="pb-3 border-b border-gray-200">
                       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">제품</p>
                       <p className="font-semibold text-gray-900 text-sm">{selectedProduct?.title}</p>
+                      {selectedColorHex && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: selectedColorHex }} />
+                          <span className="text-xs text-gray-600">{productColors.find(c => c.hex === selectedColorHex)?.name}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="pb-3 border-b border-gray-200">
                       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">기본 정보</p>
@@ -1089,5 +1265,29 @@ export default function CreateCoBuyRequestPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// Color swatch button
+// ============================================================================
+
+function ColorSwatch({ hex, selected, onClick }: { hex: string; selected: boolean; onClick: () => void }) {
+  const c = hex.replace('#', '');
+  const lum = (0.299 * parseInt(c.substring(0, 2), 16) + 0.587 * parseInt(c.substring(2, 4), 16) + 0.114 * parseInt(c.substring(4, 6), 16)) / 255;
+  const checkColor = lum > 0.5 ? '#000' : '#FFF';
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-10 h-10 rounded-full border-2 shrink-0 transition-all ${selected ? 'border-[#3B55A5] scale-110 shadow-md' : 'border-gray-200 hover:scale-105'}`}
+      style={{ backgroundColor: hex }}
+    >
+      {selected && (
+        <svg className="w-full h-full p-2" fill="none" stroke={checkColor} strokeWidth="3" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </button>
   );
 }

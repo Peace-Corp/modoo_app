@@ -4,235 +4,347 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getUserCoBuySessions } from '@/lib/cobuyService';
-import { CoBuySession } from '@/types/types';
-import { Users, Calendar, Clock, Link as LinkIcon, Copy, CheckCircle } from 'lucide-react';
+import { getUserCoBuyRequests } from '@/lib/cobuyRequestService';
+import { CoBuySession, CoBuyRequest, CoBuyRequestStatus } from '@/types/types';
+import {
+  Users, Calendar, Copy, CheckCircle, FileText,
+  ArrowRight, Package,
+} from 'lucide-react';
 import Header from '@/app/components/Header';
+
+type Tab = 'requests' | 'sessions';
+
+const requestStatusLabels: Record<CoBuyRequestStatus, string> = {
+  pending: '검토 대기',
+  in_progress: '디자인 작업중',
+  design_shared: '디자인 공유됨',
+  feedback: '피드백 중',
+  confirmed: '확정됨',
+  session_created: '공동구매 생성됨',
+  rejected: '거절됨',
+};
+
+const requestStatusColors: Record<CoBuyRequestStatus, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  in_progress: 'bg-blue-100 text-blue-800',
+  design_shared: 'bg-purple-100 text-purple-800',
+  feedback: 'bg-orange-100 text-orange-800',
+  confirmed: 'bg-green-100 text-green-800',
+  session_created: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-800',
+};
+
+const sessionStatusLabels: Record<CoBuySession['status'], string> = {
+  gathering: '모집중',
+  gather_complete: '모집 완료',
+  order_complete: '주문 완료',
+  manufacturing: '제작중',
+  manufacture_complete: '제작 완료',
+  delivering: '배송중',
+  delivery_complete: '배송 완료',
+  cancelled: '취소됨',
+};
+
+const sessionStatusColors: Record<CoBuySession['status'], string> = {
+  gathering: 'bg-green-100 text-green-800',
+  gather_complete: 'bg-blue-100 text-blue-800',
+  order_complete: 'bg-blue-100 text-blue-800',
+  manufacturing: 'bg-yellow-100 text-yellow-800',
+  manufacture_complete: 'bg-blue-100 text-blue-800',
+  delivering: 'bg-purple-100 text-purple-800',
+  delivery_complete: 'bg-gray-100 text-gray-800',
+  cancelled: 'bg-red-100 text-red-800',
+};
 
 export default function CoBuyListPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<Tab>('requests');
   const [sessions, setSessions] = useState<CoBuySession[]>([]);
+  const [requests, setRequests] = useState<CoBuyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
-  // Fetch CoBuy sessions
   useEffect(() => {
-    async function fetchSessions() {
+    async function fetchData() {
       if (!isAuthenticated || !user) {
         setIsLoading(false);
         return;
       }
-
       try {
         setIsLoading(true);
-        setError(null);
-        const data = await getUserCoBuySessions();
-        setSessions(data);
+        const [sessionsData, requestsData] = await Promise.all([
+          getUserCoBuySessions(),
+          getUserCoBuyRequests(),
+        ]);
+        setSessions(sessionsData);
+        setRequests(requestsData);
       } catch (err) {
-        console.error('Error fetching CoBuy sessions:', err);
-        setError('공동구매 목록을 불러오는데 실패했습니다.');
+        console.error('Error fetching CoBuy data:', err);
       } finally {
         setIsLoading(false);
       }
     }
-
-    fetchSessions();
+    fetchData();
   }, [isAuthenticated, user]);
 
-  const copyShareLink = (shareToken: string) => {
-    const shareUrl = `${window.location.origin}/cobuy/${shareToken}`;
+  const copyShareLink = (shareToken: string, prefix: string = 'cobuy') => {
+    const shareUrl = `${window.location.origin}/${prefix}/${shareToken}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedToken(shareToken);
     setTimeout(() => setCopiedToken(null), 2000);
   };
 
-  const getStatusBadge = (status: CoBuySession['status']) => {
-    const badges: Record<CoBuySession['status'], { label: string; color: string }> = {
-      gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
-      gather_complete: { label: '모집 완료', color: 'bg-blue-100 text-blue-800' },
-      order_complete: { label: '주문 완료', color: 'bg-blue-100 text-blue-800' },
-      manufacturing: { label: '제작중', color: 'bg-yellow-100 text-yellow-800' },
-      manufacture_complete: { label: '제작 완료', color: 'bg-blue-100 text-blue-800' },
-      delivering: { label: '배송중', color: 'bg-purple-100 text-purple-800' },
-      delivery_complete: { label: '배송 완료', color: 'bg-gray-100 text-gray-800' },
-      cancelled: { label: '취소됨', color: 'bg-red-100 text-red-800' },
-    };
-    return badges[status];
-  };
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 
-  const isExpired = (endDate: string) => {
-    return new Date(endDate) < new Date();
-  };
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-20">
+        <Header back />
+        <div className="text-center py-20 px-4">
+          <p className="text-gray-500 mb-4">로그인이 필요합니다</p>
+          <button
+            onClick={() => router.push('/login')}
+            className="px-6 py-3 bg-[#3B55A5] text-white rounded-xl font-medium"
+          >
+            로그인하기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
       <Header back />
 
-      <div className="max-w-4xl mx-auto p-4">
-        {!isAuthenticated ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 mb-4">로그인이 필요합니다</p>
-            <p className="text-sm text-gray-400 mb-6">
-              공동구매를 확인하려면 로그인해주세요
-            </p>
-            <button
-              onClick={() => router.push('/login')}
-              className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
-            >
-              로그인하기
-            </button>
-          </div>
-        ) : isLoading ? (
-          <div className="text-center py-20">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-            <p className="text-gray-500 mt-4">공동구매 목록을 불러오는 중...</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-20">
-            <p className="text-red-500 mb-4">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
-            >
-              다시 시도
-            </button>
-          </div>
-        ) : sessions.length === 0 ? (
-          <div className="text-center py-20">
-            <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-500 mb-4">생성한 공동구매가 없습니다</p>
-            <p className="text-sm text-gray-400 mb-6">
-              디자인 페이지에서 공동구매를 시작해보세요!
-            </p>
-            <button
-              onClick={() => router.push('/home/designs')}
-              className="px-6 py-3 bg-[#3B55A5] text-white rounded-lg font-medium hover:bg-[#2D4280] transition-colors"
-            >
-              나의 디자인으로 이동
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sessions.map((session) => {
-              const badge = getStatusBadge(session.status);
-              const expired = isExpired(session.end_date);
-              const isCopied = copiedToken === session.share_token;
+      <div className="max-w-2xl mx-auto px-4 pt-2">
+        {/* Tabs */}
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${
+              activeTab === 'requests'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500'
+            }`}
+          >
+            요청 {requests.length > 0 && <span className="text-xs text-gray-400 ml-1">({requests.length})</span>}
+          </button>
+          <button
+            onClick={() => setActiveTab('sessions')}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${
+              activeTab === 'sessions'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500'
+            }`}
+          >
+            공동구매 {sessions.length > 0 && <span className="text-xs text-gray-400 ml-1">({sessions.length})</span>}
+          </button>
+        </div>
 
-              return (
-                <div
-                  key={session.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className="p-6">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-bold">{session.title}</h3>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}
-                          >
-                            {badge.label}
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3B55A5]" />
+          </div>
+        ) : activeTab === 'requests' ? (
+          /* ============ REQUESTS TAB ============ */
+          requests.length === 0 ? (
+            <div className="text-center py-16">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-sm text-gray-500 mb-1">요청이 없습니다</p>
+              <p className="text-xs text-gray-400 mb-4">공동구매 요청을 만들어보세요</p>
+              <button
+                onClick={() => router.push('/home/cobuy/request/create')}
+                className="px-5 py-2.5 bg-[#3B55A5] text-white rounded-xl text-sm font-medium"
+              >
+                새 요청 만들기
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {requests.map(req => {
+                const statusLabel = requestStatusLabels[req.status];
+                const statusColor = requestStatusColors[req.status];
+
+                return (
+                  <div
+                    key={req.id}
+                    onClick={() => router.push(`/cobuy/request/${req.share_token}`)}
+                    className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 transition cursor-pointer"
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">{req.title}</h3>
+                          <p className="text-xs text-gray-400 mt-0.5">{formatDate(req.created_at)}</p>
+                        </div>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      {req.description && (
+                        <p className="text-xs text-gray-500 line-clamp-1 mb-2">{req.description}</p>
+                      )}
+
+                      {/* Status Progress */}
+                      <RequestStatusBar status={req.status} />
+
+                      {/* Quick info */}
+                      <div className="flex items-center gap-3 mt-2.5 text-[10px] text-gray-400">
+                        {req.confirmed_price && (
+                          <span>₩{Number(req.confirmed_price).toLocaleString()}</span>
+                        )}
+                        {req.cobuy_session_id && (
+                          <span className="flex items-center gap-0.5 text-emerald-600 font-medium">
+                            <Package className="w-3 h-3" /> 세션 생성됨
                           </span>
-                          {expired && session.status === 'gathering' && (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                              기간 만료
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => router.push('/home/cobuy/request/create')}
+                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-[#3B55A5] hover:text-[#3B55A5] transition"
+              >
+                + 새 요청 만들기
+              </button>
+            </div>
+          )
+        ) : (
+          /* ============ SESSIONS TAB ============ */
+          sessions.length === 0 ? (
+            <div className="text-center py-16">
+              <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-sm text-gray-500 mb-1">공동구매가 없습니다</p>
+              <p className="text-xs text-gray-400">요청이 확정되면 공동구매가 생성됩니다</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sessions.map(session => {
+                const statusLabel = sessionStatusLabels[session.status];
+                const statusColor = sessionStatusColors[session.status];
+                const isExpired = new Date(session.end_date) < new Date();
+                const isCopied = copiedToken === session.share_token;
+
+                return (
+                  <div
+                    key={session.id}
+                    className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">{session.title}</h3>
+                          {session.description && (
+                            <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{session.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor}`}>
+                            {statusLabel}
+                          </span>
+                          {isExpired && session.status === 'gathering' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                              만료
                             </span>
                           )}
                         </div>
-                        {session.description && (
-                          <p className="text-sm text-gray-600">{session.description}</p>
-                        )}
                       </div>
-                    </div>
 
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">참여 인원</p>
-                        <p className="text-lg font-bold">
-                          {session.current_participant_count}
-                          {session.max_participants && (
-                            <span className="text-sm text-gray-500">
-                              {' '}/ {session.max_participants}
-                            </span>
+                      {/* Stats */}
+                      <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {session.current_participant_count}명
+                          {session.max_participants && ` / ${session.max_participants}`}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {formatDate(session.start_date)} ~ {formatDate(session.end_date)}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => router.push(`/home/my-page/cobuy/${session.id}`)}
+                          className="flex-1 py-2 bg-gray-900 text-white text-xs rounded-lg font-medium hover:bg-gray-800 transition flex items-center justify-center gap-1"
+                        >
+                          관리하기 <ArrowRight className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); copyShareLink(session.share_token); }}
+                          className="py-2 px-3 border border-gray-200 text-xs rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5"
+                        >
+                          {isCopied ? (
+                            <><CheckCircle className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">복사됨</span></>
+                          ) : (
+                            <><Copy className="w-3.5 h-3.5" /> 링크</>
                           )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          시작일
-                        </p>
-                        <p className="text-sm font-medium">
-                          {new Date(session.start_date).toLocaleDateString('ko-KR')}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          종료일
-                        </p>
-                        <p className="text-sm font-medium">
-                          {new Date(session.end_date).toLocaleDateString('ko-KR')}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">수집 정보</p>
-                        <p className="text-sm font-medium">
-                          {session.custom_fields.length}개 필드
-                        </p>
+                        </button>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => router.push(`/home/my-page/cobuy/${session.id}`)}
-                        className="flex-1 py-2 px-4 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
-                      >
-                        관리하기
-                      </button>
-
-                      <button
-                        onClick={() => copyShareLink(session.share_token)}
-                        className="py-2 px-4 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-                      >
-                        {isCopied ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                            <span className="text-green-600">복사됨!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            <span>링크 복사</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
                   </div>
-
-                  {/* Footer Info */}
-                  <div className="bg-gray-50 px-6 py-3 text-xs text-gray-500 flex items-center gap-4">
-                    <span>생성일: {new Date(session.created_at).toLocaleDateString('ko-KR')}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <LinkIcon className="w-3 h-3" />
-                      공유 링크: /cobuy/{session.share_token.slice(0, 8)}...
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )
         )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Request Status Progress Bar
+// ============================================================================
+
+const REQUEST_STEPS: { key: CoBuyRequestStatus; label: string }[] = [
+  { key: 'pending', label: '대기' },
+  { key: 'in_progress', label: '작업중' },
+  { key: 'design_shared', label: '공유' },
+  { key: 'confirmed', label: '확정' },
+  { key: 'session_created', label: '생성' },
+];
+
+function RequestStatusBar({ status }: { status: CoBuyRequestStatus }) {
+  if (status === 'rejected') {
+    return (
+      <div className="flex items-center gap-1.5 text-[10px] text-red-500 font-medium">
+        <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+        요청이 거절되었습니다
+      </div>
+    );
+  }
+
+  // Map feedback to design_shared step (same visual position)
+  const statusForStep = status === 'feedback' ? 'design_shared' : status;
+  const currentIdx = REQUEST_STEPS.findIndex(s => s.key === statusForStep);
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {REQUEST_STEPS.map((step, idx) => {
+        const isPast = idx < currentIdx;
+        const isCurrent = idx === currentIdx;
+        return (
+          <div key={step.key} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className={`w-full h-1 rounded-full ${
+                isPast || isCurrent ? 'bg-[#3B55A5]' : 'bg-gray-200'
+              }`}
+            />
+            <span className={`text-[9px] ${isPast || isCurrent ? 'text-[#3B55A5] font-medium' : 'text-gray-300'}`}>
+              {step.label}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
