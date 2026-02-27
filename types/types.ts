@@ -425,6 +425,7 @@ export interface CoBuySession {
   custom_fields: CoBuyCustomField[];
   delivery_settings: CoBuyDeliverySettings | null; // Delivery configuration
   is_public: boolean; // Whether the session is publicly discoverable
+  cobuy_image_urls: string[] | null; // When set, indicates image-only CoBuy (no canvas design)
   bulk_order_id: string | null;
   created_at: string;
   updated_at: string;

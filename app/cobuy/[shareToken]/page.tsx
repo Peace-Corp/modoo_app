@@ -78,6 +78,7 @@ export default function CoBuySharePage() {
   // UI state
   const [isSizingChartOpen, setIsSizingChartOpen] = useState(false);
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Fetch session data
   useEffect(() => {
@@ -153,7 +154,17 @@ export default function CoBuySharePage() {
   const product = design?.product;
   const deliverySettings = useMemo(() => session?.delivery_settings || null, [session]);
   const customFields = useMemo(() => (session?.custom_fields || []).filter(f => !f.fixed), [session]);
-  const sizeOptions = useMemo(() => product?.size_options || [], [product]);
+  const sizeOptions = useMemo(() => {
+    if (product?.size_options?.length) return product.size_options;
+    // Image-only mode without product: get sizes from custom_fields
+    const sizeField = session?.custom_fields?.find(
+      (f: CoBuyCustomField) => f.id === 'size' && f.type === 'dropdown'
+    );
+    if (sizeField?.options?.length) {
+      return sizeField.options.map((opt: string) => ({ label: opt }));
+    }
+    return [];
+  }, [product, session?.custom_fields]);
   const currentTotalQuantity = session?.current_total_quantity ?? 0;
 
   const productConfig: ProductConfig | null = useMemo(() => {
@@ -198,7 +209,11 @@ export default function CoBuySharePage() {
 
   // Build step list dynamically
   const getSteps = (): Step[] => {
-    const steps: Step[] = ['welcome', 'size-quantity', 'personal-info'];
+    const steps: Step[] = ['welcome'];
+    if (sizeOptions.length > 0) {
+      steps.push('size-quantity');
+    }
+    steps.push('personal-info');
 
     if (deliverySettings?.enabled) {
       steps.push('delivery-method');
@@ -437,7 +452,10 @@ export default function CoBuySharePage() {
     );
   }
 
-  if (!session || !design || !productConfig) {
+  const cobuyImages = session?.cobuy_image_urls;
+  const isImageOnly = !!cobuyImages?.length;
+
+  if (!session || !design || (!productConfig && !isImageOnly)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <p className="text-gray-500">공동구매 정보를 찾을 수 없습니다.</p>
@@ -529,11 +547,51 @@ export default function CoBuySharePage() {
 
               {/* Design Preview */}
               <div className="bg-gray-100 rounded-2xl overflow-hidden mb-6">
-                <CoBuyDesignViewer
-                  config={productConfig}
-                  canvasState={design.canvas_state as Record<string, string>}
-                  productColor={productColor}
-                />
+                {isImageOnly && cobuyImages ? (
+                  <div className="relative">
+                    <img
+                      src={cobuyImages[currentImageIndex]}
+                      alt={`${session.title} ${currentImageIndex + 1}`}
+                      className="w-full h-auto object-contain"
+                    />
+                    {cobuyImages.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentImageIndex((prev) => (prev - 1 + cobuyImages.length) % cobuyImages.length)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentImageIndex((prev) => (prev + 1) % cobuyImages.length)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                          {cobuyImages.map((_, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setCurrentImageIndex(idx)}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                idx === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : productConfig ? (
+                  <CoBuyDesignViewer
+                    config={productConfig}
+                    canvasState={design.canvas_state as Record<string, string>}
+                    productColor={productColor}
+                  />
+                ) : null}
                 {product?.sizing_chart_image && (
                   <div className="p-3 bg-white border-t border-gray-200">
                     <button
@@ -1059,12 +1117,19 @@ export default function CoBuySharePage() {
                 {/* Order Items */}
                 <div className="pb-4 border-b border-gray-200">
                   <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">주문 상품</p>
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm md:text-base mb-1">
-                      <span className="text-gray-700">{item.size} × {item.quantity}벌</span>
-                      <span className="font-medium">{formatPrice(currentPrice * item.quantity)}</span>
+                  {sizeOptions.length > 0 ? (
+                    selectedItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm md:text-base mb-1">
+                        <span className="text-gray-700">{item.size} × {item.quantity}벌</span>
+                        <span className="font-medium">{formatPrice(currentPrice * item.quantity)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-between text-sm md:text-base mb-1">
+                      <span className="text-gray-700">{getTotalQuantity()}개</span>
+                      <span className="font-medium">{formatPrice(currentPrice * getTotalQuantity())}</span>
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 {/* Participant Info */}
