@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import * as fabric from 'fabric';
-import { X, ChevronLeft, Search, Loader2, Check, RotateCcw, Package, Plus } from 'lucide-react';
-import { Product, ProductSide, LogoPlacement } from '@/types/types';
+import { useState, useEffect, useCallback } from 'react';
+import { X, ChevronLeft, Search, Loader2, Package } from 'lucide-react';
+import { Product } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
 import { CATEGORIES } from '@/lib/categories';
-import SingleSideCanvas from '@/app/components/canvas/SingleSideCanvas';
+import { useRouter } from 'next/navigation';
 
 interface AddProductModalProps {
   shareToken: string;
@@ -35,12 +34,7 @@ interface ProductColor {
   };
 }
 
-type Step = 'select' | 'color' | 'placement' | 'review';
-
-const getFirstSide = (product: Product): ProductSide | null => {
-  const sides = (product.configuration || []) as ProductSide[];
-  return sides.length > 0 ? sides[0] : null;
-};
+type Step = 'select' | 'color' | 'review';
 
 export default function AddProductModal({
   shareToken,
@@ -49,6 +43,7 @@ export default function AddProductModal({
   onClose,
   onProductAdded,
 }: AddProductModalProps) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>('select');
 
   // Step 1: Product selection
@@ -63,21 +58,8 @@ export default function AddProductModal({
   const [isLoadingColors, setIsLoadingColors] = useState(false);
   const [selectedColor, setSelectedColor] = useState<SelectedColor | null>(null);
 
-  // Step 3: Logo placement
-  const canvasRef = useRef<fabric.Canvas | null>(null);
-  const logoRef = useRef<fabric.FabricImage | null>(null);
-  const scaleRef = useRef<number>(1);
-  const sideIdRef = useRef<string>('');
-  const [isCanvasReady, setIsCanvasReady] = useState(false);
-  const [hasLogo, setHasLogo] = useState(false);
-  const [logoPlacement, setLogoPlacement] = useState<Record<string, LogoPlacement>>({});
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [canvasState, setCanvasState] = useState<Record<string, string>>({});
-
-  // Step 4: Review & save
+  // Step 3: Review
   const [displayName, setDisplayName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Fetch products
   useEffect(() => {
@@ -140,258 +122,50 @@ export default function AddProductModal({
     setIsLoadingColors(false);
   }, []);
 
-  // Handle product selection → go to color step
+  // Handle product selection
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
-    setError(null);
     fetchColors(product.id);
     setStep('color');
   };
 
-  // Handle color confirmed → go to placement step
+  // Handle color confirmed
   const handleColorConfirm = () => {
-    setIsCanvasReady(false);
-    setHasLogo(false);
-    setStep('placement');
-  };
-
-  // Canvas ready → place logo
-  const placeLogoOnCanvas = useCallback(
-    (canvas: fabric.Canvas, sideId: string, canvasScale: number) => {
-      if (!selectedProduct || !logoUrl) return;
-      const firstSide = getFirstSide(selectedProduct);
-      if (!firstSide) return;
-
-      // @ts-expect-error - Custom property
-      const printAreaLeft = canvas.printAreaLeft || 0;
-      // @ts-expect-error - Custom property
-      const printAreaTop = canvas.printAreaTop || 0;
-
-      // Remove existing logo
-      const existing = canvas.getObjects().find(
-        (obj) => (obj as fabric.FabricObject & { data?: { id?: string } }).data?.id === 'partner-mall-logo'
-      );
-      if (existing) canvas.remove(existing);
-
-      fabric.FabricImage.fromURL(logoUrl, { crossOrigin: 'anonymous' })
-        .then((logoImg) => {
-          if (!canvasRef.current) return;
-
-          const centerX = firstSide.printArea.width / 2;
-          const centerY = firstSide.printArea.height / 2;
-          const maxWidth = firstSide.printArea.width * 0.2;
-          const maxHeight = firstSide.printArea.height * 0.2;
-          const logoScale = Math.min(
-            maxWidth / (logoImg.width || 100),
-            maxHeight / (logoImg.height || 100)
-          );
-
-          logoImg.set({
-            left: printAreaLeft + centerX * canvasScale,
-            top: printAreaTop + centerY * canvasScale,
-            scaleX: logoScale * canvasScale,
-            scaleY: logoScale * canvasScale,
-            originX: 'center',
-            originY: 'center',
-            data: { id: 'partner-mall-logo' },
-          });
-
-          logoRef.current = logoImg;
-          canvasRef.current!.add(logoImg);
-          canvasRef.current!.setActiveObject(logoImg);
-          canvasRef.current!.renderAll();
-          setHasLogo(true);
-          setIsCanvasReady(true);
-        })
-        .catch((err) => {
-          console.error('Error loading logo:', err);
-          setIsCanvasReady(true);
-        });
-    },
-    [selectedProduct, logoUrl]
-  );
-
-  const handleCanvasReady = useCallback(
-    (canvas: fabric.Canvas, sideId: string, canvasScale: number) => {
-      canvasRef.current = canvas;
-      scaleRef.current = canvasScale;
-      sideIdRef.current = sideId;
-      placeLogoOnCanvas(canvas, sideId, canvasScale);
-    },
-    [placeLogoOnCanvas]
-  );
-
-  const resetLogoToCenter = () => {
-    if (!canvasRef.current || !logoRef.current || !selectedProduct) return;
-    const firstSide = getFirstSide(selectedProduct);
-    if (!firstSide) return;
-
-    const canvas = canvasRef.current;
-    const logo = logoRef.current;
-    const canvasScale = scaleRef.current;
-    // @ts-expect-error - Custom property
-    const printAreaLeft = canvas.printAreaLeft || 0;
-    // @ts-expect-error - Custom property
-    const printAreaTop = canvas.printAreaTop || 0;
-
-    const centerX = firstSide.printArea.width / 2;
-    const centerY = firstSide.printArea.height / 2;
-    const maxWidth = firstSide.printArea.width * 0.2;
-    const maxHeight = firstSide.printArea.height * 0.2;
-    const logoScale = Math.min(
-      maxWidth / (logo.width || 100),
-      maxHeight / (logo.height || 100)
-    );
-
-    logo.set({
-      left: printAreaLeft + centerX * canvasScale,
-      top: printAreaTop + centerY * canvasScale,
-      scaleX: logoScale * canvasScale,
-      scaleY: logoScale * canvasScale,
-      angle: 0,
-      originX: 'center',
-      originY: 'center',
-    });
-    canvas.renderAll();
-  };
-
-  // Serialize canvas state
-  const serializeCanvasState = (): Record<string, string> => {
-    const canvas = canvasRef.current;
-    if (!canvas || !selectedProduct) return {};
-    const firstSide = getFirstSide(selectedProduct);
-    if (!firstSide) return {};
-
-    const userObjects = canvas.getObjects().filter((obj) => {
-      if (obj.excludeFromExport) return false;
-      // @ts-expect-error - Checking custom data property
-      if (obj.data?.id === 'background-product-image') return false;
-      return true;
-    });
-
-    const canvasData = {
-      version: canvas.toJSON().version,
-      objects: userObjects.map((obj) => {
-        const json = obj.toObject(['data']);
-        if (obj.type === 'image') {
-          const imgObj = obj as fabric.FabricImage;
-          json.src = imgObj.getSrc();
-        }
-        return json;
-      }),
-    };
-
-    return { [firstSide.id]: JSON.stringify(canvasData) };
-  };
-
-  // Handle placement done → go to review
-  const handlePlacementDone = () => {
-    const canvas = canvasRef.current;
-    const logo = logoRef.current;
-    if (!canvas || !selectedProduct) return;
-    const firstSide = getFirstSide(selectedProduct);
-    if (!firstSide) return;
-
-    let placement: Record<string, LogoPlacement> = {};
-
-    if (logo) {
-      const canvasScale = scaleRef.current;
-      // @ts-expect-error - Custom property
-      const printAreaLeft = canvas.printAreaLeft || 0;
-      // @ts-expect-error - Custom property
-      const printAreaTop = canvas.printAreaTop || 0;
-
-      const logoLeft = logo.left || 0;
-      const logoTop = logo.top || 0;
-      const logoWidth = (logo.width || 100) * (logo.scaleX || 1);
-      const logoHeight = (logo.height || 100) * (logo.scaleY || 1);
-
-      placement = {
-        [firstSide.id]: {
-          x: Math.round((logoLeft - printAreaLeft) / canvasScale),
-          y: Math.round((logoTop - printAreaTop) / canvasScale),
-          width: Math.round(logoWidth / canvasScale),
-          height: Math.round(logoHeight / canvasScale),
-        },
-      };
-    }
-
-    canvas.discardActiveObject();
-    canvas.renderAll();
-
-    let preview: string | null = null;
-    try {
-      preview = canvas.toDataURL({ format: 'png', quality: 0.8, multiplier: 1 });
-    } catch (err) {
-      console.error('Error capturing preview:', err);
-    }
-
-    const state = serializeCanvasState();
-
-    setLogoPlacement(placement);
-    setPreviewUrl(preview);
-    setCanvasState(state);
-
-    // Set default display name
     const colorSuffix = selectedColor ? ` (${selectedColor.name})` : '';
-    setDisplayName(`${mallName} ${selectedProduct.title}${colorSuffix}`);
-
+    setDisplayName(`${mallName} ${selectedProduct!.title}${colorSuffix}`);
     setStep('review');
   };
 
-  // Handle save
-  const handleSave = async () => {
+  // Open editor with partner mall add data
+  const handleOpenEditor = () => {
     if (!selectedProduct || !displayName.trim()) return;
 
-    setIsSaving(true);
-    setError(null);
+    // Store data in sessionStorage for the editor to pick up
+    sessionStorage.setItem('partnerMallAddData', JSON.stringify({
+      shareToken,
+      mallName,
+      logoUrl,
+      displayName: displayName.trim(),
+      manufacturerColorId: selectedColor?.id ?? null,
+      colorHex: selectedColor?.hex ?? null,
+      colorName: selectedColor?.name ?? null,
+      colorCode: selectedColor?.color_code ?? null,
+    }));
 
-    try {
-      const response = await fetch(`/api/partner-mall/${shareToken}/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: selectedProduct.id,
-          logo_placements: logoPlacement,
-          canvas_state: canvasState,
-          preview_url: previewUrl,
-          display_name: displayName.trim(),
-          manufacturer_color_id: selectedColor?.id ?? null,
-          color_hex: selectedColor?.hex ?? null,
-          color_name: selectedColor?.name ?? null,
-          color_code: selectedColor?.color_code ?? null,
-        }),
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || '제품 추가에 실패했습니다.');
-      }
-
-      onProductAdded();
-    } catch (err) {
-      console.error('Save error:', err);
-      setError(err instanceof Error ? err.message : '제품 추가에 실패했습니다.');
-      setIsSaving(false);
-    }
+    router.push(`/editor/${selectedProduct.id}?partnerMallAdd=true`);
   };
 
   // Back navigation
   const handleBack = () => {
-    setError(null);
     if (step === 'color') setStep('select');
-    else if (step === 'placement') setStep('color');
-    else if (step === 'review') setStep('placement');
+    else if (step === 'review') setStep('color');
   };
 
   const stepTitle: Record<Step, string> = {
     select: '제품 선택',
     color: '색상 선택',
-    placement: '로고 배치',
-    review: '제품 이름',
+    review: '제품 설정',
   };
-
-  const firstSide = selectedProduct ? getFirstSide(selectedProduct) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -410,12 +184,6 @@ export default function AddProductModal({
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
-
-        {error && (
-          <div className="px-3 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs">
-            {error}
-          </div>
-        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
@@ -563,92 +331,34 @@ export default function AddProductModal({
             </div>
           )}
 
-          {/* Step 3: Logo Placement */}
-          {step === 'placement' && selectedProduct && firstSide && (
-            <div className="p-3 space-y-3">
-              <p className="text-xs text-gray-500">로고를 드래그하여 위치를 조정하세요.</p>
-
-              <div className="relative bg-gray-100 rounded-lg overflow-hidden flex justify-center">
-                {!isCanvasReady && (
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-                  </div>
-                )}
-                <div className="w-full overflow-auto flex justify-center">
-                  <SingleSideCanvas
-                    side={firstSide}
-                    width={350}
-                    height={430}
-                    isEdit={true}
-                    productColor={selectedColor?.hex}
-                    onCanvasReady={handleCanvasReady}
-                    showScaleBox={false}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={resetLogoToCenter}
-                  disabled={!isCanvasReady || !hasLogo}
-                  className="flex items-center gap-1 py-1.5 px-3 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  중앙으로
-                </button>
-                {isCanvasReady && !hasLogo && (
-                  <button
-                    onClick={() => {
-                      if (canvasRef.current) {
-                        placeLogoOnCanvas(canvasRef.current, sideIdRef.current, scaleRef.current);
-                      }
-                    }}
-                    className="flex items-center gap-1 py-1.5 px-3 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    로고 추가
-                  </button>
-                )}
-                <button
-                  onClick={handlePlacementDone}
-                  disabled={!isCanvasReady}
-                  className="flex items-center gap-1 py-2 px-4 bg-gray-900 text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  완료
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Review & Save */}
+          {/* Step 3: Name & Open Editor */}
           {step === 'review' && selectedProduct && (
             <div className="p-3 space-y-3">
-              {/* Preview */}
-              <div className="flex justify-center">
-                <div className="w-40 h-40 bg-gray-100 rounded-lg overflow-hidden">
-                  {previewUrl ? (
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-8 h-8 text-gray-300" />
+              {/* Product info summary */}
+              <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                {selectedProduct.thumbnail_image_link ? (
+                  <img
+                    src={selectedProduct.thumbnail_image_link}
+                    alt={selectedProduct.title}
+                    className="w-12 h-12 object-contain rounded bg-white"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-white rounded flex items-center justify-center">
+                    <Package className="w-5 h-5 text-gray-300" />
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs font-medium text-gray-800">{selectedProduct.title}</p>
+                  {selectedColor && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span
+                        className="w-3 h-3 rounded-full border border-gray-200"
+                        style={{ backgroundColor: selectedColor.hex }}
+                      />
+                      <span className="text-[10px] text-gray-500">{selectedColor.name}</span>
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Product info summary */}
-              <div className="text-center text-xs text-gray-500">
-                {selectedProduct.title}
-                {selectedColor && (
-                  <span className="inline-flex items-center gap-1 ml-1.5">
-                    <span
-                      className="w-3 h-3 rounded-full border border-gray-200 inline-block"
-                      style={{ backgroundColor: selectedColor.hex }}
-                    />
-                    {selectedColor.name}
-                  </span>
-                )}
               </div>
 
               {/* Display name input */}
@@ -663,21 +373,17 @@ export default function AddProductModal({
                 />
               </div>
 
-              {/* Save button */}
+              {/* Open editor button */}
               <button
-                onClick={handleSave}
-                disabled={isSaving || !displayName.trim()}
-                className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                onClick={handleOpenEditor}
+                disabled={!displayName.trim()}
+                className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    저장 중...
-                  </>
-                ) : (
-                  '제품 추가'
-                )}
+                편집기에서 열기
               </button>
+              <p className="text-[10px] text-gray-400 text-center">
+                편집기에서 로고 배치, 텍스트, 이미지 등을 자유롭게 편집할 수 있습니다.
+              </p>
             </div>
           )}
         </div>

@@ -129,20 +129,23 @@ export default function PartnerMallPage() {
 
   // Navigate to the editor with the partner mall product's canvas state
   const handleEditDesign = () => {
-    if (!selectedProduct?.product) return;
+    if (!selectedProduct?.product || !mall) return;
 
-    // Store partner mall product data in sessionStorage for the editor to pick up
-    sessionStorage.setItem('partnerMallProduct', JSON.stringify({
-      id: selectedProduct.id,
-      canvasState: selectedProduct.canvas_state || {},
-      color: selectedProduct.color_hex || '',
-      colorName: selectedProduct.color_name || '',
-      colorCode: selectedProduct.color_code || '',
-      displayName: selectedProduct.display_name || selectedProduct.product.title,
+    sessionStorage.setItem('partnerMallAddData', JSON.stringify({
       shareToken,
+      mallName: mall.name,
+      logoUrl: mall.logo_url,
+      displayName: selectedProduct.display_name || selectedProduct.product.title,
+      manufacturerColorId: null,
+      colorHex: selectedProduct.color_hex || null,
+      colorName: selectedProduct.color_name || null,
+      colorCode: selectedProduct.color_code || null,
+      // Existing product: include ID + canvas state for update
+      existingId: selectedProduct.id,
+      canvasState: selectedProduct.canvas_state || {},
     }));
 
-    router.push(`/editor/${selectedProduct.product.id}?fromPartnerMall=true`);
+    router.push(`/editor/${selectedProduct.product.id}?partnerMallAdd=true`);
   };
 
   const handleAddToCart = async () => {

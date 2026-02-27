@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
 import {
-  X, ArrowLeft, ArrowRight, Users, CheckCircle2, Share2,
-  Truck, MapPin, Search, Package, Globe, Lock, Calendar, Tag, FileText,
-  Sparkles, Gift, ChevronLeft, ChevronRight, Check, Copy, AlertCircle, ShoppingBag,
+  X, ArrowLeft, ArrowRight, CheckCircle2, Share2,
+  Truck, MapPin, Search, Calendar, Tag,
+  Sparkles, Gift, ChevronLeft, ChevronRight, Check, Copy, ShoppingBag,
   TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone,
 } from 'lucide-react';
 import {
@@ -31,15 +31,9 @@ type Step =
   | 'product-select'
   | 'color-select'
   | 'freeform-design'
-  | 'title'
-  | 'description'
-  | 'visibility'
-  | 'schedule'
-  | 'quantity'
-  | 'delivery-address'
-  | 'pickup-address'
-  | 'delivery-option'
-  | 'custom-fields'
+  | 'title-description'
+  | 'schedule-address'
+  | 'delivery-participants'
   | 'review'
   | 'success';
 
@@ -48,15 +42,9 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'product-select', label: '제품 선택', icon: <ShoppingBag className="w-4 h-4" /> },
   { id: 'color-select', label: '색상 선택', icon: <Palette className="w-4 h-4" /> },
   { id: 'freeform-design', label: '디자인', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 'title', label: '제목', icon: <Tag className="w-4 h-4" /> },
-  { id: 'description', label: '설명', icon: <FileText className="w-4 h-4" /> },
-  { id: 'visibility', label: '공개 설정', icon: <Globe className="w-4 h-4" /> },
-  { id: 'schedule', label: '일정', icon: <Calendar className="w-4 h-4" /> },
-  { id: 'quantity', label: '수량', icon: <Package className="w-4 h-4" /> },
-  { id: 'delivery-address', label: '배송 주소', icon: <Truck className="w-4 h-4" /> },
-  { id: 'pickup-address', label: '배부 장소', icon: <MapPin className="w-4 h-4" /> },
-  { id: 'delivery-option', label: '배송 옵션', icon: <Gift className="w-4 h-4" /> },
-  { id: 'custom-fields', label: '참여자 정보', icon: <Users className="w-4 h-4" /> },
+  { id: 'title-description', label: '제목 및 설명', icon: <Tag className="w-4 h-4" /> },
+  { id: 'schedule-address', label: '일정 및 장소', icon: <Calendar className="w-4 h-4" /> },
+  { id: 'delivery-participants', label: '배송 및 참여자', icon: <Gift className="w-4 h-4" /> },
   { id: 'review', label: '최종 확인', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
@@ -90,8 +78,8 @@ export default function CreateCoBuyRequestPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [receiveByDate, setReceiveByDate] = useState('');
-  const [minQuantity, setMinQuantity] = useState<number | ''>('');
-  const [maxQuantity, setMaxQuantity] = useState<number | ''>('');
+  const minQuantity: number | '' = '';
+  const maxQuantity: number | '' = '';
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<CoBuyDeliverySettings>({
     enabled: false,
@@ -100,7 +88,7 @@ export default function CreateCoBuyRequestPage() {
     deliveryAddress: undefined,
     pickupAddress: undefined,
   });
-  const [isPublic, setIsPublic] = useState(false);
+  const isPublic = false;
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
 
   // Saved canvas data (captured when leaving freeform step, since canvases unmount after)
@@ -287,9 +275,8 @@ export default function CreateCoBuyRequestPage() {
   }, []);
 
   const stepOrder: Step[] = [
-    'guest-info', 'product-select', 'color-select', 'freeform-design', 'title', 'description', 'visibility',
-    'schedule', 'quantity', 'delivery-address', 'pickup-address', 'delivery-option',
-    'custom-fields', 'review'
+    'guest-info', 'product-select', 'color-select', 'freeform-design', 'title-description',
+    'schedule-address', 'delivery-participants', 'review'
   ];
 
   const shouldSkipStep = (step: Step): boolean => {
@@ -322,22 +309,16 @@ export default function CreateCoBuyRequestPage() {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(guestEmail.trim())) { alert('올바른 이메일 형식을 입력해주세요.'); return; }
     }
-    if (currentStep === 'title' && !title.trim()) {
+    if (currentStep === 'title-description' && !title.trim()) {
       alert('제목을 입력해주세요.');
       return;
     }
-    if (currentStep === 'schedule') {
+    if (currentStep === 'schedule-address') {
       if (!startDate || !endDate) { alert('시작일과 종료일을 선택해주세요.'); return; }
       if (new Date(endDate) <= new Date(startDate)) { alert('종료일은 시작일보다 나중이어야 합니다.'); return; }
       if (!receiveByDate) { alert('수령 희망일을 선택해주세요.'); return; }
-    }
-    if (currentStep === 'delivery-address' && !deliverySettings.deliveryAddress?.roadAddress) {
-      alert('배송받을 장소를 입력해주세요.');
-      return;
-    }
-    if (currentStep === 'pickup-address' && !deliverySettings.pickupAddress?.roadAddress) {
-      alert('배부 장소를 입력해주세요.');
-      return;
+      if (!deliverySettings.deliveryAddress?.roadAddress) { alert('배송받을 장소를 입력해주세요.'); return; }
+      if (!deliverySettings.pickupAddress?.roadAddress) { alert('배부 장소를 입력해주세요.'); return; }
     }
 
     // Capture canvas state before leaving freeform step (canvases unmount after navigation)
@@ -884,272 +865,191 @@ export default function CreateCoBuyRequestPage() {
                 </div>
               )}
 
-              {/* Title */}
-              {currentStep === 'title' && (
+              {/* Title & Description */}
+              {currentStep === 'title-description' && (
                 <div className="max-w-lg mx-auto py-8 px-4">
                   <div className="mb-6">
                     <div className="w-10 h-10 rounded-xl bg-[#3B55A5]/20 flex items-center justify-center mb-3">
                       <Tag className="w-5 h-5 text-[#3B55A5]" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">공동구매 제목</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">제목 및 설명</h2>
                     <p className="text-sm text-gray-600">참여자들이 쉽게 알아볼 수 있는 제목을 입력해주세요.</p>
                   </div>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="예: 24학번 과잠 공동구매"
-                    className="w-full px-3 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
-                    maxLength={100}
-                    autoFocus
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">{title.length}/100자</p>
-                </div>
-              )}
-
-              {/* Description */}
-              {currentStep === 'description' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center mb-3">
-                      <FileText className="w-5 h-5 text-purple-600" />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">제목 <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="예: 24학번 과잠 공동구매"
+                        className="w-full px-3 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
+                        maxLength={100}
+                        autoFocus
+                      />
+                      <p className="text-xs text-gray-500 mt-1">{title.length}/100자</p>
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">설명 (선택)</h2>
-                  </div>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="예: 이번 MT 단체티입니다!"
-                    className="w-full px-3 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 resize-none"
-                    rows={4}
-                    maxLength={500}
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">{description.length}/500자</p>
-                </div>
-              )}
-
-              {/* Visibility */}
-              {currentStep === 'visibility' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center mb-3">
-                      <Globe className="w-5 h-5 text-green-600" />
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">설명 (선택)</label>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="예: 이번 MT 단체티입니다!"
+                        className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10 resize-none"
+                        rows={3}
+                        maxLength={500}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">{description.length}/500자</p>
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">공개 범위</h2>
-                  </div>
-                  <div className="space-y-3">
-                    {[
-                      { value: false, icon: <Lock className="w-4 h-4" />, label: '비공개', desc: '링크를 가진 사람만 참여할 수 있어요.' },
-                      { value: true, icon: <Globe className="w-4 h-4" />, label: '공개', desc: '누구나 목록에서 발견할 수 있어요.' },
-                    ].map(opt => (
-                      <button key={String(opt.value)} onClick={() => setIsPublic(opt.value)}
-                        className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${isPublic === opt.value ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <div className="flex items-start gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isPublic === opt.value ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'}`}>
-                            {opt.icon}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900 text-sm">{opt.label}</span>
-                              {isPublic === opt.value && <Check className="w-4 h-4 text-[#3B55A5]" />}
-                            </div>
-                            <p className="text-xs text-gray-600 mt-1">{opt.desc}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Schedule */}
-              {currentStep === 'schedule' && (
+              {/* Schedule & Addresses */}
+              {currentStep === 'schedule-address' && (
                 <div className="max-w-lg mx-auto py-8 px-4">
                   <div className="mb-6">
                     <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
                       <Calendar className="w-5 h-5 text-orange-600" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">일정 설정</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">일정 및 장소</h2>
                   </div>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">시작일 <span className="text-red-500">*</span></label>
-                        <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)}
-                          className="w-full px-2 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
+                  <div className="space-y-6">
+                    {/* Schedule */}
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">일정</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1.5">시작일 <span className="text-red-500">*</span></label>
+                          <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)}
+                            className="w-full px-2 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1.5">종료일 <span className="text-red-500">*</span></label>
+                          <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)}
+                            className="w-full px-2 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">종료일 <span className="text-red-500">*</span></label>
-                        <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)}
-                          className="w-full px-2 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">수령 희망일 <span className="text-red-500">*</span></label>
+                        <input type="datetime-local" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
+                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
                       </div>
                     </div>
-                    <div className="border-t border-gray-200 pt-4">
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">수령 희망일 <span className="text-red-500">*</span></label>
-                      <input type="datetime-local" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
-                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Quantity */}
-              {currentStep === 'quantity' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center mb-3">
-                      <Package className="w-5 h-5 text-cyan-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">예상 수량 (선택)</h2>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">최소 수량</label>
-                      <input type="number" value={minQuantity} onChange={e => setMinQuantity(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
-                        placeholder="제한 없음" min="1" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-cyan-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">최대 수량</label>
-                      <input type="number" value={maxQuantity} onChange={e => setMaxQuantity(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
-                        placeholder="제한 없음" min="1" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-cyan-500" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Delivery Address */}
-              {currentStep === 'delivery-address' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
-                      <Truck className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">배송받을 주소</h2>
-                    <p className="text-sm text-gray-600">공장에서 제품을 배송받을 주소예요.</p>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
-                        className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
-                      <button type="button" onClick={() => handleAddressSearch('delivery')}
-                        className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
-                        <Search className="w-4 h-4" /> 주소 검색
-                      </button>
-                    </div>
-                    {deliverySettings.deliveryAddress?.roadAddress && (
-                      <div className="space-y-2">
-                        <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
-                        <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
-                          onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
-                          placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
+                    {/* Delivery Address */}
+                    <div className="space-y-3 border-t border-gray-200 pt-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 주소</p>
+                      <p className="text-xs text-gray-500">공장에서 제품을 배송받을 주소예요.</p>
+                      <div className="flex gap-2">
+                        <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
+                          className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
+                        <button type="button" onClick={() => handleAddressSearch('delivery')}
+                          className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
+                          <Search className="w-4 h-4" /> 주소 검색
+                        </button>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                      {deliverySettings.deliveryAddress?.roadAddress && (
+                        <div className="space-y-2">
+                          <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
+                          <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
+                            onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
+                            placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
+                        </div>
+                      )}
+                    </div>
 
-              {/* Pickup Address */}
-              {currentStep === 'pickup-address' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center mb-3">
-                      <MapPin className="w-5 h-5 text-pink-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">배부 장소</h2>
-                    <p className="text-sm text-gray-600">참여자들이 물품을 수령할 장소예요.</p>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input type="text" value={deliverySettings.pickupAddress?.postalCode || ''} readOnly
-                        className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
-                      <button type="button" onClick={() => handleAddressSearch('pickup')}
-                        className="flex-1 px-3 py-2.5 bg-pink-600 text-white rounded-xl hover:bg-pink-700 font-medium flex items-center justify-center gap-1.5 text-sm">
-                        <Search className="w-4 h-4" /> 주소 검색
-                      </button>
-                    </div>
-                    {deliverySettings.pickupAddress?.roadAddress && (
-                      <div className="space-y-2">
-                        <input type="text" value={deliverySettings.pickupAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
-                        <input type="text" value={deliverySettings.pickupAddress.addressDetail || ''}
-                          onChange={e => setDeliverySettings(prev => ({
-                            ...prev,
-                            pickupAddress: prev.pickupAddress ? { ...prev.pickupAddress, addressDetail: e.target.value } : undefined,
-                            pickupLocation: prev.pickupAddress ? `${prev.pickupAddress.roadAddress} ${e.target.value}`.trim() : ''
-                          }))}
-                          placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-pink-500" maxLength={100} />
+                    {/* Pickup Address */}
+                    <div className="space-y-3 border-t border-gray-200 pt-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배부 장소</p>
+                      <p className="text-xs text-gray-500">참여자들이 물품을 수령할 장소예요.</p>
+                      <div className="flex gap-2">
+                        <input type="text" value={deliverySettings.pickupAddress?.postalCode || ''} readOnly
+                          className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
+                        <button type="button" onClick={() => handleAddressSearch('pickup')}
+                          className="flex-1 px-3 py-2.5 bg-pink-600 text-white rounded-xl hover:bg-pink-700 font-medium flex items-center justify-center gap-1.5 text-sm">
+                          <Search className="w-4 h-4" /> 주소 검색
+                        </button>
                       </div>
-                    )}
+                      {deliverySettings.pickupAddress?.roadAddress && (
+                        <div className="space-y-2">
+                          <input type="text" value={deliverySettings.pickupAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
+                          <input type="text" value={deliverySettings.pickupAddress.addressDetail || ''}
+                            onChange={e => setDeliverySettings(prev => ({
+                              ...prev,
+                              pickupAddress: prev.pickupAddress ? { ...prev.pickupAddress, addressDetail: e.target.value } : undefined,
+                              pickupLocation: prev.pickupAddress ? `${prev.pickupAddress.roadAddress} ${e.target.value}`.trim() : ''
+                            }))}
+                            placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-pink-500" maxLength={100} />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Delivery Option */}
-              {currentStep === 'delivery-option' && (
+              {/* Delivery Option & Participant Info */}
+              {currentStep === 'delivery-participants' && (
                 <div className="max-w-lg mx-auto py-8 px-4">
                   <div className="mb-6">
                     <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center mb-3">
                       <Gift className="w-5 h-5 text-teal-600" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">개별 배송 허용?</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">배송 및 참여자 정보</h2>
                   </div>
-                  <div className="space-y-3">
-                    {[
-                      { enabled: false, icon: <MapPin className="w-4 h-4" />, label: '직접 수령만', desc: '모든 참여자가 지정된 장소에서 수령해요.' },
-                      { enabled: true, icon: <Truck className="w-4 h-4" />, label: '개별 배송 허용', desc: '참여자가 배송비를 내고 배송받을 수 있어요.' },
-                    ].map(opt => (
-                      <button key={String(opt.enabled)} onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: opt.enabled }))}
-                        className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${deliverySettings.enabled === opt.enabled ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <div className="flex items-start gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${deliverySettings.enabled === opt.enabled ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'}`}>
-                            {opt.icon}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900 text-sm">{opt.label}</span>
-                              {deliverySettings.enabled === opt.enabled && <Check className="w-4 h-4 text-[#3B55A5]" />}
+                  <div className="space-y-6">
+                    {/* Delivery Option */}
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 옵션</p>
+                      {[
+                        { enabled: false, icon: <MapPin className="w-4 h-4" />, label: '직접 수령만', desc: '모든 참여자가 지정된 장소에서 수령해요.' },
+                        { enabled: true, icon: <Truck className="w-4 h-4" />, label: '개별 배송 허용', desc: '참여자가 배송비를 내고 배송받을 수 있어요.' },
+                      ].map(opt => (
+                        <button key={String(opt.enabled)} onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: opt.enabled }))}
+                          className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${deliverySettings.enabled === opt.enabled ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10' : 'border-gray-200 hover:border-gray-300'}`}>
+                          <div className="flex items-start gap-3">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${deliverySettings.enabled === opt.enabled ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                              {opt.icon}
                             </div>
-                            <p className="text-xs text-gray-600 mt-1">{opt.desc}</p>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-900 text-sm">{opt.label}</span>
+                                {deliverySettings.enabled === opt.enabled && <Check className="w-4 h-4 text-[#3B55A5]" />}
+                              </div>
+                              <p className="text-xs text-gray-600 mt-0.5">{opt.desc}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                      {deliverySettings.enabled && (
+                        <div className="p-3 bg-teal-50 rounded-xl border border-teal-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-teal-800">배송비</span>
+                            <span className="text-sm font-semibold text-teal-700">₩4,000</span>
                           </div>
                         </div>
-                      </button>
-                    ))}
-                    {deliverySettings.enabled && (
-                      <div className="p-3 bg-teal-50 rounded-xl border border-teal-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-teal-800">배송비</span>
-                          <span className="text-sm font-semibold text-teal-700">₩4,000</span>
+                      )}
+                    </div>
+
+                    {/* Custom Fields */}
+                    <div className="space-y-3 border-t border-gray-200 pt-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">참여자 정보 수집</p>
+                      <div className="bg-violet-50 rounded-xl p-3 border border-violet-200">
+                        <p className="text-xs font-medium text-violet-800 mb-2">빠른 추가</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {['이니셜', '학번', '연락처'].map(label => (
+                            <button key={label} onClick={() => {
+                              if (customFields.length >= 10) return;
+                              setCustomFields([...customFields, { id: `field-${Date.now()}`, type: 'text', label, required: false }]);
+                            }} className="px-3 py-1.5 bg-white border border-violet-200 rounded-lg text-xs font-medium hover:bg-violet-100 text-violet-700">
+                              + {label}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Fields */}
-              {currentStep === 'custom-fields' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center mb-3">
-                      <Users className="w-5 h-5 text-violet-600" />
+                      <CustomFieldBuilder fields={customFields} onChange={setCustomFields} maxFields={10} />
+                      <p className="text-xs text-gray-500">* 사이즈 선택은 자동으로 추가되어 있어요</p>
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">참여자 정보 수집</h2>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="bg-violet-50 rounded-xl p-3 border border-violet-200">
-                      <p className="text-xs font-medium text-violet-800 mb-2">빠른 추가</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {['이니셜', '학번', '연락처'].map(label => (
-                          <button key={label} onClick={() => {
-                            if (customFields.length >= 10) return;
-                            setCustomFields([...customFields, { id: `field-${Date.now()}`, type: 'text', label, required: false }]);
-                          }} className="px-3 py-1.5 bg-white border border-violet-200 rounded-lg text-xs font-medium hover:bg-violet-100 text-violet-700">
-                            + {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <CustomFieldBuilder fields={customFields} onChange={setCustomFields} maxFields={10} />
-                    <p className="text-xs text-gray-500">* 사이즈 선택은 자동으로 추가되어 있어요</p>
                   </div>
                 </div>
               )}
@@ -1186,9 +1086,6 @@ export default function CreateCoBuyRequestPage() {
                       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">기본 정보</p>
                       <p className="font-semibold text-gray-900 text-sm">{title}</p>
                       {description && <p className="text-xs text-gray-600 mt-1">{description}</p>}
-                      <div className="flex items-center gap-1.5 mt-2">
-                        {isPublic ? <><Globe className="w-3.5 h-3.5 text-[#3B55A5]" /><span className="text-xs text-[#3B55A5]">공개</span></> : <><Lock className="w-3.5 h-3.5 text-gray-500" /><span className="text-xs text-gray-600">비공개</span></>}
-                      </div>
                     </div>
                     <div className="pb-3 border-b border-gray-200">
                       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">일정</p>
@@ -1253,11 +1150,6 @@ export default function CreateCoBuyRequestPage() {
           {currentStep !== ('success' as Step) && currentStep !== 'freeform-design' && (
             <footer className="shrink-0 border-t border-gray-200 bg-white p-3 safe-area-inset-bottom">
               <div className="max-w-lg mx-auto space-y-2">
-                {(currentStep === 'description' || currentStep === 'quantity') && (
-                  <button onClick={handleNext} className="w-full py-2.5 border-2 border-gray-200 rounded-xl font-medium hover:bg-gray-50 text-sm text-gray-500">
-                    건너뛰기
-                  </button>
-                )}
                 <div className="flex gap-2">
                   {getPrevStep(currentStep) !== null && (
                     <button onClick={handleBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">

@@ -21,7 +21,7 @@ export async function GET(
         id, partner_mall_id, product_id,
         display_name, color_hex, color_name, color_code,
         logo_placements, canvas_state, preview_url, price,
-        products (
+        product:products (
           id, title, base_price, configuration,
           size_options, discount_rates,
           thumbnail_image_link
