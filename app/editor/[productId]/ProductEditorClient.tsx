@@ -374,15 +374,59 @@ export default function ProductEditorClient({ product }: ProductEditorClientProp
     loadCartItemDesign();
   }, [cartItemId, cartStoreItems, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
 
+  // Load partner mall product design when navigating from partner mall
+  const fromPartnerMall = searchParams.get('fromPartnerMall');
   useEffect(() => {
-    if (cartItemId) return;
+    if (!fromPartnerMall) return;
+
+    const loadPartnerMallDesign = async () => {
+      const raw = sessionStorage.getItem('partnerMallProduct');
+      if (!raw) return;
+
+      try {
+        const pmData = JSON.parse(raw);
+        sessionStorage.removeItem('partnerMallProduct');
+
+        // Wait for canvases to be ready
+        const checkCanvasesReady = () =>
+          product.configuration.every(side => canvasMap[side.id]);
+
+        let attempts = 0;
+        while (!checkCanvasesReady() && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+        if (!checkCanvasesReady()) return;
+
+        // Set product color
+        if (pmData.color) {
+          setProductColor(pmData.color);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Restore canvas state if available
+        const canvasState = pmData.canvasState as Record<string, string> | undefined;
+        if (canvasState && Object.keys(canvasState).length > 0) {
+          await restoreAllCanvasState(canvasState);
+          incrementCanvasVersion();
+        }
+      } catch (err) {
+        console.error('Failed to load partner mall design:', err);
+      }
+    };
+
+    loadPartnerMallDesign();
+  }, [fromPartnerMall, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
+
+  useEffect(() => {
+    if (cartItemId || fromPartnerMall) return;
 
     const saved = getGuestDesign(product.id);
     if (!saved) return;
 
     setGuestDesign(saved);
     setIsRecallGuestDesignOpen(true);
-  }, [cartItemId, product.id]);
+  }, [cartItemId, fromPartnerMall, product.id]);
 
   const formattedPrice = product.base_price.toLocaleString('ko-KR');
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { InquiryWithDetails } from '@/types/types';
+import { isToday } from '@/lib/utils';
 import { MessageSquare, ChevronRight, ChevronLeft, Lock, Paperclip } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
@@ -166,6 +167,9 @@ export default function InquiryBoardSection() {
                     <div className="flex-1 min-w-0 flex items-center gap-1">
                       <span className="text-sm truncate">{inquiry.title}</span>
                       <Lock className="w-3 h-3 text-gray-400 shrink-0" />
+                      {isToday(inquiry.created_at) && (
+                        <span className="text-xs text-red-500 font-bold shrink-0">NEW</span>
+                      )}
                       {inquiry.file_urls && inquiry.file_urls.length > 0 && (
                         <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
                       )}

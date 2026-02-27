@@ -15,13 +15,15 @@ interface SingleSideCanvasProps {
   width?: number; // these are optional because there will be a default value
   height?: number; // ''
   isEdit?: boolean; // whether canvas is in edit mode
+  freeform?: boolean; // skip clipping, guide box, print area — for freeform design sketches
 }
 
 const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   side,
   width = 500,
   height = 500,
-  isEdit = false
+  isEdit = false,
+  freeform = false
 }) => {
   const canvasEl = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
@@ -212,21 +214,22 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     const handleMouseDown = (opt: CanvasPointerEvent) => {
       const evt = opt.e;
-      if (evt instanceof TouchEvent) return;
-      if (evt.button !== 0) return;
+      if (typeof TouchEvent !== 'undefined' && evt instanceof TouchEvent) return;
+      if ((evt as MouseEvent).button !== 0) return;
       if (!isSpacePressedRef.current) return;
       if (canvas.getZoom() <= 1) return;
 
       evt.preventDefault();
-      startPan(evt.clientX, evt.clientY);
+      (evt as MouseEvent).preventDefault();
+      startPan((evt as MouseEvent).clientX, (evt as MouseEvent).clientY);
     };
 
     const handleMouseMove = (opt: CanvasPointerEvent) => {
       if (!isMousePanningRef.current) return;
       const evt = opt.e;
-      if (evt instanceof TouchEvent) return;
-      evt.preventDefault();
-      continuePan(evt.clientX, evt.clientY);
+      if (typeof TouchEvent !== 'undefined' && evt instanceof TouchEvent) return;
+      (evt as MouseEvent).preventDefault();
+      continuePan((evt as MouseEvent).clientX, (evt as MouseEvent).clientY);
     };
 
     const handleMouseUp = () => {
@@ -426,10 +429,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       absolutePositioned: true, // fixes the mask to the canvas ignoring zoom/pan
     })
 
-    // Apply the clipping to the entire canvas
-    canvas.clipPath = clipPath;
+    // Apply the clipping to the entire canvas (skip in freeform mode)
+    if (!freeform) {
+      canvas.clipPath = clipPath;
+    }
 
-    // Create the visual guide box (dashed border)
+    // Create the visual guide box (dashed border) — skip in freeform mode
     const guideBox = new fabric.Rect({
       left: tempCenteredLeft,
       top: tempCenteredTop,
@@ -446,7 +451,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       data: {id: 'visual-guide-box'}
     });
 
-    canvas.add(guideBox);
+    if (!freeform) {
+      canvas.add(guideBox);
+    }
 
     if (hasLayers) {
       // Multi-layer mode: Initialize layer colors and load all layers
@@ -895,7 +902,9 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // @ts-expect-error - Custom property
         canvas.realWorldProductWidth = side.realLifeDimensions?.productWidthMm || 500;
 
-        canvas.add(guideBox);
+        if (!freeform) {
+          canvas.add(guideBox);
+        }
 
         // Force a render to ensure all objects are processed by Fabric.js
         canvas.requestRenderAll();
@@ -1040,8 +1049,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           updateObjectDimensionsData(obj, scaledImageWidth, realWorldProductWidth);
         }
 
-        // Only apply clipping in single-image mode (not multi-layer mode)
-        if (!hasLayers) {
+        // Only apply clipping in single-image mode (not multi-layer mode, not freeform mode)
+        if (!hasLayers && !freeform) {
           // Apply the specific clip area to this object (using values relative to product image)
           // @ts-expect-error - Custom property
           const printLeft = canvas.printAreaLeft || tempCenteredLeft;
@@ -1174,7 +1183,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       canvas.dispose();
       canvasRef.current = null;
     };
-  }, [side, height, width, registerCanvas, unregisterCanvas, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor]);
+  }, [side, height, width, freeform, registerCanvas, unregisterCanvas, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor]);
 
   // Separate effect to update selection state when isEdit changes
   useEffect(() => {

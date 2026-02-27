@@ -16,9 +16,10 @@ const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSid
 interface ProductDesignerProps {
   config: ProductConfig;
   layout?: 'mobile' | 'desktop';
+  freeform?: boolean; // Skip clipping, guide box, print area — for freeform design sketches
 }
 
-const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mobile' }) => {
+const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mobile', freeform = false }) => {
   const { isEditMode, setEditMode, setActiveSide, activeSideId, canvasMap, zoomIn, zoomOut, getZoomLevel } = useCanvasStore();
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -184,6 +185,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
                     width={400}
                     height={500}
                     isEdit={isEditMode}
+                    freeform={freeform}
                   />
                 </div>
               ))}

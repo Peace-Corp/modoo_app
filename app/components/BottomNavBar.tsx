@@ -18,7 +18,7 @@ export default function BottomNavBar() {
   const pathname = usePathname();
 
   // Hide bottom nav on full-screen pages
-  if (pathname?.startsWith('/home/cobuy/create')) {
+  if (pathname?.startsWith('/home/cobuy/create') || pathname?.startsWith('/home/cobuy/request/create')) {
     return null;
   }
 

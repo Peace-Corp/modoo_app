@@ -86,6 +86,7 @@ export interface Product {
   discount_rates?: DiscountTier[]; // Quantity-based discount tiers
   category: string | null;
   is_active: boolean;
+  is_featured: boolean;
   created_at: string;
   updated_at: string;
   thumbnail_image_link?: string;
@@ -424,6 +425,7 @@ export interface CoBuySession {
   custom_fields: CoBuyCustomField[];
   delivery_settings: CoBuyDeliverySettings | null; // Delivery configuration
   is_public: boolean; // Whether the session is publicly discoverable
+  cobuy_image_urls: string[] | null; // When set, indicates image-only CoBuy (no canvas design)
   bulk_order_id: string | null;
   created_at: string;
   updated_at: string;
@@ -465,6 +467,73 @@ export interface CoBuyNotification {
 export interface CoBuySessionWithDetails extends CoBuySession {
   saved_design_screenshot?: SavedDesignScreenshot;
   participants?: CoBuyParticipant[];
+}
+
+// ============================================================================
+// CoBuy Request Types (Request-based CoBuy flow)
+// ============================================================================
+
+export type CoBuyRequestStatus =
+  | 'pending'           // User submitted, waiting for admin
+  | 'in_progress'       // Admin is working on the design
+  | 'design_shared'     // Admin shared the design link to user
+  | 'feedback'          // User left feedback
+  | 'confirmed'         // Price and design confirmed
+  | 'session_created'   // CoBuy session has been created
+  | 'rejected';         // Admin rejected the request
+
+export interface CoBuyRequestSchedulePreferences {
+  preferredStartDate?: string;
+  preferredEndDate?: string;
+  receiveByDate?: string;
+}
+
+export interface CoBuyRequestQuantityExpectations {
+  estimatedQuantity?: number;
+  minQuantity?: number;
+  maxQuantity?: number;
+}
+
+export interface CoBuyRequest {
+  id: string;
+  user_id: string | null;
+  product_id: string;
+  title: string;
+  description: string | null;
+  freeform_canvas_state: Record<string, unknown>;
+  freeform_color_selections: Record<string, unknown>;
+  freeform_preview_url: string | null;
+  status: CoBuyRequestStatus;
+  admin_design_id: string | null;
+  admin_design_preview_url: string | null;
+  confirmed_price: number | null;
+  cobuy_session_id: string | null;
+  share_token: string;
+  schedule_preferences: CoBuyRequestSchedulePreferences | null;
+  quantity_expectations: CoBuyRequestQuantityExpectations | null;
+  delivery_preferences: CoBuyDeliverySettings | null;
+  custom_fields: CoBuyCustomField[];
+  is_public: boolean;
+  promo_image_url: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoBuyRequestComment {
+  id: string;
+  request_id: string;
+  user_id: string;
+  content: string;
+  is_admin: boolean;
+  created_at: string;
+}
+
+export interface CoBuyRequestWithComments extends CoBuyRequest {
+  comments?: CoBuyRequestComment[];
+  product?: Product;
 }
 
 // ============================================================================
@@ -572,5 +641,6 @@ export interface PartnerMallProductPublic {
   logo_placements: Record<string, LogoPlacement>;
   canvas_state: Record<string, unknown>;
   preview_url: string | null;
+  price: number | null;
   product?: Product;
 }
