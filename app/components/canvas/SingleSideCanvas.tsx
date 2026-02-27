@@ -581,6 +581,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
               lockScalingY: true,
               hasControls: false,
               hasBorders: false,
+              // Add drop shadow only to the bottom-most layer to avoid stacked shadows
+              ...(layer === sortedLayers[0] && {
+                shadow: new fabric.Shadow({
+                  color: 'rgba(0,0,0,0.25)',
+                  blur: 15,
+                  offsetX: 0,
+                  offsetY: 4,
+                }),
+              }),
               data: {
                 id: 'background-product-image',
                 layerId: layer.id
@@ -805,6 +814,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           lockScalingY: true, // Prevent scaling
           hasControls: false, // Remove all controls
           hasBorders: false, // Remove borders
+          shadow: new fabric.Shadow({
+            color: 'rgba(0,0,0,0.25)',
+            blur: 15,
+            offsetX: 0,
+            offsetY: 4,
+          }),
           data: { id: 'background-product-image' }, // Custom data to identify this as the background
         });
 
