@@ -15,7 +15,6 @@ import {
   CoBuyRequestSchedulePreferences, CoBuyRequestQuantityExpectations,
 } from '@/types/types';
 import { createCoBuyRequest } from '@/lib/cobuyRequestService';
-import { CATEGORIES } from '@/lib/categories';
 import CustomFieldBuilder from '@/app/components/cobuy/CustomFieldBuilder';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -66,7 +65,7 @@ export default function CreateCoBuyRequestPage() {
   const { isAuthenticated, user } = useAuthStore();
   const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas, setProductColor } = useCanvasStore();
 
-  const [currentStep, setCurrentStep] = useState<Step>(isAuthenticated ? 'product-select' : 'guest-info');
+  const [currentStep, setCurrentStep] = useState<Step>(isAuthenticated ? 'freeform-design' : 'guest-info');
 
   const [isCreating, setIsCreating] = useState(false);
   const [createdShareToken, setCreatedShareToken] = useState<string | null>(null);
@@ -77,12 +76,9 @@ export default function CreateCoBuyRequestPage() {
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
 
-  // Product selection
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  // Product selection (fixed to a single product)
+  const FIXED_PRODUCT_ID = '0d8f53fa-bac2-4f0a-8eb4-870a70e072eb';
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Product colors (fetched from product_colors table)
   const [productColors, setProductColors] = useState<{ id: string; hex: string; name: string; colorCode: string }[]>([]);
@@ -122,9 +118,17 @@ export default function CreateCoBuyRequestPage() {
   // Check if selected product has any color options
   const hasColorOptions = productColors.length > 0;
 
+  // Redirect authenticated users to color-select when colors become available
+  useEffect(() => {
+    if (isAuthenticated && hasColorOptions && currentStep === 'freeform-design') {
+      setCurrentStep('color-select');
+    }
+  }, [isAuthenticated, hasColorOptions, currentStep]);
+
   const visibleSteps = useMemo(() => {
     let steps = STEPS;
     if (isAuthenticated) steps = steps.filter(s => s.id !== 'guest-info');
+    steps = steps.filter(s => s.id !== 'product-select');
     if (!hasColorOptions) steps = steps.filter(s => s.id !== 'color-select');
     return steps;
   }, [hasColorOptions, isAuthenticated]);
@@ -202,39 +206,25 @@ export default function CreateCoBuyRequestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, setEditMode, setActiveSide]);
 
-  // Filtered products based on search and category
-  const filteredProducts = useMemo(() => {
-    let result = products;
-    if (selectedCategory !== 'all') {
-      result = result.filter(p => p.category === selectedCategory);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter(p => p.title.toLowerCase().includes(q));
-    }
-    return result;
-  }, [products, searchQuery, selectedCategory]);
-
-  // Fetch products
+  // Fetch the fixed product
   useEffect(() => {
-    async function fetchProducts() {
+    async function fetchProduct() {
       try {
         const supabase = createClient();
         const { data, error } = await supabase
           .from('products')
           .select('id, title, base_price, configuration, size_options, category, is_active, is_featured, thumbnail_image_link, created_at, updated_at')
-          .eq('is_active', true)
-          .order('title');
+          .eq('id', FIXED_PRODUCT_ID)
+          .single();
 
         if (error) throw error;
-        setProducts(data || []);
+        setSelectedProduct(data);
+        setTitle(`${data.title} 공동구매`);
       } catch (err) {
-        console.error('Error fetching products:', err);
-      } finally {
-        setIsLoadingProducts(false);
+        console.error('Error fetching product:', err);
       }
     }
-    fetchProducts();
+    fetchProduct();
   }, []);
 
   useEffect(() => {
@@ -301,6 +291,7 @@ export default function CreateCoBuyRequestPage() {
 
   const shouldSkipStep = (step: Step): boolean => {
     if (step === 'guest-info' && isAuthenticated) return true;
+    if (step === 'product-select') return true;
     if (step === 'color-select' && !hasColorOptions) return true;
     return false;
   };
@@ -327,10 +318,6 @@ export default function CreateCoBuyRequestPage() {
       if (!guestEmail.trim()) { alert('이메일을 입력해주세요.'); return; }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(guestEmail.trim())) { alert('올바른 이메일 형식을 입력해주세요.'); return; }
-    }
-    if (currentStep === 'product-select' && !selectedProduct) {
-      alert('제품을 선택해주세요.');
-      return;
     }
     if (currentStep === 'title' && !title.trim()) {
       alert('제목을 입력해주세요.');
@@ -709,86 +696,6 @@ export default function CreateCoBuyRequestPage() {
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Product Selection */}
-              {currentStep === 'product-select' && (
-                <div className="max-w-lg mx-auto py-6 px-4 md:py-10 md:px-6">
-                  <div className="mb-4">
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">제품을 선택해주세요</h2>
-                    <p className="text-sm text-gray-500">공동구매할 제품을 골라주세요.</p>
-                  </div>
-
-                  {/* Search */}
-                  <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="제품명 검색"
-                      className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-2 focus:ring-[#3B55A5]/10"
-                    />
-                  </div>
-
-                  {/* Category filters */}
-                  <div className="flex gap-1.5 overflow-x-auto pb-3 mb-3 -mx-1 px-1">
-                    {CATEGORIES.map(cat => (
-                      <button
-                        key={cat.key}
-                        onClick={() => setSelectedCategory(cat.key)}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                          selectedCategory === cat.key
-                            ? 'bg-[#3B55A5] text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {cat.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  {isLoadingProducts ? (
-                    <div className="flex justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3B55A5]" />
-                    </div>
-                  ) : filteredProducts.length === 0 ? (
-                    <div className="text-center py-12 text-sm text-gray-400">
-                      {searchQuery || selectedCategory !== 'all' ? '검색 결과가 없습니다.' : '상품이 없습니다.'}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      {filteredProducts.map(product => (
-                        <button
-                          key={product.id}
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setTitle(`${product.title} 공동구매`);
-                          }}
-                          className={`p-3 rounded-xl border-2 text-left transition-all ${
-                            selectedProduct?.id === product.id
-                              ? 'border-[#3B55A5] bg-[#3B55A5]/5 ring-2 ring-[#3B55A5]/20'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          {product.thumbnail_image_link && (
-                            <div className="w-full aspect-square rounded-lg bg-gray-50 overflow-hidden mb-2">
-                              <img src={product.thumbnail_image_link} alt="" className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                          <p className="text-xs text-gray-500">₩{product.base_price.toLocaleString()}</p>
-                          {selectedProduct?.id === product.id && (
-                            <div className="mt-2 flex items-center gap-1 text-[#3B55A5]">
-                              <Check className="w-4 h-4" />
-                              <span className="text-xs font-medium">선택됨</span>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1314,7 +1221,7 @@ export default function CreateCoBuyRequestPage() {
                   </button>
                 )}
                 <div className="flex gap-2">
-                  {currentStep !== 'product-select' && currentStep !== 'guest-info' && (
+                  {getPrevStep(currentStep) !== null && (
                     <button onClick={handleBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">
                       <ArrowLeft className="w-4 h-4" /> 이전
                     </button>
