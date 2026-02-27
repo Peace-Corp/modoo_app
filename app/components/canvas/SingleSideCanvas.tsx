@@ -16,6 +16,9 @@ interface SingleSideCanvasProps {
   height?: number; // ''
   isEdit?: boolean; // whether canvas is in edit mode
   freeform?: boolean; // skip clipping, guide box, print area — for freeform design sketches
+  onCanvasReady?: (canvas: fabric.Canvas, sideId: string, canvasScale: number) => void;
+  productColor?: string; // override color for standalone use (e.g. logo placement)
+  showScaleBox?: boolean;
 }
 
 const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
@@ -23,7 +26,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   width = 500,
   height = 500,
   isEdit = false,
-  freeform = false
+  freeform = false,
+  onCanvasReady,
+  productColor: productColorProp,
+  showScaleBox = true,
 }) => {
   const canvasEl = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
@@ -32,7 +38,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
   const layerImagesRef = useRef<Map<string, fabric.FabricImage>>(new Map());
   const loadSessionRef = useRef(0);
 
-  const { registerCanvas, unregisterCanvas, productColor, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor, layerColors, resetZoom, zoomLevels } = useCanvasStore();
+  const { registerCanvas, unregisterCanvas, productColor: productColorFromStore, markImageLoaded, incrementCanvasVersion, initializeLayerColors, initializeSideColor, layerColors, resetZoom, zoomLevels } = useCanvasStore();
+  const productColor = productColorProp ?? productColorFromStore;
   const zoomLevel = zoomLevels[side.id] || 1.0;
 
   // Pan/drag state (for viewport movement while zoomed)
@@ -581,6 +588,15 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
               lockScalingY: true,
               hasControls: false,
               hasBorders: false,
+              // Add drop shadow only to the bottom-most layer to avoid stacked shadows
+              ...(layer === sortedLayers[0] && {
+                shadow: new fabric.Shadow({
+                  color: 'rgba(0,0,0,0.25)',
+                  blur: 15,
+                  offsetX: 0,
+                  offsetY: 4,
+                }),
+              }),
               data: {
                 id: 'background-product-image',
                 layerId: layer.id
@@ -715,6 +731,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           // Set layersReady to trigger the color application effect
           setLayersReady(true);
           setIsLoading(false);
+
+          if (onCanvasReady) {
+            onCanvasReady(canvas, side.id, scale);
+          }
         });
       }).catch(() => {
         if (!isSessionActive()) return;
@@ -805,6 +825,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
           lockScalingY: true, // Prevent scaling
           hasControls: false, // Remove all controls
           hasBorders: false, // Remove borders
+          shadow: new fabric.Shadow({
+            color: 'rgba(0,0,0,0.25)',
+            blur: 15,
+            offsetX: 0,
+            offsetY: 4,
+          }),
           data: { id: 'background-product-image' }, // Custom data to identify this as the background
         });
 
@@ -824,7 +850,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // Apply initial color filter using color from configuration or fallback to productColor
         const currentColor = side.colorOptions && side.colorOptions.length > 0
           ? useCanvasStore.getState().layerColors[side.id]?.[side.id] || side.colorOptions[0]?.hex || '#FFFFFF'
-          : useCanvasStore.getState().productColor;
+          : (productColorProp ?? useCanvasStore.getState().productColor);
         img.filters = [];
         const initialColorFilter = new fabric.filters.BlendColor({
           color: currentColor,
@@ -919,6 +945,10 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
           // Single image loaded and rendered - mark as ready
           setIsLoading(false);
+
+          if (onCanvasReady) {
+            onCanvasReady(canvas, side.id, scale);
+          }
         });
       })
       .catch(() => {
@@ -1326,14 +1356,16 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         ref={canvasEl}
         style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.3s', touchAction: 'none' }}
       />
-      <ScaleBox
-        x={scaleBoxDimensions.x}
-        y={scaleBoxDimensions.y}
-        width={scaleBoxDimensions.width}
-        height={scaleBoxDimensions.height}
-        position={scaleBoxPosition}
-        visible={scaleBoxVisible}
-      />
+      {showScaleBox && (
+        <ScaleBox
+          x={scaleBoxDimensions.x}
+          y={scaleBoxDimensions.y}
+          width={scaleBoxDimensions.width}
+          height={scaleBoxDimensions.height}
+          position={scaleBoxPosition}
+          visible={scaleBoxVisible}
+        />
+      )}
     </div>
   )
 }
