@@ -16,6 +16,7 @@ import { addToCartDB } from '@/lib/cartService';
 import { createClient } from '@/lib/supabase-client';
 import { calculateLogoAdditionalPrice } from '@/lib/partnerMallPricing';
 import Header from '@/app/components/Header';
+import AddProductModal from './AddProductModal';
 
 const formatPrice = (price: number) => `${price.toLocaleString('ko-KR')}원`;
 
@@ -39,6 +40,9 @@ export default function PartnerMallPage() {
   const [addedToCart, setAddedToCart] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
 
+  // Add product modal state
+  const [showAddProduct, setShowAddProduct] = useState(false);
+
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
@@ -50,26 +54,25 @@ export default function PartnerMallPage() {
     });
   }, []);
 
+  const fetchMall = async () => {
+    if (!shareToken) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/partner-mall/${shareToken}`);
+      if (!res.ok) {
+        throw new Error('찾을 수 없는 페이지입니다.');
+      }
+      const result = await res.json();
+      setMall(result.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch partner mall data
   useEffect(() => {
-    if (!shareToken) return;
-
-    const fetchMall = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch(`/api/partner-mall/${shareToken}`);
-        if (!res.ok) {
-          throw new Error('찾을 수 없는 페이지입니다.');
-        }
-        const result = await res.json();
-        setMall(result.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchMall();
   }, [shareToken]);
 
@@ -225,60 +228,60 @@ export default function PartnerMallPage() {
 
       {/* Products grid */}
       <div className="max-w-3xl mx-auto px-4 py-4 sm:py-6">
-        {products.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-            {products.map((mp) => (
-              <button
-                key={mp.id}
-                onClick={() => openProductSheet(mp)}
-                className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left"
-              >
-                <div className="aspect-square bg-gray-100 relative">
-                  {mp.preview_url ? (
-                    <img
-                      src={mp.preview_url}
-                      alt={mp.display_name || mp.product?.title || ''}
-                      className="w-full h-full object-contain p-2"
-                    />
-                  ) : mp.product?.thumbnail_image_link ? (
-                    <img
-                      src={mp.product.thumbnail_image_link}
-                      alt={mp.display_name || mp.product?.title || ''}
-                      className="w-full h-full object-contain p-2"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-10 h-10 text-gray-300" />
-                    </div>
-                  )}
-                  {mp.color_hex && (
-                    <span
-                      className="absolute bottom-2 right-2 w-5 h-5 rounded-full border-2 border-white shadow-sm"
-                      style={{ backgroundColor: mp.color_hex }}
-                    />
-                  )}
-                </div>
-                <div className="p-3">
-                  <p className="text-sm font-medium text-gray-800 line-clamp-2">
-                    {mp.display_name || mp.product?.title || '제품'}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          {products.map((mp) => (
+            <button
+              key={mp.id}
+              onClick={() => openProductSheet(mp)}
+              className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left"
+            >
+              <div className="aspect-square bg-gray-100 relative">
+                {mp.preview_url ? (
+                  <img
+                    src={mp.preview_url}
+                    alt={mp.display_name || mp.product?.title || ''}
+                    className="w-full h-full object-contain p-2"
+                  />
+                ) : mp.product?.thumbnail_image_link ? (
+                  <img
+                    src={mp.product.thumbnail_image_link}
+                    alt={mp.display_name || mp.product?.title || ''}
+                    className="w-full h-full object-contain p-2"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package className="w-10 h-10 text-gray-300" />
+                  </div>
+                )}
+                {mp.color_hex && (
+                  <span
+                    className="absolute bottom-2 right-2 w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                    style={{ backgroundColor: mp.color_hex }}
+                  />
+                )}
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                  {mp.display_name || mp.product?.title || '제품'}
+                </p>
+                {mp.product && (
+                  <p className="text-sm font-semibold text-gray-900 mt-1">
+                    {formatPrice(getProductPrice(mp))}
                   </p>
-                  {mp.product && (
-                    <p className="text-sm font-semibold text-gray-900 mt-1">
-                      {formatPrice(getProductPrice(mp))}
-                    </p>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">등록된 제품이 없습니다.</p>
-            </div>
-          </div>
-        )}
+                )}
+              </div>
+            </button>
+          ))}
+
+          {/* Add product card */}
+          <button
+            onClick={() => setShowAddProduct(true)}
+            className="rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2 aspect-3/4"
+          >
+            <Plus className="w-8 h-8 text-gray-400" />
+            <span className="text-xs text-gray-400">제품 추가</span>
+          </button>
+        </div>
       </div>
 
       {/* Product detail bottom sheet */}
@@ -466,6 +469,20 @@ export default function PartnerMallPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add product modal */}
+      {showAddProduct && mall && (
+        <AddProductModal
+          shareToken={shareToken}
+          mallName={mall.name}
+          logoUrl={mall.logo_url}
+          onClose={() => setShowAddProduct(false)}
+          onProductAdded={() => {
+            setShowAddProduct(false);
+            fetchMall();
+          }}
+        />
       )}
     </div>
   );

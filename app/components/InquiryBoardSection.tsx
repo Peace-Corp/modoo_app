@@ -209,21 +209,38 @@ export default function InquiryBoardSection() {
                   </button>
 
                   <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`
-                          px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg text-xs lg:text-sm transition
-                          ${currentPage === page
-                            ? 'bg-black text-white'
-                            : 'border border-gray-300 hover:bg-gray-50'
-                          }
-                        `}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                    {(() => {
+                      const maxVisible = 5;
+                      let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                      let end = start + maxVisible - 1;
+                      if (end > totalPages) {
+                        end = totalPages;
+                        start = Math.max(1, end - maxVisible + 1);
+                      }
+                      const pages: (number | string)[] = [];
+                      if (start > 1) { pages.push(1); if (start > 2) pages.push('...'); }
+                      for (let i = start; i <= end; i++) pages.push(i);
+                      if (end < totalPages) { if (end < totalPages - 1) pages.push('...'); pages.push(totalPages); }
+                      return pages.map((page, idx) =>
+                        typeof page === 'string' ? (
+                          <span key={`ellipsis-${idx}`} className="px-1 text-xs text-gray-400">...</span>
+                        ) : (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`
+                              px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg text-xs lg:text-sm transition
+                              ${currentPage === page
+                                ? 'bg-black text-white'
+                                : 'border border-gray-300 hover:bg-gray-50'
+                              }
+                            `}
+                          >
+                            {page}
+                          </button>
+                        )
+                      );
+                    })()}
                   </div>
 
                   <button
