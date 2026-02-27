@@ -222,7 +222,7 @@ export default function CreateCoBuyRequestPage() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from('products')
-          .select('id, title, base_price, configuration, size_options, category, is_active, thumbnail_image_link, created_at, updated_at')
+          .select('id, title, base_price, configuration, size_options, category, is_active, is_featured, thumbnail_image_link, created_at, updated_at')
           .eq('is_active', true)
           .order('title');
 
