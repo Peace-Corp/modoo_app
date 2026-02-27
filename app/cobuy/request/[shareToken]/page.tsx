@@ -1,19 +1,26 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   MessageSquare, Send, CheckCircle, Clock, Pencil, Eye,
   ThumbsUp, XCircle, Package, ArrowLeft,
 } from 'lucide-react';
-import { CoBuyRequest, CoBuyRequestComment, CoBuyRequestStatus } from '@/types/types';
+import { CoBuyRequest, CoBuyRequestComment, CoBuyRequestStatus, ProductConfig } from '@/types/types';
 import Header from '@/app/components/Header';
+import DesignEditorViewer from '@/app/components/cobuy/DesignEditorViewer';
 
 type RequestWithProduct = CoBuyRequest & {
   product?: {
     id: string;
     title: string;
     thumbnail_image_link: string | null;
+    configuration?: any;
+  } | null;
+  admin_design?: {
+    id: string;
+    canvas_state: Record<string, string>;
+    color_selections: Record<string, any> | null;
   } | null;
 };
 
@@ -130,6 +137,16 @@ export default function CoBuyRequestFeedbackPage() {
     setIsSending(false);
   };
 
+  const productConfig: ProductConfig | null = useMemo(() => {
+    if (!request?.product?.configuration || !request.product.id) return null;
+    return { productId: request.product.id, sides: request.product.configuration };
+  }, [request?.product]);
+
+  const designProductColor = useMemo(() => {
+    const colorSelections = request?.admin_design?.color_selections as { productColor?: string } | null;
+    return colorSelections?.productColor || '#FFFFFF';
+  }, [request?.admin_design]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -158,6 +175,7 @@ export default function CoBuyRequestFeedbackPage() {
   const StatusIcon = currentStatus.icon;
   const currentStepIndex = statusOrder.indexOf(request.status);
   const isRejected = request.status === 'rejected';
+  const hasCanvasDesign = !!(request.admin_design?.canvas_state && productConfig);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -218,18 +236,30 @@ export default function CoBuyRequestFeedbackPage() {
         )}
 
         {/* Admin Design Preview */}
-        {request.admin_design_preview_url && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">관리자 디자인</p>
-            <div className="rounded-lg bg-gray-50 border border-gray-100 overflow-hidden">
-              <img
-                src={request.admin_design_preview_url}
-                alt="관리자 디자인"
-                className="w-full h-auto object-contain max-h-64"
-              />
-            </div>
+        {(hasCanvasDesign || request.admin_design_preview_url) && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
+            <p className="text-xs font-medium text-gray-500 px-4 pt-4 mb-2">관리자 디자인</p>
+            {hasCanvasDesign ? (
+              <div className="px-2 pb-2">
+                <DesignEditorViewer
+                  config={productConfig!}
+                  canvasState={request.admin_design!.canvas_state}
+                  productColor={designProductColor}
+                />
+              </div>
+            ) : request.admin_design_preview_url ? (
+              <div className="px-4 pb-4">
+                <div className="rounded-lg bg-gray-50 border border-gray-100 overflow-hidden">
+                  <img
+                    src={request.admin_design_preview_url}
+                    alt="관리자 디자인"
+                    className="w-full h-auto object-contain max-h-64"
+                  />
+                </div>
+              </div>
+            ) : null}
             {request.status === 'design_shared' && (
-              <p className="text-xs text-purple-600 mt-2">
+              <p className="text-xs text-purple-600 px-4 pb-4 pt-2">
                 디자인을 확인하고 아래에 피드백을 남겨주세요.
               </p>
             )}

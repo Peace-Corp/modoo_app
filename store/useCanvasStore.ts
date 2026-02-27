@@ -340,7 +340,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         objectsToRemove.forEach(obj => canvas.remove(obj));
 
         // Then load the saved user objects and layer colors
-        const canvasData = JSON.parse(json);
+        const canvasData = typeof json === 'string' ? JSON.parse(json) : json;
 
         // Restore layer colors if present
         if (canvasData.layerColors) {

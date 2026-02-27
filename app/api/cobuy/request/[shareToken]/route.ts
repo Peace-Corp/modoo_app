@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase-admin';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +33,28 @@ export async function GET(
       .eq('id', request.product_id)
       .single();
 
-    return NextResponse.json({ ...request, product: product || null });
+    // Fetch admin design canvas_state if linked (use admin client to bypass RLS)
+    let adminDesign = null;
+    if (request.admin_design_id) {
+      const adminSupabase = createAdminClient();
+      const { data: design, error: designError } = await adminSupabase
+        .from('saved_designs')
+        .select('id, canvas_state, color_selections')
+        .eq('id', request.admin_design_id)
+        .single();
+      if (designError) {
+        console.error('[CoBuy API] Failed to fetch saved design:', designError);
+      }
+      adminDesign = design || null;
+      console.log('[CoBuy API] admin_design_id:', request.admin_design_id,
+        'found:', !!design,
+        'has canvas_state:', !!design?.canvas_state,
+        'sides:', design?.canvas_state ? Object.keys(design.canvas_state) : []);
+    } else {
+      console.log('[CoBuy API] No admin_design_id on request');
+    }
+
+    return NextResponse.json({ ...request, product: product || null, admin_design: adminDesign });
   } catch (error) {
     console.error('Error fetching CoBuy request:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
