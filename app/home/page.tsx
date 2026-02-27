@@ -137,13 +137,12 @@ export default async function HomePage() {
         <section className="w-full">
           <Link
             href="/home/cobuy/request/create"
-            className="block rounded-2xl bg-gradient-to-r from-[#3B55A5] to-[#2D4280] p-5 lg:p-6 text-white hover:from-[#2D4280] hover:to-[#243366] transition-all"
+            className="block rounded-2xl bg-gradient-to-r from-[#3B55A5] to-[#8da3e6] px-5 lg:px-6 py-3 text-white hover:from-[#2D4280] hover:to-[#243366] transition-all"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs lg:text-sm font-medium text-white/70 mb-1">공동구매 디자인 요청</p>
-                <h3 className="text-base lg:text-lg font-bold mb-1">원하는 디자인으로 공동구매를 시작해보세요</h3>
-                <p className="text-xs lg:text-sm text-white/80">제품 선택 → 디자인 스케치 → 요청 제출</p>
+                <h3 className="text-sm lg:text-md font-bold mb-1">원하는 디자인으로 공동구매를 시작해보세요</h3>
+                <p className="text-xs lg:text-xs text-white/80">제품 선택 → 디자인 스케치 → 요청 제출</p>
               </div>
               <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6 shrink-0 text-white/60" />
             </div>
