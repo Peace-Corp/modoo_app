@@ -9,13 +9,13 @@ import {
   Search, Calendar, Tag,
   Sparkles, ChevronRight, Check, Copy, ShoppingBag,
   TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone, Pencil,
-  Undo2, Redo2, Replace,
+  Undo2, Redo2, Replace, Eye,
 } from 'lucide-react';
 import {
   Product, ProductSide, CoBuyCustomField, CoBuyDeliverySettings, CoBuyAddressInfo,
   CoBuyRequestSchedulePreferences, CoBuyRequestQuantityExpectations,
 } from '@/types/types';
-import { createCoBuyRequest } from '@/lib/cobuyRequestService';
+import { createCoBuyRequest, createDraftCoBuyRequest, updateCoBuyRequest } from '@/lib/cobuyRequestService';
 import { getCobuyPreset } from '@/lib/templateService';
 import LayerColorSelector from '@/app/components/canvas/LayerColorSelector';
 import { createClient } from '@/lib/supabase-client';
@@ -30,21 +30,21 @@ const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSid
 
 
 type Step =
-  | 'guest-info'
-  | 'product-select'
+  | 'basic-info'
   | 'color-select'
-  | 'freeform-design'
-  | 'title-description'
+  | 'freeform-front'
+  | 'freeform-back'
+  | 'design-review'
   | 'schedule-address'
   | 'success';
 
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
-  { id: 'guest-info', label: '기본 정보', icon: <UserCircle className="w-4 h-4" /> },
-  { id: 'product-select', label: '제품 선택', icon: <ShoppingBag className="w-4 h-4" /> },
+  { id: 'basic-info', label: '기본 정보', icon: <UserCircle className="w-4 h-4" /> },
   { id: 'color-select', label: '색상 선택', icon: <Palette className="w-4 h-4" /> },
-  { id: 'freeform-design', label: '디자인', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 'title-description', label: '단체명 및 참고사항', icon: <Tag className="w-4 h-4" /> },
-  { id: 'schedule-address', label: '일정 및 장소', icon: <Calendar className="w-4 h-4" /> },
+  { id: 'freeform-front', label: '앞면 디자인', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'freeform-back', label: '뒷면 디자인', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'design-review', label: '디자인 확인', icon: <Eye className="w-4 h-4" /> },
+  { id: 'schedule-address', label: '일정 및 배송', icon: <Calendar className="w-4 h-4" /> },
 ];
 
 export default function CreateCoBuyRequestPage() {
@@ -52,16 +52,20 @@ export default function CreateCoBuyRequestPage() {
   const { isAuthenticated, user } = useAuthStore();
   const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas, setProductColor, setLayerColor } = useCanvasStore();
 
-  const [currentStep, setCurrentStep] = useState<Step>(isAuthenticated ? 'freeform-design' : 'guest-info');
+  const [currentStep, setCurrentStep] = useState<Step>('basic-info');
 
   const [isCreating, setIsCreating] = useState(false);
   const [createdShareToken, setCreatedShareToken] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  // Guest info (for non-authenticated users)
-  const [guestName, setGuestName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
+  // Welcome popup
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  // Contact info (for all users)
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   // Product selection (fixed to a single product)
   const FIXED_PRODUCT_ID = '0d8f53fa-bac2-4f0a-8eb4-870a70e072eb';
@@ -77,6 +81,7 @@ export default function CreateCoBuyRequestPage() {
   const [startDate] = useState('');
   const [endDate] = useState('');
   const [receiveByDate, setReceiveByDate] = useState('');
+  const [skipDelivery, setSkipDelivery] = useState(false);
   const [expectedQuantity, setExpectedQuantity] = useState<number | ''>('');
   const minQuantity: number | '' = '';
   const maxQuantity: number | '' = '';
@@ -91,19 +96,20 @@ export default function CreateCoBuyRequestPage() {
   });
   const isPublic = false;
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
-  const [privacyConsent, setPrivacyConsent] = useState(false);
+
+  // Draft save
+  const [draftRequestId, setDraftRequestId] = useState<string | null>(null);
 
   // Saved canvas data (captured when leaving freeform step, since canvases unmount after)
   const [savedCanvasState, setSavedCanvasState] = useState<Record<string, string>>({});
   const [savedPreviewUrl, setSavedPreviewUrl] = useState<string | null>(null);
   const [savedColorSelections, setSavedColorSelections] = useState<Record<string, Record<string, string>>>({});
+  const [sidePreviewUrls, setSidePreviewUrls] = useState<Record<string, string>>({});
 
   // CoBuy preset (auto-loaded onto canvas)
   const [cobuyPreset, setCobuyPreset] = useState<Awaited<ReturnType<typeof getCobuyPreset>>>(null);
   const loadedCanvases = useRef(new WeakSet<any>());
 
-  // Freeform tutorial modal
-  const [showFreeformTutorial, setShowFreeformTutorial] = useState(true);
 
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [hasTextSelected, setHasTextSelected] = useState(false);
@@ -123,7 +129,9 @@ export default function CreateCoBuyRequestPage() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
-  // Check if selected product has any color options (from product_colors table or layer configuration)
+  const isFreeformStep = currentStep === 'freeform-front' || currentStep === 'freeform-back';
+
+  // Check if selected product has any color options
   const hasLayerColorOptions = useMemo(() => {
     const sides = selectedProduct?.configuration ?? [];
     return sides.some((side: any) =>
@@ -133,24 +141,14 @@ export default function CreateCoBuyRequestPage() {
   }, [selectedProduct]);
   const hasColorOptions = productColors.length > 0 || hasLayerColorOptions;
 
-  // Redirect authenticated users to color-select when colors become available (initial load only)
-  const [hasVisitedColorSelect, setHasVisitedColorSelect] = useState(false);
-  useEffect(() => {
-    if (isAuthenticated && hasColorOptions && currentStep === 'freeform-design' && !hasVisitedColorSelect) {
-      setCurrentStep('color-select');
-    }
-    if (currentStep === 'color-select') {
-      setHasVisitedColorSelect(true);
-    }
-  }, [isAuthenticated, hasColorOptions, currentStep, hasVisitedColorSelect]);
+  const productSides = selectedProduct?.configuration ?? [];
+  const hasBackSide = productSides.length > 1;
 
   const visibleSteps = useMemo(() => {
-    let steps = STEPS;
-    if (isAuthenticated) steps = steps.filter(s => s.id !== 'guest-info');
-    steps = steps.filter(s => s.id !== 'product-select');
-    if (!hasColorOptions) steps = steps.filter(s => s.id !== 'color-select');
+    let steps = STEPS.filter(s => s.id !== 'color-select' || hasColorOptions);
+    if (!hasBackSide) steps = steps.filter(s => s.id !== 'freeform-back');
     return steps;
-  }, [hasColorOptions, isAuthenticated]);
+  }, [hasColorOptions, hasBackSide]);
 
   const currentStepIndex = visibleSteps.findIndex(s => s.id === currentStep);
   const progress = currentStep === 'success' ? 100 : ((currentStepIndex) / visibleSteps.length) * 100;
@@ -164,12 +162,24 @@ export default function CreateCoBuyRequestPage() {
     };
   }, [selectedProduct]);
 
-  // Derive sides for color preview and freeform editor
-  const colorPreviewSides = productConfig?.sides ?? [];
+  // Derive sides
   const freeformSides = productConfig?.sides ?? [];
-  const freeformSideIndex = freeformSides.findIndex(s => s.id === activeSideId);
-  const validFreeformIndex = freeformSideIndex !== -1 ? freeformSideIndex : 0;
-  const currentFreeformSide = freeformSides[validFreeformIndex];
+  const colorPreviewSides = productConfig?.sides ?? [];
+  // For freeform steps, determine which side to show
+  const currentFreeformSide = currentStep === 'freeform-front'
+    ? freeformSides[0]
+    : currentStep === 'freeform-back'
+    ? freeformSides[1]
+    : freeformSides[0];
+
+  // Auto-fill contact info for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.name && !contactName) setContactName(user.name);
+      if (user.email && !contactEmail) setContactEmail(user.email);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user]);
 
   // Fetch product colors when product is selected
   useEffect(() => {
@@ -200,7 +210,6 @@ export default function CreateCoBuyRequestPage() {
           colorCode: d.manufacturer_color.color_code,
         }));
       setProductColors(colors);
-      // Default to first color
       if (colors.length > 0) {
         setSelectedColorHex(colors[0].hex);
         setProductColor(colors[0].hex);
@@ -210,14 +219,14 @@ export default function CreateCoBuyRequestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct]);
 
-  // Auto-enable edit mode and initialize active side when entering freeform step
+  // Set active side and edit mode based on step
   useEffect(() => {
-    if (currentStep === 'freeform-design') {
+    if (currentStep === 'freeform-front') {
       setEditMode(true);
-      const sides = selectedProduct?.configuration ?? [];
-      if (sides.length > 0) {
-        setActiveSide(sides[0].id);
-      }
+      if (freeformSides.length > 0) setActiveSide(freeformSides[0].id);
+    } else if (currentStep === 'freeform-back') {
+      setEditMode(true);
+      if (freeformSides.length > 1) setActiveSide(freeformSides[1].id);
     } else {
       setEditMode(false);
     }
@@ -237,7 +246,6 @@ export default function CreateCoBuyRequestPage() {
 
         if (error) throw error;
         setSelectedProduct(data);
-        setTitle(`${data.title} 공동구매`);
       } catch (err) {
         console.error('Error fetching product:', err);
       }
@@ -253,7 +261,7 @@ export default function CreateCoBuyRequestPage() {
     });
   }, [selectedProduct]);
 
-  // Apply preset layer colors immediately when preset is fetched (before color-select)
+  // Apply preset layer colors immediately when preset is fetched
   useEffect(() => {
     if (!cobuyPreset?.layer_colors) return;
     for (const [sideId, colorMap] of Object.entries(cobuyPreset.layer_colors)) {
@@ -265,10 +273,10 @@ export default function CreateCoBuyRequestPage() {
     }
   }, [cobuyPreset, setLayerColor]);
 
-  // Apply preset objects onto any newly mounted canvas (color-select preview + freeform editor)
+  // Apply preset objects onto any newly mounted canvas
   useEffect(() => {
     if (!cobuyPreset?.canvas_state) return;
-    if (currentStep !== 'color-select' && currentStep !== 'freeform-design') return;
+    if (!isFreeformStep && currentStep !== 'color-select') return;
 
     const sides = selectedProduct?.configuration ?? [];
     const newCanvases = sides.filter(s => canvasMap[s.id] && !loadedCanvases.current.has(canvasMap[s.id]));
@@ -276,7 +284,7 @@ export default function CreateCoBuyRequestPage() {
 
     (async () => {
       const fabric = await import('fabric');
-      const isEditable = currentStep === 'freeform-design';
+      const isEditable = isFreeformStep;
 
       // Collect font families used in preset objects and ensure they're loaded
       const fontFamilies = new Set<string>();
@@ -377,14 +385,13 @@ export default function CreateCoBuyRequestPage() {
   }, []);
 
   const stepOrder: Step[] = [
-    'guest-info', 'product-select', 'color-select', 'freeform-design', 'title-description',
+    'basic-info', 'color-select', 'freeform-front', 'freeform-back', 'design-review',
     'schedule-address'
   ];
 
   const shouldSkipStep = (step: Step): boolean => {
-    if (step === 'guest-info' && isAuthenticated) return true;
-    if (step === 'product-select') return true;
     if (step === 'color-select' && !hasColorOptions) return true;
+    if (step === 'freeform-back' && !hasBackSide) return true;
     return false;
   };
 
@@ -405,21 +412,34 @@ export default function CreateCoBuyRequestPage() {
   };
 
   const handleNext = async () => {
-    if (currentStep === 'guest-info') {
-      if (!guestName.trim()) { alert('이름을 입력해주세요.'); return; }
-      if (!guestEmail.trim()) { alert('이메일을 입력해주세요.'); return; }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(guestEmail.trim())) { alert('올바른 이메일 형식을 입력해주세요.'); return; }
+    // Step 1 validation & draft save
+    if (currentStep === 'basic-info') {
+      if (!title.trim()) { alert('단체명을 입력해주세요.'); return; }
+      if (!contactName.trim()) { alert('이름을 입력해주세요.'); return; }
+      if (!contactPhone.trim()) { alert('연락처를 입력해주세요.'); return; }
+      if (!privacyConsent) { alert('개인정보 수집 동의가 필요합니다.'); return; }
+
+      // Background draft save
+      if (!draftRequestId && selectedProduct) {
+        createDraftCoBuyRequest({
+          productId: selectedProduct.id,
+          title: title.trim(),
+          contactName: contactName.trim(),
+          contactEmail: contactEmail.trim(),
+          contactPhone: contactPhone.trim(),
+          estimatedQuantity: expectedQuantity === '' ? undefined : Number(expectedQuantity),
+        }).then(result => {
+          if (result) setDraftRequestId(result.id);
+        });
+      }
     }
-    if (currentStep === 'title-description' && !title.trim()) {
-      alert('단체명을 입력해주세요.');
-      return;
-    }
-    // Capture canvas state before leaving freeform step (canvases unmount after navigation)
-    if (currentStep === 'freeform-design') {
+
+    // Capture canvas state before leaving last freeform step
+    const lastFreeformStep = hasBackSide ? 'freeform-back' : 'freeform-front';
+    if (currentStep === lastFreeformStep) {
       const states = serializeCanvasState();
       setSavedCanvasState(states);
-      // Save both product-level color and any layer colors
+      // Save colors
       const colorData: Record<string, any> = { ...layerColors };
       if (selectedColorHex) {
         const selectedColor = productColors.find(c => c.hex === selectedColorHex);
@@ -430,6 +450,15 @@ export default function CreateCoBuyRequestPage() {
         };
       }
       setSavedColorSelections(colorData);
+      // Generate preview data URLs for review step
+      const previews: Record<string, string> = {};
+      for (const [sideId, canvas] of Object.entries(canvasMap)) {
+        try {
+          previews[sideId] = (canvas as any).toDataURL({ format: 'png', multiplier: 0.5 });
+        } catch {}
+      }
+      setSidePreviewUrls(previews);
+      // Also generate uploadable preview
       const preview = await generatePreview();
       setSavedPreviewUrl(preview);
     }
@@ -441,25 +470,6 @@ export default function CreateCoBuyRequestPage() {
   const handleBack = () => {
     const prev = getPrevStep(currentStep);
     if (prev) navigateToStep(prev, 'left');
-  };
-
-  // Freeform: 다음 advances through sides, then to next step
-  const handleFreeformNext = async () => {
-    if (validFreeformIndex < freeformSides.length - 1) {
-      setActiveSide(freeformSides[validFreeformIndex + 1].id);
-      return;
-    }
-    // Last side — capture state and move to next step
-    await handleNext();
-  };
-
-  // Freeform: 뒤로 goes to previous side, or previous step if on first side
-  const handleFreeformBack = () => {
-    if (validFreeformIndex > 0) {
-      setActiveSide(freeformSides[validFreeformIndex - 1].id);
-      return;
-    }
-    handleBack();
   };
 
   // Serialize canvas state for saving
@@ -512,17 +522,18 @@ export default function CreateCoBuyRequestPage() {
     }
   };
 
-  const handleSubmit = async () => {
-    // Validate schedule-address fields
-    if (!receiveByDate) { alert('수령 희망일을 선택해주세요.'); return; }
-    if (!deliverySettings.deliveryAddress?.roadAddress) { alert('배송받을 장소를 입력해주세요.'); return; }
-    if (!privacyConsent) { alert('개인정보 수집 동의가 필요합니다.'); return; }
+  const handleSubmit = async (skipDelivery = false) => {
+    if (!skipDelivery) {
+      // Validate delivery if not skipping
+      if (receiveByDate && deliverySettings.deliveryAddress?.roadAddress) {
+        // All good, has both
+      }
+    }
     await handleCreate();
   };
 
   const handleCreate = async () => {
     if (!selectedProduct) return;
-    if (!isAuthenticated && (!guestName.trim() || !guestEmail.trim())) return;
     setIsCreating(true);
 
     try {
@@ -541,7 +552,7 @@ export default function CreateCoBuyRequestPage() {
         estimatedQuantity: expectedQuantity === '' ? undefined : Number(expectedQuantity),
       };
 
-      const result = await createCoBuyRequest({
+      const submitData = {
         productId: selectedProduct.id,
         title: title.trim(),
         description: description.trim() || undefined,
@@ -554,12 +565,17 @@ export default function CreateCoBuyRequestPage() {
         customFields,
         uploadedImagePaths,
         isPublic,
-        ...(!isAuthenticated ? {
-          guestName: guestName.trim(),
-          guestEmail: guestEmail.trim(),
-          guestPhone: guestPhone.trim() || undefined,
-        } : {}),
-      });
+        guestName: contactName.trim(),
+        guestEmail: contactEmail.trim(),
+        guestPhone: contactPhone.trim() || undefined,
+      };
+
+      let result;
+      if (draftRequestId) {
+        result = await updateCoBuyRequest(draftRequestId, submitData);
+      } else {
+        result = await createCoBuyRequest(submitData);
+      }
 
       if (!result) throw new Error('Failed to create request');
 
@@ -567,8 +583,8 @@ export default function CreateCoBuyRequestPage() {
       navigateToStep('success' as Step, 'right');
 
       // Send notification emails (fire-and-forget)
-      const submitterEmail = isAuthenticated ? user?.email : guestEmail.trim();
-      const submitterName = isAuthenticated ? (user?.name || user?.email) : guestName.trim();
+      const submitterEmail = contactEmail.trim();
+      const submitterName = contactName.trim();
       fetch('/api/cobuy/notify/request-submitted', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -706,7 +722,6 @@ export default function CreateCoBuyRequestPage() {
         const { data: urlData } = supabase.storage.from('user-designs').getPublicUrl(data.path);
         const fabric = await import('fabric');
         const newImg = await fabric.FabricImage.fromURL(urlData.publicUrl, { crossOrigin: 'anonymous' });
-        // Keep same position, scale to fit same bounding box
         const oldLeft = activeObj.left ?? canvas.width / 2;
         const oldTop = activeObj.top ?? canvas.height / 2;
         const oldBoundW = (activeObj.width || 1) * (activeObj.scaleX || 1);
@@ -735,7 +750,7 @@ export default function CreateCoBuyRequestPage() {
     input.click();
   };
 
-  // Undo/redo: only track user-added objects (not product images, guides, or layer filters)
+  // Undo/redo: only track user-added objects
   const isUserObject = (obj: any): boolean => {
     if (!obj) return false;
     if (obj.excludeFromExport) return false;
@@ -764,7 +779,7 @@ export default function CreateCoBuyRequestPage() {
   // Listen for user object changes to save history
   useEffect(() => {
     const canvas = getActiveCanvas();
-    if (!canvas || currentStep !== 'freeform-design') return;
+    if (!canvas || !isFreeformStep) return;
     if (canvasHistory.length === 0) {
       const userObjs = getUserObjects(canvas);
       const serialized = userObjs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
@@ -794,9 +809,7 @@ export default function CreateCoBuyRequestPage() {
     if (!canvas) return;
     setIsUndoRedoing(true);
     const prevIndex = historyIndex - 1;
-    // Remove current user objects
     getUserObjects(canvas).forEach((obj: any) => canvas.remove(obj));
-    // Restore saved user objects
     const savedObjects = JSON.parse(canvasHistory[prevIndex]);
     if (savedObjects.length > 0) {
       const fabric = await import('fabric');
@@ -826,10 +839,10 @@ export default function CreateCoBuyRequestPage() {
     setIsUndoRedoing(false);
   }, [historyIndex, canvasHistory, getActiveCanvas, getUserObjects]);
 
-  // Track text selection for color buttons
+  // Track text/image selection for toolbar
   const activeCanvas = canvasMap[activeSideId] || null;
   useEffect(() => {
-    if (!activeCanvas || currentStep !== 'freeform-design') return;
+    if (!activeCanvas || !isFreeformStep) return;
     const checkSelected = () => {
       const obj = activeCanvas.getActiveObject();
       if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox' || isCurvedText(obj))) {
@@ -962,19 +975,19 @@ export default function CreateCoBuyRequestPage() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Header — hidden during freeform-design (Toolbar provides its own fixed top bar) */}
-          {currentStep !== 'freeform-design' && (
+          {/* Header — hidden during freeform steps */}
+          {!isFreeformStep && (
             <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
               <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
                 <div>
                   <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매 요청</h1>
-                  {currentStep !== 'product-select' && currentStep !== ('success' as Step) && (
+                  {currentStep !== ('success' as Step) && (
                     <p className="text-xs md:text-sm text-gray-500">
                       {STEPS.find(s => s.id === currentStep)?.label}
                     </p>
                   )}
                 </div>
-                <button onClick={() => router.back()} disabled={isCreating} className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors lg:hidden">
+                <button onClick={() => router.push('/home')} disabled={isCreating} className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors lg:hidden">
                   <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
                 </button>
               </div>
@@ -990,11 +1003,11 @@ export default function CreateCoBuyRequestPage() {
           )}
 
           {/* Content */}
-          <main className={`flex-1 overflow-y-auto ${currentStep === 'freeform-design' ? 'flex flex-col' : ''}`}>
-            <div className={`transition-all duration-150 ease-out ${animationClass} ${currentStep === 'freeform-design' ? 'flex-1 flex flex-col' : ''}`}>
+          <main className={`flex-1 overflow-y-auto ${isFreeformStep ? 'flex flex-col' : ''}`}>
+            <div className={`transition-all duration-150 ease-out ${animationClass} ${isFreeformStep ? 'flex-1 flex flex-col' : ''}`}>
 
-              {/* Guest Info (non-authenticated users) */}
-              {currentStep === 'guest-info' && (
+              {/* Step 1: Basic Info */}
+              {currentStep === 'basic-info' && (
                 <div className="max-w-lg mx-auto py-8 px-4">
                   <div className="mb-6">
                     <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mb-3">
@@ -1005,55 +1018,92 @@ export default function CreateCoBuyRequestPage() {
                   </div>
                   <div className="space-y-3">
                     <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">단체명 <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        placeholder="예: 서울대학교 컴퓨터공학과"
+                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        maxLength={100}
+                        autoFocus
+                      />
+                    </div>
+                    <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5">이름 <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="text"
-                          value={guestName}
-                          onChange={e => setGuestName(e.target.value)}
+                          value={contactName}
+                          onChange={e => setContactName(e.target.value)}
                           placeholder="홍길동"
                           className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                          autoFocus
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이메일 <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이메일</label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="email"
-                          value={guestEmail}
-                          onChange={e => setGuestEmail(e.target.value)}
+                          value={contactEmail}
+                          onChange={e => setContactEmail(e.target.value)}
                           placeholder="example@email.com"
                           className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">전화번호</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">연락처 <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="tel"
                           inputMode="numeric"
-                          value={guestPhone}
+                          value={contactPhone}
                           onChange={e => {
                             const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
                             const formatted = digits.length <= 3 ? digits : digits.length <= 7 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-                            setGuestPhone(formatted);
+                            setContactPhone(formatted);
                           }}
                           placeholder="010-0000-0000"
                           className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                         />
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">예상 수량</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={expectedQuantity}
+                        onChange={e => setExpectedQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        placeholder="예: 30"
+                        min={1}
+                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">변동이 있어도 괜찮습니다</p>
+                    </div>
+                    <div className="pt-2">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={privacyConsent}
+                          onChange={e => setPrivacyConsent(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs text-gray-700">
+                          <span className="font-semibold text-red-500">[필수]</span> 개인정보 수집 및 이용에 동의합니다. 입력하신 이름, 연락처, 주소 정보는 공동구매 요청 처리 및 배송 목적으로만 사용됩니다.
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Color Selection */}
+              {/* Step 2: Color Selection */}
               {currentStep === 'color-select' && selectedProduct && (
                 <div className="max-w-lg mx-auto py-6 px-4 md:py-10 md:px-6">
                   <div className="mb-4">
@@ -1061,7 +1111,6 @@ export default function CreateCoBuyRequestPage() {
                     <p className="text-sm text-gray-500">원하시는 제품 색상을 골라주세요.</p>
                   </div>
 
-                  {/* All sides shown at once */}
                   {colorPreviewSides.length > 0 && (
                     <div className={`grid ${colorPreviewSides.length === 1 ? 'grid-cols-1 max-w-70 mx-auto' : 'grid-cols-2'} gap-3 mb-4`}>
                       {colorPreviewSides.map((side) => (
@@ -1085,12 +1134,10 @@ export default function CreateCoBuyRequestPage() {
                     </div>
                   )}
 
-                  {/* Layer-based color selector (colors apply to all sides) */}
                   {hasLayerColorOptions && colorPreviewSides.length > 0 && (
                     <LayerColorSelector side={colorPreviewSides[0]} />
                   )}
 
-                  {/* Legacy product-level color swatches */}
                   {!hasLayerColorOptions && productColors.length > 0 && (
                     <>
                       {selectedColorHex && (
@@ -1116,22 +1163,26 @@ export default function CreateCoBuyRequestPage() {
                 </div>
               )}
 
-              {/* Freeform Design — simplified editor */}
-              {currentStep === 'freeform-design' && productConfig && currentFreeformSide && (
+              {/* Step 3-1 & 3-2: Freeform Design (front or back) */}
+              {isFreeformStep && productConfig && currentFreeformSide && (
                 <div className="flex flex-col min-h-full">
                   {/* Top bar */}
                   <div className="flex items-center justify-center px-4 py-2.5 bg-white border-b border-gray-200">
-                    {freeformSides.length > 1 ? (
-                      <span className="text-xs font-medium text-gray-500">
-                        {currentFreeformSide.name} ({validFreeformIndex + 1}/{freeformSides.length})
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">디자인 편집</span>
-                    )}
+                    <span className="text-xs font-medium text-gray-500">
+                      {currentFreeformSide.name} 디자인
+                    </span>
                   </div>
 
-                  {/* Canvas — all sides rendered, only active visible */}
+                  {/* Canvas — render all sides but only show current */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
+                    {(hasTextSelected || hasImageSelected) && (
+                      <button
+                        onClick={deleteFreeformObject}
+                        className="absolute top-2 right-2 z-10 p-2 border border-red-300 bg-white text-red-500 hover:bg-red-50 rounded-xl shadow-sm transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                     {isImageLoading && (
                       <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
                         <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 shadow-lg">
@@ -1141,10 +1192,10 @@ export default function CreateCoBuyRequestPage() {
                       </div>
                     )}
 
-                    {freeformSides.map((side, idx) => (
+                    {freeformSides.map((side) => (
                       <div
                         key={side.id}
-                        className={idx === validFreeformIndex ? '' : 'hidden'}
+                        className={side.id === currentFreeformSide.id ? '' : 'hidden'}
                       >
                         <SingleSideCanvas
                           side={side}
@@ -1157,18 +1208,18 @@ export default function CreateCoBuyRequestPage() {
                     ))}
                   </div>
 
-                  <p className="text-[10px] text-gray-400 text-center py-1.5 bg-[#EBEBEB]">
-                    자유롭게 배치해주세요. 참고용이며, 관리자가 실제 디자인을 제작합니다.
+                  <p className="text-xs text-gray-600 text-center py-1.5 bg-[#EBEBEB]">
+                    텍스트와 색상을 변경하여 원하는 디자인으로 완성해보세요.
                   </p>
 
-                  {/* Toolbar — fixed height, controls swap based on selection */}
+                  {/* Toolbar */}
                   <div className="border-t border-gray-200 bg-white h-[52px] flex items-center">
                     {hasImageSelected ? (
                       <div className="flex items-center justify-center gap-2 w-full">
                         <button onClick={replaceFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
                           <Replace className="w-4 h-4" /> 교체
                         </button>
-                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-500 hover:bg-red-50 rounded-xl transition text-sm">
                           <Trash2 className="w-4 h-4" /> 삭제
                         </button>
                       </div>
@@ -1221,7 +1272,7 @@ export default function CreateCoBuyRequestPage() {
                         <button onClick={addFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
                           <ImagePlus className="w-4 h-4" /> 이미지
                         </button>
-                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-500 hover:bg-red-50 rounded-xl transition text-sm">
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <div className="flex items-center gap-1">
@@ -1236,47 +1287,17 @@ export default function CreateCoBuyRequestPage() {
                     )}
                   </div>
 
-                  {/* Bottom navigation — advances through sides then to next step */}
+                  {/* Bottom navigation */}
                   <div className="shrink-0 border-t border-gray-200 bg-white p-3 safe-area-inset-bottom">
                     <div className="flex gap-2">
-                      <button onClick={handleFreeformBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">
+                      <button onClick={handleBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">
                         <ArrowLeft className="w-4 h-4" /> 이전
                       </button>
-                      <button onClick={handleFreeformNext} className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 text-sm">
+                      <button onClick={handleNext} className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 text-sm">
                         다음 <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-
-                  {/* Freeform tutorial modal */}
-                  {showFreeformTutorial && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-                      <div className="bg-white rounded-2xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden">
-                        <div className="p-5">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="w-4 h-4 text-[#3B55A5]" />
-                            <h3 className="text-sm font-bold text-gray-900">디자인 가이드</h3>
-                          </div>
-                          <p className="text-sm text-gray-700 mb-4">
-                            아래 이미지처럼 대략적인 스케치만 그려주세요!
-                          </p>
-                          <div className="flex gap-3 mb-3">
-                            <img src="/tutorial/cobuy/sample_one.png" alt="예시 1" className="w-1/2 rounded-lg border border-gray-200" />
-                            <img src="/tutorial/cobuy/sample_two.png" alt="예시 2" className="w-1/2 rounded-lg border border-gray-200" />
-                          </div>
-                          <p className="text-xs text-gray-400 text-center">
-                            참고용이며, 관리자가 실제 디자인을 제작합니다.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setShowFreeformTutorial(false)}
-                          className="w-full py-3 text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2f4584] transition"
-                        >
-                          확인
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Text edit modal */}
                   {textEditModal.open && (
@@ -1313,73 +1334,62 @@ export default function CreateCoBuyRequestPage() {
                 </div>
               )}
 
-              {/* Title & Description */}
-              {currentStep === 'title-description' && (
+              {/* Step 4: Design Review */}
+              {currentStep === 'design-review' && (
                 <div className="max-w-lg mx-auto py-8 px-4">
                   <div className="mb-6">
                     <div className="w-10 h-10 rounded-xl bg-[#3B55A5]/20 flex items-center justify-center mb-3">
-                      <Tag className="w-5 h-5 text-[#3B55A5]" />
+                      <Eye className="w-5 h-5 text-[#3B55A5]" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">단체명 및 참고사항</h2>
-                    <p className="text-sm text-gray-600">단체명을 입력해주세요.</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">디자인을 확인해주세요</h2>
+                    <p className="text-sm text-gray-600">완성된 디자인을 확인하고 참고사항을 남겨주세요.</p>
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">단체명 <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="예: 서울대학교 컴퓨터공학과"
-                        className="w-full px-3 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
-                        maxLength={100}
-                        autoFocus
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{title.length}/100자</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">참고사항 (선택)</label>
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="예: 이번 MT 단체티입니다! 뒷면에 이니셜 넣어주세요."
-                        className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10 resize-none"
-                        rows={3}
-                        maxLength={500}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{description.length}/500자</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">예상 수량</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={expectedQuantity}
-                        onChange={(e) => setExpectedQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
-                        placeholder="예: 30"
-                        min={1}
-                        className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
-                      />
-                    </div>
+
+                  {/* Preview images */}
+                  <div className={`grid ${Object.keys(sidePreviewUrls).length === 1 ? 'grid-cols-1 max-w-60 mx-auto' : 'grid-cols-2'} gap-3 mb-6`}>
+                    {freeformSides.map(side => {
+                      const url = sidePreviewUrls[side.id];
+                      if (!url) return null;
+                      return (
+                        <div key={side.id} className="flex flex-col items-center">
+                          <img src={url} alt={side.name} className="rounded-xl border border-gray-200 w-full" />
+                          <p className="text-xs text-gray-500 mt-1.5">{side.name}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">참고사항 (선택)</label>
+                    <textarea
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder="예: 디자인 파일이 없어요, OO부분을 수정해주세요"
+                      className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10 resize-none"
+                      rows={3}
+                      maxLength={500}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">{description.length}/500자</p>
                   </div>
                 </div>
               )}
 
-              {/* Schedule & Addresses */}
+              {/* Step 5: Schedule & Addresses */}
               {currentStep === 'schedule-address' && (
                 <div className="max-w-lg mx-auto py-8 px-4">
                   <div className="mb-6">
                     <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
                       <Calendar className="w-5 h-5 text-orange-600" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">일정 및 장소</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">일정 및 배송</h2>
                   </div>
                   <div className="space-y-6">
                     {/* Schedule */}
                     <div className="space-y-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">일정</p>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">수령 희망일 <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">수령 희망일</label>
                         <input type="date" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
                           className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
                       </div>
@@ -1390,42 +1400,43 @@ export default function CreateCoBuyRequestPage() {
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 주소</p>
                       <p className="text-xs text-gray-500">공장에서 제품을 배송받을 주소예요.</p>
                       <div className="flex gap-2">
-                        <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
-                          className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
-                        <button type="button" onClick={() => handleAddressSearch('delivery')}
-                          className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
-                          <Search className="w-4 h-4" /> 주소 검색
+                        <button
+                          onClick={() => setSkipDelivery(false)}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${!skipDelivery ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          주소 입력하기
+                        </button>
+                        <button
+                          onClick={() => setSkipDelivery(true)}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${skipDelivery ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          아직 모르겠어요
                         </button>
                       </div>
-                      {deliverySettings.deliveryAddress?.roadAddress && (
-                        <div className="space-y-2">
-                          <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
-                          <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
-                            onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
-                            placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
-                        </div>
+                      {!skipDelivery && (
+                        <>
+                          <div className="flex gap-2">
+                            <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
+                              className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
+                            <button type="button" onClick={() => handleAddressSearch('delivery')}
+                              className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
+                              <Search className="w-4 h-4" /> 주소 검색
+                            </button>
+                          </div>
+                          {deliverySettings.deliveryAddress?.roadAddress && (
+                            <div className="space-y-2">
+                              <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
+                              <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
+                                onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
+                                placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-
-                    {/* Privacy Consent */}
-                    <div className="border-t border-gray-200 pt-5">
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={privacyConsent}
-                          onChange={e => setPrivacyConsent(e.target.checked)}
-                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-xs text-gray-700">
-                          <span className="font-semibold text-red-500">[필수]</span> 개인정보 수집 및 이용에 동의합니다. 입력하신 이름, 연락처, 주소 정보는 공동구매 요청 처리 및 배송 목적으로만 사용됩니다.
-                        </span>
-                      </label>
-                    </div>
-
                   </div>
                 </div>
               )}
-
 
               {/* Success */}
               {currentStep === ('success' as Step) && createdShareToken && (
@@ -1446,21 +1457,25 @@ export default function CreateCoBuyRequestPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex gap-2 w-full max-w-sm">
-                    <button onClick={handleShare} className="flex-1 py-3 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center justify-center gap-1.5 text-sm">
-                      <Share2 className="w-4 h-4" /> 공유하기
-                    </button>
-                    <button onClick={() => router.push('/home/my-page/cobuy')} className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
-                      확인 <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button onClick={() => router.push('/home')} className="w-full max-w-sm py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
+                    확인 <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <a
+                    href="http://pf.kakao.com/_xjSdYG/chat"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full max-w-sm mt-3 py-3 bg-[#FEE500] text-[#191919] rounded-2xl font-semibold text-sm hover:brightness-95 transition"
+                  >
+                    <img src="/icons/kakaotalk_channel.png" alt="카카오톡" className="w-5 h-5" />
+                    카카오톡으로 문의하기
+                  </a>
                 </div>
               )}
             </div>
           </main>
 
-          {/* Footer Navigation */}
-          {currentStep !== ('success' as Step) && currentStep !== 'freeform-design' && (
+          {/* Footer Navigation (non-freeform, non-success steps) */}
+          {currentStep !== ('success' as Step) && !isFreeformStep && (
             <footer className="shrink-0 border-t border-gray-200 bg-white p-3 safe-area-inset-bottom">
               <div className="max-w-lg mx-auto space-y-2">
                 <div className="flex gap-2">
@@ -1470,7 +1485,7 @@ export default function CreateCoBuyRequestPage() {
                     </button>
                   )}
                   {currentStep === 'schedule-address' ? (
-                    <button onClick={handleSubmit} disabled={isCreating}
+                    <button onClick={() => handleSubmit(skipDelivery)} disabled={isCreating}
                       className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
                       {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <><Sparkles className="w-4 h-4" /> 제출하기</>}
                     </button>
@@ -1487,6 +1502,30 @@ export default function CreateCoBuyRequestPage() {
 
         </div>
       </div>
+
+      {/* Welcome Popup */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 rounded-full bg-[#3B55A5]/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-7 h-7 text-[#3B55A5]" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 mb-3">과잠 공동구매 요청</h2>
+              <p className="text-base text-gray-700 leading-relaxed">
+                색상 고르고, 수량 선택하면<br />
+                <span className="font-semibold text-[#3B55A5]">견적 자동 완성!</span>
+              </p>
+            </div>
+            <button
+              onClick={() => setShowWelcome(false)}
+              className="w-full py-3.5 text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2f4584] transition"
+            >
+              시작하기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -36,19 +36,103 @@ export interface CreateCoBuyRequestData {
 // CoBuy Request Management
 // ============================================================================
 
+export async function createDraftCoBuyRequest(data: {
+  productId: string;
+  title: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  estimatedQuantity?: number;
+}): Promise<CoBuyRequest | null> {
+  const supabase = createClient();
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const requestData = {
+      user_id: user?.id || null,
+      product_id: data.productId,
+      title: data.title,
+      freeform_canvas_state: {},
+      status: 'draft' as const,
+      guest_name: data.contactName,
+      guest_email: data.contactEmail,
+      guest_phone: data.contactPhone || null,
+      quantity_expectations: data.estimatedQuantity
+        ? { estimatedQuantity: data.estimatedQuantity }
+        : null,
+    };
+
+    const { data: request, error } = await supabase
+      .from('cobuy_requests')
+      .insert(requestData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating draft CoBuy request:', error);
+      throw error;
+    }
+
+    return request;
+  } catch (error) {
+    console.error('Failed to create draft CoBuy request:', error);
+    return null;
+  }
+}
+
+export async function updateCoBuyRequest(
+  requestId: string,
+  data: CreateCoBuyRequestData
+): Promise<CoBuyRequest | null> {
+  const supabase = createClient();
+
+  try {
+    const updateData = {
+      title: data.title,
+      description: data.description || null,
+      freeform_canvas_state: data.freeformCanvasState,
+      freeform_color_selections: data.freeformColorSelections,
+      freeform_preview_url: data.freeformPreviewUrl || null,
+      schedule_preferences: data.schedulePreferences || null,
+      quantity_expectations: data.quantityExpectations || null,
+      delivery_preferences: data.deliveryPreferences || null,
+      custom_fields: data.customFields || [],
+      uploaded_image_paths: data.uploadedImagePaths || [],
+      is_public: data.isPublic ?? false,
+      status: 'pending' as const,
+      guest_name: data.guestName || null,
+      guest_email: data.guestEmail || null,
+      guest_phone: data.guestPhone || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: request, error } = await supabase
+      .from('cobuy_requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating CoBuy request:', error);
+      throw error;
+    }
+
+    return request;
+  } catch (error) {
+    console.error('Failed to update CoBuy request:', error);
+    return null;
+  }
+}
+
 export async function createCoBuyRequest(
   data: CreateCoBuyRequestData
 ): Promise<CoBuyRequest | null> {
   const supabase = createClient();
 
   try {
-    // Try to get authenticated user (optional for guest submissions)
     const { data: { user } } = await supabase.auth.getUser();
-
-    const isGuest = !user;
-    if (isGuest && (!data.guestName || !data.guestEmail)) {
-      throw new Error('Guest submissions require name and email');
-    }
 
     const requestData = {
       user_id: user?.id || null,
@@ -65,9 +149,9 @@ export async function createCoBuyRequest(
       uploaded_image_paths: data.uploadedImagePaths || [],
       is_public: data.isPublic ?? false,
       status: 'pending' as const,
-      guest_name: isGuest ? data.guestName : null,
-      guest_email: isGuest ? data.guestEmail : null,
-      guest_phone: isGuest ? (data.guestPhone || null) : null,
+      guest_name: data.guestName || null,
+      guest_email: data.guestEmail || null,
+      guest_phone: data.guestPhone || null,
     };
 
     const { data: request, error } = await supabase
