@@ -1,5 +1,6 @@
 'use client'
-import React from 'react';
+import React, { useState, useRef } from 'react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { ProductLayer, ProductSide, ColorOption } from '@/types/types';
 import { useCanvasStore } from '@/store/useCanvasStore';
 
@@ -7,138 +8,177 @@ interface LayerColorSelectorProps {
   side: ProductSide;
 }
 
+const BODY_KEYWORDS = ['몸통', 'body', '바디'];
+
 const LayerColorSelector: React.FC<LayerColorSelectorProps> = ({ side }) => {
   const { layerColors, setLayerColor } = useCanvasStore();
 
-  // Determine if this is multi-layer or single-layer mode
   const isMultiLayer = side.layers && side.layers.length > 0;
   const isSingleLayerWithColors = !isMultiLayer && side.colorOptions && side.colorOptions.length > 0;
 
-  // If neither multi-layer nor single-layer with colors, don't render anything
-  if (!isMultiLayer && !isSingleLayerWithColors) {
-    return null;
-  }
+  if (!isMultiLayer && !isSingleLayerWithColors) return null;
 
   const handleColorChange = (layerId: string, color: string) => {
     setLayerColor(side.id, layerId, color);
   };
 
-  // Render multi-layer color selector
   if (isMultiLayer) {
-    // Sort layers by zIndex for consistent display
     const sortedLayers = [...side.layers!].sort((a, b) => a.zIndex - b.zIndex);
 
-    return (
-      <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Product Colors</h3>
-        <div className="space-y-3">
-          {sortedLayers.map((layer) => {
-            const currentColor = layerColors[side.id]?.[layer.id] || layer.colorOptions[0]?.hex || '#FFFFFF';
+    // Find body layer by name, fallback to first layer
+    const bodyLayer = sortedLayers.find(l =>
+      BODY_KEYWORDS.some(kw => l.name.toLowerCase().includes(kw))
+    ) || sortedLayers[0];
+    const bodyColor = layerColors[side.id]?.[bodyLayer.id] || bodyLayer.colorOptions[0]?.hex || '#FFFFFF';
 
-            return (
-              <div key={layer.id} className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">
-                  {layer.name}
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {layer.colorOptions.map((colorOption) => (
-                    <button
-                      key={colorOption.colorCode}
-                      onClick={() => handleColorChange(layer.id, colorOption.hex)}
-                      className={`
-                        w-10 h-10 rounded-full border-2 transition-all duration-200
-                        ${currentColor === colorOption.hex
-                          ? 'border-blue-500 scale-110 shadow-md'
-                          : 'border-gray-300 hover:border-gray-400 hover:scale-105'
-                        }
-                      `}
-                      style={{ backgroundColor: colorOption.hex }}
-                      aria-label={`Select ${colorOption.colorCode} (${colorOption.hex}) for ${layer.name}`}
-                    >
-                      {currentColor === colorOption.hex && (
-                        <svg
-                          className="w-full h-full p-2"
-                          fill="none"
-                          stroke={getContrastColor(colorOption.hex)}
-                          strokeWidth="3"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+    return (
+      <div className="w-full">
+        <p className="text-xs font-semibold text-gray-500 mb-2">{side.name}</p>
+        <div className="space-y-1.5">
+          {sortedLayers.map((layer) => (
+            <LayerAccordionItem
+              key={layer.id}
+              layer={layer}
+              sideId={side.id}
+              currentColor={layerColors[side.id]?.[layer.id] || layer.colorOptions[0]?.hex || '#FFFFFF'}
+              onColorChange={(color) => handleColorChange(layer.id, color)}
+              bodyColor={layer.id !== bodyLayer.id ? bodyColor : undefined}
+            />
+          ))}
         </div>
       </div>
     );
   }
 
-  // Render single-layer color selector
-  // Use sideId as the layerId for single-layer mode
+  // Single-layer mode
   const currentColor = layerColors[side.id]?.[side.id] || side.colorOptions![0]?.hex || '#FFFFFF';
 
   return (
-    <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">Product Colors</h3>
+    <div className="w-full">
+      <p className="text-xs font-semibold text-gray-500 mb-2">{side.name}</p>
       <div className="flex gap-2 flex-wrap">
         {side.colorOptions!.map((colorOption) => (
-          <button
+          <ColorSwatchButton
             key={colorOption.colorCode}
+            colorOption={colorOption}
+            selected={currentColor === colorOption.hex}
             onClick={() => handleColorChange(side.id, colorOption.hex)}
-            className={`
-              w-10 h-10 rounded-full border-2 transition-all duration-200
-              ${currentColor === colorOption.hex
-                ? 'border-blue-500 scale-110 shadow-md'
-                : 'border-gray-300 hover:border-gray-400 hover:scale-105'
-              }
-            `}
-            style={{ backgroundColor: colorOption.hex }}
-            aria-label={`Select ${colorOption.colorCode} (${colorOption.hex})`}
-          >
-            {currentColor === colorOption.hex && (
-              <svg
-                className="w-full h-full p-2"
-                fill="none"
-                stroke={getContrastColor(colorOption.hex)}
-                strokeWidth="3"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            )}
-          </button>
+          />
         ))}
       </div>
     </div>
   );
 };
 
-// Helper function to determine if we should use white or black for the checkmark
-function getContrastColor(hexColor: string): string {
-  // Remove # if present
-  const hex = hexColor.replace('#', '');
+function LayerAccordionItem({ layer, sideId, currentColor, onColorChange, bodyColor }: {
+  layer: ProductLayer;
+  sideId: string;
+  currentColor: string;
+  onColorChange: (color: string) => void;
+  bodyColor?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const isSameAsBody = bodyColor !== undefined && currentColor === bodyColor;
 
-  // Convert to RGB
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-gray-50 transition"
+      >
+        <div className="flex items-center gap-2">
+          <div
+            className="w-5 h-5 rounded-full border border-gray-300 shrink-0"
+            style={{ backgroundColor: currentColor }}
+          />
+          <span className="text-xs font-medium text-gray-700">{layer.name}</span>
+          {isSameAsBody && (
+            <span className="text-[10px] text-gray-400">몸통과 동일</span>
+          )}
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-2.5 bg-gray-50/50 space-y-2">
+          {/* "Same as body" option */}
+          {bodyColor !== undefined && (
+            <button
+              onClick={() => onColorChange(bodyColor)}
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition ${
+                isSameAsBody
+                  ? 'bg-blue-50 border border-blue-200 text-blue-700 font-medium'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <div
+                className="w-4 h-4 rounded-full border border-gray-300 shrink-0"
+                style={{ backgroundColor: bodyColor }}
+              />
+              몸통과 동일
+            </button>
+          )}
+          {/* Color swatches + custom picker */}
+          <div className="flex gap-2 flex-wrap items-center">
+            {layer.colorOptions.map((colorOption) => (
+              <ColorSwatchButton
+                key={colorOption.colorCode}
+                colorOption={colorOption}
+                selected={currentColor === colorOption.hex}
+                onClick={() => onColorChange(colorOption.hex)}
+              />
+            ))}
+            {/* Custom color picker */}
+            <button
+              onClick={() => colorInputRef.current?.click()}
+              className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 hover:border-gray-400 flex items-center justify-center transition-all hover:scale-105"
+              aria-label="커스텀 색상 선택"
+            >
+              <Plus className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+            <input
+              ref={colorInputRef}
+              type="color"
+              value={currentColor}
+              onChange={(e) => onColorChange(e.target.value)}
+              className="sr-only"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ColorSwatchButton({ colorOption, selected, onClick }: {
+  colorOption: ColorOption;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-8 h-8 rounded-full border-2 transition-all ${
+        selected ? 'border-blue-500 scale-110 shadow-md' : 'border-gray-300 hover:border-gray-400 hover:scale-105'
+      }`}
+      style={{ backgroundColor: colorOption.hex }}
+      aria-label={`${colorOption.colorCode} (${colorOption.hex})`}
+    >
+      {selected && (
+        <svg className="w-full h-full p-1.5" fill="none" stroke={getContrastColor(colorOption.hex)} strokeWidth="3" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function getContrastColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-
-  // Calculate relative luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  // Return white for dark colors, black for light colors
   return luminance > 0.5 ? '#000000' : '#FFFFFF';
 }
 

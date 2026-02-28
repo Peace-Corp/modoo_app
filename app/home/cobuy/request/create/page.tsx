@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
@@ -16,6 +16,7 @@ import {
   CoBuyRequestSchedulePreferences, CoBuyRequestQuantityExpectations,
 } from '@/types/types';
 import { createCoBuyRequest } from '@/lib/cobuyRequestService';
+import { getCobuyPreset } from '@/lib/templateService';
 import CustomFieldBuilder from '@/app/components/cobuy/CustomFieldBuilder';
 import LayerColorSelector from '@/app/components/canvas/LayerColorSelector';
 import { createClient } from '@/lib/supabase-client';
@@ -53,7 +54,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
 export default function CreateCoBuyRequestPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
-  const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas, setProductColor } = useCanvasStore();
+  const { canvasMap, layerColors, setEditMode, activeSideId, setActiveSide, getActiveCanvas, setProductColor, setLayerColor } = useCanvasStore();
 
   const [currentStep, setCurrentStep] = useState<Step>(isAuthenticated ? 'freeform-design' : 'guest-info');
 
@@ -98,8 +99,9 @@ export default function CreateCoBuyRequestPage() {
   const [savedPreviewUrl, setSavedPreviewUrl] = useState<string | null>(null);
   const [savedColorSelections, setSavedColorSelections] = useState<Record<string, Record<string, string>>>({});
 
-  // Color preview side navigation
-  const [colorPreviewIndex, setColorPreviewIndex] = useState(0);
+  // CoBuy preset (auto-loaded onto canvas)
+  const [cobuyPreset, setCobuyPreset] = useState<Awaited<ReturnType<typeof getCobuyPreset>>>(null);
+  const presetLoadedRef = useRef(false);
 
   // Freeform tutorial modal
   const [showFreeformTutorial, setShowFreeformTutorial] = useState(true);
@@ -173,7 +175,6 @@ export default function CreateCoBuyRequestPage() {
     if (!selectedProduct) {
       setProductColors([]);
       setSelectedColorHex(null);
-      setColorPreviewIndex(0);
       return;
     }
     async function fetchColors() {
@@ -242,6 +243,63 @@ export default function CreateCoBuyRequestPage() {
     }
     fetchProduct();
   }, []);
+
+  // Fetch cobuy preset when product is loaded
+  useEffect(() => {
+    if (!selectedProduct) return;
+    getCobuyPreset(selectedProduct.id).then(preset => {
+      if (preset) setCobuyPreset(preset);
+    });
+  }, [selectedProduct]);
+
+  // Apply cobuy preset objects onto canvases when entering freeform-design
+  useEffect(() => {
+    if (currentStep !== 'freeform-design' || !cobuyPreset || presetLoadedRef.current) return;
+
+    const sides = selectedProduct?.configuration ?? [];
+    const allReady = sides.length > 0 && sides.every(s => canvasMap[s.id]);
+    if (!allReady) return;
+
+    presetLoadedRef.current = true;
+
+    (async () => {
+      const fabric = await import('fabric');
+
+      for (const side of sides) {
+        const canvas = canvasMap[side.id];
+        if (!canvas) continue;
+
+        const raw = cobuyPreset.canvas_state[side.id];
+        if (!raw) continue;
+
+        try {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          const objects = parsed.objects || [];
+          if (objects.length === 0) continue;
+
+          const enlivened = await fabric.util.enlivenObjects(objects);
+          for (const obj of enlivened) {
+            (obj as any).set({ selectable: true, evented: true });
+            canvas.add(obj as any);
+          }
+          canvas.renderAll();
+        } catch (err) {
+          console.error(`Failed to load preset for side ${side.id}:`, err);
+        }
+      }
+
+      // Apply preset layer colors
+      if (cobuyPreset.layer_colors) {
+        for (const [sideId, colorMap] of Object.entries(cobuyPreset.layer_colors)) {
+          if (typeof colorMap === 'object' && colorMap !== null) {
+            for (const [layerId, hex] of Object.entries(colorMap as Record<string, string>)) {
+              setLayerColor(sideId, layerId, hex);
+            }
+          }
+        }
+      }
+    })();
+  }, [currentStep, cobuyPreset, selectedProduct, canvasMap, setLayerColor]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
@@ -736,7 +794,7 @@ export default function CreateCoBuyRequestPage() {
         <Script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" strategy="lazyOnload" onLoad={() => setIsPostcodeScriptLoaded(true)} />
       )}
 
-      <div className="flex-1 flex flex-col lg:flex-none lg:flex-row lg:w-full lg:max-w-5xl lg:max-h-[90vh] lg:mx-4 lg:bg-white lg:rounded-2xl lg:shadow-2xl lg:border lg:border-gray-200 lg:overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 lg:flex-none lg:flex-row lg:w-full lg:max-w-5xl lg:max-h-[90vh] lg:mx-4 lg:bg-white lg:rounded-2xl lg:shadow-2xl lg:border lg:border-gray-200 lg:overflow-hidden">
 
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col w-72 shrink-0 bg-gray-50/80 border-r border-gray-200 p-6">
@@ -884,53 +942,31 @@ export default function CreateCoBuyRequestPage() {
                     <p className="text-sm text-gray-500">원하시는 제품 색상을 골라주세요.</p>
                   </div>
 
-                  {/* Live product mockup preview with color applied */}
+                  {/* All sides shown at once */}
                   {colorPreviewSides.length > 0 && (
-                    <div className="flex items-center justify-center bg-[#EBEBEB] rounded-xl mb-3 relative">
-                      {colorPreviewSides.length > 1 && colorPreviewIndex > 0 && (
-                        <button
-                          onClick={() => setColorPreviewIndex(colorPreviewIndex - 1)}
-                          className="absolute left-1.5 z-10 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition"
-                        >
-                          <ChevronLeft className="w-4 h-4 text-gray-600" />
-                        </button>
-                      )}
-
-                      {colorPreviewSides.map((side, idx) => (
-                        <div key={side.id} className={idx === colorPreviewIndex ? '' : 'hidden'}>
-                          <SingleSideCanvas
-                            side={side}
-                            width={280}
-                            height={340}
-                            isEdit={false}
-                            freeform={true}
-                          />
+                    <div className={`grid ${colorPreviewSides.length === 1 ? 'grid-cols-1 max-w-70 mx-auto' : 'grid-cols-2'} gap-3 mb-4`}>
+                      {colorPreviewSides.map((side) => (
+                        <div key={side.id} className="flex flex-col items-center">
+                          <div className="bg-[#EBEBEB] rounded-xl overflow-hidden">
+                            <SingleSideCanvas
+                              side={side}
+                              width={colorPreviewSides.length === 1 ? 280 : 150}
+                              height={colorPreviewSides.length === 1 ? 340 : 185}
+                              isEdit={false}
+                              freeform={true}
+                            />
+                          </div>
+                          {colorPreviewSides.length > 1 && (
+                            <p className="text-[10px] text-gray-400 mt-1">{side.name}</p>
+                          )}
                         </div>
                       ))}
-
-                      {colorPreviewSides.length > 1 && colorPreviewIndex < colorPreviewSides.length - 1 && (
-                        <button
-                          onClick={() => setColorPreviewIndex(colorPreviewIndex + 1)}
-                          className="absolute right-1.5 z-10 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition"
-                        >
-                          <ChevronRight className="w-4 h-4 text-gray-600" />
-                        </button>
-                      )}
                     </div>
                   )}
 
-                  {/* Side name indicator */}
-                  {colorPreviewSides.length > 1 && (
-                    <p className="text-center text-[10px] text-gray-400 mb-3">
-                      {colorPreviewSides[colorPreviewIndex]?.name} ({colorPreviewIndex + 1}/{colorPreviewSides.length})
-                    </p>
-                  )}
-
-                  {/* Layer-based color selector (multi-layer products) */}
+                  {/* Layer-based color selector (colors apply to all sides) */}
                   {hasLayerColorOptions && colorPreviewSides.length > 0 && (
-                    <div className="space-y-3">
-                      <LayerColorSelector side={colorPreviewSides[colorPreviewIndex]} />
-                    </div>
+                    <LayerColorSelector side={colorPreviewSides[0]} />
                   )}
 
                   {/* Legacy product-level color swatches */}

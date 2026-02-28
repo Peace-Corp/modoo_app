@@ -60,6 +60,37 @@ export async function getTemplate(
   }
 }
 
+/**
+ * Get the active cobuy preset for a product (auto-loaded in cobuy creation)
+ */
+export async function getCobuyPreset(
+  productId: string
+): Promise<DesignTemplate | null> {
+  const supabase = createClient();
+
+  try {
+    const { data, error } = await supabase
+      .from('design_templates')
+      .select('*')
+      .eq('product_id', productId)
+      .eq('type', 'cobuy_preset')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching cobuy preset:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch cobuy preset:', error);
+    return null;
+  }
+}
+
 // ============================================================================
 // Admin Functions (for template management)
 // ============================================================================

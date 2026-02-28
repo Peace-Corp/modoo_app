@@ -1,11 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import CloudConvert from 'cloudconvert';
 
+const ALLOWED_ORIGINS = [
+  'https://modoouniform.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
+function getCorsHeaders(request: NextRequest) {
+  const origin = request.headers.get('origin') || '';
+  const isAllowed =
+    ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app');
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: getCorsHeaders(request) });
+}
+
 /**
  * Server-side API route for converting AI/PSD files to PNG using CloudConvert
  * This runs on the server where Node.js modules are available
  */
 export async function POST(request: NextRequest) {
+  const cors = getCorsHeaders(request);
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -13,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { success: false, error: 'No file provided' },
-        { status: 400 }
+        { status: 400, headers: cors }
       );
     }
 
@@ -23,7 +46,7 @@ export async function POST(request: NextRequest) {
     if (!fileExtension || !['ai', 'psd'].includes(fileExtension)) {
       return NextResponse.json(
         { success: false, error: 'Invalid file type. Only AI and PSD files are supported.' },
-        { status: 400 }
+        { status: 400, headers: cors }
       );
     }
 
@@ -33,7 +56,7 @@ export async function POST(request: NextRequest) {
       console.error('CloudConvert API key not found');
       return NextResponse.json(
         { success: false, error: 'CloudConvert API key is not configured' },
-        { status: 500 }
+        { status: 500, headers: cors }
       );
     }
 
@@ -86,7 +109,7 @@ export async function POST(request: NextRequest) {
           error: `CloudConvert job creation failed: ${errorMessage}`,
           details: errorDetails,
         },
-        { status: 422 }
+        { status: 422, headers: cors }
       );
     }
 
@@ -152,6 +175,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(pngArrayBuffer, {
       status: 200,
       headers: {
+        ...cors,
         'Content-Type': 'image/png',
         'Content-Length': pngArrayBuffer.byteLength.toString(),
       },
@@ -163,7 +187,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown conversion error',
       },
-      { status: 500 }
+      { status: 500, headers: cors }
     );
   }
 }

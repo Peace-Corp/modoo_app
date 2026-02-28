@@ -296,6 +296,7 @@ export interface DesignTemplate {
   layer_colors: Record<string, Record<string, string>>; // sideId -> layerId -> hex color
   sort_order: number;
   is_active: boolean;
+  type: string; // 'template' | 'cobuy_preset'
   created_at: string;
   updated_at: string;
 }
