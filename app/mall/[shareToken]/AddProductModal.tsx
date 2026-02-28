@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, Search, Loader2, Package } from 'lucide-react';
+import * as fabric from 'fabric';
 import { Product } from '@/types/types';
 import { createClient } from '@/lib/supabase-client';
 import { CATEGORIES } from '@/lib/categories';
-import { useRouter } from 'next/navigation';
 
 interface AddProductModalProps {
   shareToken: string;
@@ -43,8 +43,8 @@ export default function AddProductModal({
   onClose,
   onProductAdded,
 }: AddProductModalProps) {
-  const router = useRouter();
   const [step, setStep] = useState<Step>('select');
+  const offscreenCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Step 1: Product selection
   const [products, setProducts] = useState<Product[]>([]);
@@ -58,8 +58,10 @@ export default function AddProductModal({
   const [isLoadingColors, setIsLoadingColors] = useState(false);
   const [selectedColor, setSelectedColor] = useState<SelectedColor | null>(null);
 
-  // Step 3: Review
+  // Step 3: Review & Save
   const [displayName, setDisplayName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Fetch products
   useEffect(() => {
@@ -136,23 +138,150 @@ export default function AddProductModal({
     setStep('review');
   };
 
-  // Open editor with partner mall add data
-  const handleOpenEditor = () => {
-    if (!selectedProduct || !displayName.trim()) return;
+  // Save product directly with logo auto-placed via offscreen canvas
+  const handleSaveDirectly = async () => {
+    if (!selectedProduct || !displayName.trim() || !offscreenCanvasRef.current) return;
 
-    // Store data in sessionStorage for the editor to pick up
-    sessionStorage.setItem('partnerMallAddData', JSON.stringify({
-      shareToken,
-      mallName,
-      logoUrl,
-      displayName: displayName.trim(),
-      manufacturerColorId: selectedColor?.id ?? null,
-      colorHex: selectedColor?.hex ?? null,
-      colorName: selectedColor?.name ?? null,
-      colorCode: selectedColor?.color_code ?? null,
-    }));
+    setIsSaving(true);
+    setSaveError(null);
 
-    router.push(`/editor/${selectedProduct.id}?partnerMallAdd=true`);
+    let fabricCanvas: fabric.Canvas | null = null;
+
+    try {
+      const side = selectedProduct.configuration[0];
+      if (!side) throw new Error('제품 구성 정보가 없습니다.');
+
+      const canvasW = 500;
+      const canvasH = 500;
+
+      // Create offscreen Fabric.js canvas
+      fabricCanvas = new fabric.Canvas(offscreenCanvasRef.current, {
+        width: canvasW,
+        height: canvasH,
+        backgroundColor: '#EBEBEB',
+      });
+
+      // Determine background image URL (multi-layer or single image)
+      const hasLayers = side.layers && side.layers.length > 0;
+      const bgImageUrl = hasLayers ? side.layers![0].imageUrl : side.imageUrl;
+
+      if (!bgImageUrl) throw new Error('제품 이미지를 찾을 수 없습니다.');
+
+      // Load background product image
+      const bgImg = await fabric.FabricImage.fromURL(bgImageUrl, { crossOrigin: 'anonymous' });
+      const imgWidth = bgImg.width || 1;
+      const imgHeight = bgImg.height || 1;
+      const zoomScale = side.zoomScale || 1.0;
+      const baseScale = Math.min(canvasW / imgWidth, canvasH / imgHeight);
+      const scale = baseScale * zoomScale;
+
+      bgImg.set({
+        scaleX: scale,
+        scaleY: scale,
+        originX: 'center',
+        originY: 'center',
+        left: canvasW / 2,
+        top: canvasH / 2,
+        selectable: false,
+        evented: false,
+        data: { id: 'background-product-image' },
+      });
+
+      // Apply color filter
+      const colorHex = selectedColor?.hex || '#FFFFFF';
+      bgImg.filters = [
+        new fabric.filters.BlendColor({ color: colorHex, mode: 'multiply', alpha: 1 }),
+      ];
+      bgImg.applyFilters();
+
+      fabricCanvas.add(bgImg);
+      fabricCanvas.sendObjectToBack(bgImg);
+
+      // Calculate print area position
+      const imageLeft = (canvasW / 2) - (imgWidth * scale / 2);
+      const imageTop = (canvasH / 2) - (imgHeight * scale / 2);
+      const printAreaLeft = imageLeft + side.printArea.x * scale;
+      const printAreaTop = imageTop + side.printArea.y * scale;
+      const scaledPrintW = side.printArea.width * scale;
+      const scaledPrintH = side.printArea.height * scale;
+
+      // Load and place logo
+      let logoObject: fabric.FabricImage | null = null;
+      if (logoUrl) {
+        const logoImg = await fabric.FabricImage.fromURL(logoUrl, { crossOrigin: 'anonymous' });
+        const logoW = logoImg.width || 100;
+        const logoH = logoImg.height || 100;
+        const maxLogoW = scaledPrintW * 0.2;
+        const maxLogoH = scaledPrintH * 0.2;
+        const logoScale = Math.min(maxLogoW / logoW, maxLogoH / logoH);
+
+        logoImg.set({
+          left: printAreaLeft + scaledPrintW / 2,
+          top: printAreaTop + scaledPrintH / 2,
+          scaleX: logoScale,
+          scaleY: logoScale,
+          originX: 'center',
+          originY: 'center',
+          data: { id: 'partner-mall-logo' },
+        });
+
+        fabricCanvas.add(logoImg);
+        logoObject = logoImg;
+      }
+
+      fabricCanvas.renderAll();
+
+      // Generate preview thumbnail
+      const previewUrl = fabricCanvas.toDataURL({
+        format: 'png',
+        quality: 0.8,
+        multiplier: 0.8,
+      });
+
+      // Build canvas state (same format as saveAllCanvasState)
+      const canvasState: Record<string, string> = {};
+      if (logoObject) {
+        const logoJson = logoObject.toObject(['data'] as any);
+        logoJson.src = logoObject.getSrc();
+        canvasState[side.id] = JSON.stringify({
+          version: fabricCanvas.toJSON().version,
+          objects: [logoJson],
+          layerColors: {},
+          totalBoundingBoxMm: null,
+        });
+      }
+
+      // POST to API
+      const response = await fetch(`/api/partner-mall/${shareToken}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: selectedProduct.id,
+          logo_placements: {},
+          canvas_state: canvasState,
+          preview_url: previewUrl,
+          display_name: displayName.trim(),
+          manufacturer_color_id: selectedColor?.id ?? null,
+          color_hex: selectedColor?.hex ?? null,
+          color_name: selectedColor?.name ?? null,
+          color_code: selectedColor?.color_code ?? null,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || '저장에 실패했습니다.');
+      }
+
+      fabricCanvas.dispose();
+      fabricCanvas = null;
+      onProductAdded();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '오류가 발생했습니다.');
+    } finally {
+      if (fabricCanvas) fabricCanvas.dispose();
+      setIsSaving(false);
+    }
   };
 
   // Back navigation
@@ -373,21 +502,35 @@ export default function AddProductModal({
                 />
               </div>
 
-              {/* Open editor button */}
+              {saveError && (
+                <p className="text-xs text-red-600">{saveError}</p>
+              )}
+
+              {/* Save button */}
               <button
-                onClick={handleOpenEditor}
-                disabled={!displayName.trim()}
-                className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+                onClick={handleSaveDirectly}
+                disabled={!displayName.trim() || isSaving}
+                className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                편집기에서 열기
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  '저장'
+                )}
               </button>
               <p className="text-[10px] text-gray-400 text-center">
-                편집기에서 로고 배치, 텍스트, 이미지 등을 자유롭게 편집할 수 있습니다.
+                로고가 자동으로 배치됩니다. 추가 후 디자인 편집이 가능합니다.
               </p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Hidden offscreen canvas for generating preview & canvas state */}
+      <canvas ref={offscreenCanvasRef} style={{ display: 'none' }} />
     </div>
   );
 }

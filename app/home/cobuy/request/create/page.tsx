@@ -8,7 +8,8 @@ import {
   X, ArrowLeft, ArrowRight, CheckCircle2, Share2,
   Truck, MapPin, Search, Calendar, Tag,
   Sparkles, Gift, ChevronLeft, ChevronRight, Check, Copy, ShoppingBag,
-  TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone,
+  TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone, Pencil,
+  Undo2, Redo2,
 } from 'lucide-react';
 import {
   Product, ProductSide, CoBuyCustomField, CoBuyDeliverySettings, CoBuyAddressInfo,
@@ -102,6 +103,18 @@ export default function CreateCoBuyRequestPage() {
 
   // Freeform tutorial modal
   const [showFreeformTutorial, setShowFreeformTutorial] = useState(true);
+
+  // Drawing mode
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawingColor, setDrawingColor] = useState('#000000');
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [hasTextSelected, setHasTextSelected] = useState(false);
+  const [textColor, setTextColor] = useState('#333333');
+
+  // Undo/redo history
+  const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isUndoRedoing, setIsUndoRedoing] = useState(false);
 
   // Animation
   const [isAnimating, setIsAnimating] = useState(false);
@@ -493,7 +506,7 @@ export default function CreateCoBuyRequestPage() {
       originX: 'center',
       originY: 'center',
       fontFamily: 'Arial',
-      fill: '#333',
+      fill: textColor,
       fontSize: 30,
     });
     canvas.add(text);
@@ -511,6 +524,7 @@ export default function CreateCoBuyRequestPage() {
     input.onchange = async (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+      setIsImageLoading(true);
       try {
         const supabase = createClient();
         const ext = file.name.split('.').pop() || 'png';
@@ -534,6 +548,8 @@ export default function CreateCoBuyRequestPage() {
       } catch (err) {
         console.error('Error adding image:', err);
         alert('이미지 추가 중 오류가 발생했습니다.');
+      } finally {
+        setIsImageLoading(false);
       }
     };
     input.click();
@@ -546,6 +562,165 @@ export default function CreateCoBuyRequestPage() {
     if (active.length > 0) {
       active.forEach(obj => canvas.remove(obj));
       canvas.discardActiveObject();
+      canvas.renderAll();
+    }
+  };
+
+  const toggleDrawingMode = async () => {
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const newDrawing = !isDrawing;
+    if (newDrawing) {
+      const fabric = await import('fabric');
+      canvas.isDrawingMode = true;
+      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush.color = drawingColor;
+      canvas.freeDrawingBrush.width = 3;
+    } else {
+      canvas.isDrawingMode = false;
+    }
+    setIsDrawing(newDrawing);
+  };
+
+  const changeDrawingColor = (color: string) => {
+    setDrawingColor(color);
+    const canvas = getActiveCanvas();
+    if (canvas && canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = color;
+    }
+  };
+
+  // Undo/redo: only track user-added objects (not product images, guides, or layer filters)
+  const isUserObject = (obj: any): boolean => {
+    if (!obj) return false;
+    if (obj.excludeFromExport) return false;
+    if (obj.data?.id === 'background-product-image') return false;
+    return true;
+  };
+
+  const getUserObjects = useCallback((canvas: any) =>
+    canvas.getObjects().filter((obj: any) => isUserObject(obj)), []);
+
+  const saveCanvasState = useCallback(() => {
+    if (isUndoRedoing) return;
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const userObjs = getUserObjects(canvas);
+    const serialized = userObjs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
+    const json = JSON.stringify(serialized);
+    setCanvasHistory(prev => {
+      const trimmed = prev.slice(0, historyIndex + 1);
+      const next = [...trimmed, json];
+      setHistoryIndex(next.length - 1);
+      return next;
+    });
+  }, [getActiveCanvas, getUserObjects, historyIndex, isUndoRedoing]);
+
+  // Listen for user object changes to save history
+  useEffect(() => {
+    const canvas = getActiveCanvas();
+    if (!canvas || currentStep !== 'freeform-design') return;
+    if (canvasHistory.length === 0) {
+      const userObjs = getUserObjects(canvas);
+      const serialized = userObjs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
+      setCanvasHistory([JSON.stringify(serialized)]);
+      setHistoryIndex(0);
+    }
+    const onChanged = (e: any) => {
+      const target = e.target || e.path;
+      if (target && !isUserObject(target)) return;
+      saveCanvasState();
+    };
+    canvas.on('object:added', onChanged);
+    canvas.on('object:modified', onChanged);
+    canvas.on('object:removed', onChanged);
+    canvas.on('path:created', onChanged);
+    return () => {
+      canvas.off('object:added', onChanged);
+      canvas.off('object:modified', onChanged);
+      canvas.off('object:removed', onChanged);
+      canvas.off('path:created', onChanged);
+    };
+  }, [getActiveCanvas, getUserObjects, currentStep, saveCanvasState, canvasHistory.length]);
+
+  const undo = useCallback(async () => {
+    if (historyIndex <= 0) return;
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    setIsUndoRedoing(true);
+    const prevIndex = historyIndex - 1;
+    // Remove current user objects
+    getUserObjects(canvas).forEach((obj: any) => canvas.remove(obj));
+    // Restore saved user objects
+    const savedObjects = JSON.parse(canvasHistory[prevIndex]);
+    if (savedObjects.length > 0) {
+      const fabric = await import('fabric');
+      const objects = await fabric.util.enlivenObjects(savedObjects);
+      objects.forEach((obj: any) => canvas.add(obj));
+    }
+    canvas.renderAll();
+    setHistoryIndex(prevIndex);
+    setIsUndoRedoing(false);
+  }, [historyIndex, canvasHistory, getActiveCanvas, getUserObjects]);
+
+  const redo = useCallback(async () => {
+    if (historyIndex >= canvasHistory.length - 1) return;
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    setIsUndoRedoing(true);
+    const nextIndex = historyIndex + 1;
+    getUserObjects(canvas).forEach((obj: any) => canvas.remove(obj));
+    const savedObjects = JSON.parse(canvasHistory[nextIndex]);
+    if (savedObjects.length > 0) {
+      const fabric = await import('fabric');
+      const objects = await fabric.util.enlivenObjects(savedObjects);
+      objects.forEach((obj: any) => canvas.add(obj));
+    }
+    canvas.renderAll();
+    setHistoryIndex(nextIndex);
+    setIsUndoRedoing(false);
+  }, [historyIndex, canvasHistory, getActiveCanvas, getUserObjects]);
+
+  // Disable drawing mode when leaving freeform step
+  useEffect(() => {
+    if (currentStep !== 'freeform-design' && isDrawing) {
+      const canvas = getActiveCanvas();
+      if (canvas) canvas.isDrawingMode = false;
+      setIsDrawing(false);
+    }
+  }, [currentStep, isDrawing, getActiveCanvas]);
+
+  // Track text selection for color buttons
+  const activeCanvas = canvasMap[activeSideId] || null;
+  useEffect(() => {
+    if (!activeCanvas || currentStep !== 'freeform-design') return;
+    const checkTextSelected = () => {
+      const obj = activeCanvas.getActiveObject();
+      if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox')) {
+        setHasTextSelected(true);
+        setTextColor((obj as any).fill || '#333333');
+      } else {
+        setHasTextSelected(false);
+      }
+    };
+    const onCleared = () => setHasTextSelected(false);
+    activeCanvas.on('selection:created', checkTextSelected);
+    activeCanvas.on('selection:updated', checkTextSelected);
+    activeCanvas.on('selection:cleared', onCleared);
+    return () => {
+      activeCanvas.off('selection:created', checkTextSelected);
+      activeCanvas.off('selection:updated', checkTextSelected);
+      activeCanvas.off('selection:cleared', onCleared);
+    };
+  }, [activeCanvas, currentStep]);
+
+  const changeTextColor = (color: string) => {
+    setTextColor(color);
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const obj = canvas.getActiveObject();
+    if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox')) {
+      (obj as any).set('fill', color);
       canvas.renderAll();
     }
   };
@@ -566,7 +741,7 @@ export default function CreateCoBuyRequestPage() {
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col w-72 shrink-0 bg-gray-50/80 border-r border-gray-200 p-6">
           <div className="mb-8">
-            <h1 className="text-lg font-bold text-gray-900">공동구매 요청</h1>
+            <h1 className="text-lg font-bold text-gray-900">과잠 공동구매 요청</h1>
             {selectedProduct && (
               <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-200">
                 {selectedProduct.thumbnail_image_link && (
@@ -615,7 +790,7 @@ export default function CreateCoBuyRequestPage() {
             <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
               <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
                 <div>
-                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">공동구매 요청</h1>
+                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매 요청</h1>
                   {currentStep !== 'product-select' && currentStep !== ('success' as Step) && (
                     <p className="text-xs md:text-sm text-gray-500">
                       {STEPS.find(s => s.id === currentStep)?.label}
@@ -804,6 +979,14 @@ export default function CreateCoBuyRequestPage() {
 
                   {/* Canvas with side arrows — all sides rendered, only active visible */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
+                    {isImageLoading && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
+                        <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 shadow-lg">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-[#3B55A5]" />
+                          <span className="text-xs text-gray-600">이미지 로딩중...</span>
+                        </div>
+                      </div>
+                    )}
                     {freeformSides.length > 1 && validFreeformIndex > 0 && (
                       <button
                         onClick={() => setActiveSide(freeformSides[validFreeformIndex - 1].id)}
@@ -843,16 +1026,69 @@ export default function CreateCoBuyRequestPage() {
                   </p>
 
                   {/* Simple toolbar */}
-                  <div className="flex items-center justify-center gap-3 py-3 bg-white border-t border-gray-200">
-                    <button onClick={addFreeformText} className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
-                      <TextCursor className="w-4 h-4" /> 텍스트
-                    </button>
-                    <button onClick={addFreeformImage} className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
-                      <ImagePlus className="w-4 h-4" /> 이미지
-                    </button>
-                    <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="flex flex-col items-center gap-1.5 py-2.5 bg-white border-t border-gray-200">
+                    <div className="flex items-center justify-center gap-2">
+                      <button onClick={toggleDrawingMode} className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition text-sm font-medium ${isDrawing ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+                        <Pencil className="w-4 h-4" /> 그리기
+                      </button>
+                      <button onClick={() => { if (isDrawing) { const c = getActiveCanvas(); if (c) c.isDrawingMode = false; setIsDrawing(false); } addFreeformText(); }} className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
+                        <TextCursor className="w-4 h-4" /> 텍스트
+                      </button>
+                      <button onClick={() => { if (isDrawing) { const c = getActiveCanvas(); if (c) c.isDrawingMode = false; setIsDrawing(false); } addFreeformImage(); }} className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
+                        <ImagePlus className="w-4 h-4" /> 이미지
+                      </button>
+                      <button onClick={() => { if (isDrawing) { const c = getActiveCanvas(); if (c) c.isDrawingMode = false; setIsDrawing(false); } deleteFreeformObject(); }} className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-center gap-3">
+                      {/* Drawing color picker */}
+                      {isDrawing && (
+                        <div className="flex items-center gap-1.5">
+                          {[
+                            { color: '#000000', label: '검정' },
+                            { color: '#2563EB', label: '파랑' },
+                            { color: '#DC2626', label: '빨강' },
+                          ].map(({ color, label }) => (
+                            <button
+                              key={color}
+                              onClick={() => changeDrawingColor(color)}
+                              className={`w-7 h-7 rounded-full border-2 transition-all ${drawingColor === color ? 'border-[#3B55A5] scale-110 shadow-sm' : 'border-gray-300'}`}
+                              style={{ backgroundColor: color }}
+                              aria-label={label}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Text color picker */}
+                      {hasTextSelected && !isDrawing && (
+                        <div className="flex items-center gap-1.5">
+                          {[
+                            { color: '#000000', label: '검정' },
+                            { color: '#2563EB', label: '파랑' },
+                            { color: '#DC2626', label: '빨강' },
+                            { color: '#FFFFFF', label: '흰색' },
+                          ].map(({ color, label }) => (
+                            <button
+                              key={color}
+                              onClick={() => changeTextColor(color)}
+                              className={`w-7 h-7 rounded-full border-2 transition-all ${textColor === color ? 'border-[#3B55A5] scale-110 shadow-sm' : 'border-gray-300'}`}
+                              style={{ backgroundColor: color }}
+                              aria-label={label}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Undo/Redo */}
+                      <div className="flex items-center gap-1">
+                        <button onClick={undo} disabled={historyIndex <= 0} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
+                          <Undo2 className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button onClick={redo} disabled={historyIndex >= canvasHistory.length - 1} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
+                          <Redo2 className="w-4 h-4 text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Freeform tutorial modal */}
