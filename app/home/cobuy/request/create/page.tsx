@@ -1210,7 +1210,7 @@ export default function CreateCoBuyRequestPage() {
                         <button onClick={replaceFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
                           <Replace className="w-4 h-4" /> 교체
                         </button>
-                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-500 hover:bg-red-50 rounded-xl transition text-sm">
                           <Trash2 className="w-4 h-4" /> 삭제
                         </button>
                       </div>
@@ -1263,7 +1263,7 @@ export default function CreateCoBuyRequestPage() {
                         <button onClick={addFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
                           <ImagePlus className="w-4 h-4" /> 이미지
                         </button>
-                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-500 hover:bg-red-50 rounded-xl transition text-sm">
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <div className="flex items-center gap-1">
