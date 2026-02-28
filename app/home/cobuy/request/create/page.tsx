@@ -81,6 +81,7 @@ export default function CreateCoBuyRequestPage() {
   const [startDate] = useState('');
   const [endDate] = useState('');
   const [receiveByDate, setReceiveByDate] = useState('');
+  const [skipDelivery, setSkipDelivery] = useState(false);
   const [expectedQuantity, setExpectedQuantity] = useState<number | ''>('');
   const minQuantity: number | '' = '';
   const maxQuantity: number | '' = '';
@@ -1399,20 +1400,38 @@ export default function CreateCoBuyRequestPage() {
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 주소</p>
                       <p className="text-xs text-gray-500">공장에서 제품을 배송받을 주소예요.</p>
                       <div className="flex gap-2">
-                        <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
-                          className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
-                        <button type="button" onClick={() => handleAddressSearch('delivery')}
-                          className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
-                          <Search className="w-4 h-4" /> 주소 검색
+                        <button
+                          onClick={() => setSkipDelivery(false)}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${!skipDelivery ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          주소 입력하기
+                        </button>
+                        <button
+                          onClick={() => setSkipDelivery(true)}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${skipDelivery ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          아직 모르겠어요
                         </button>
                       </div>
-                      {deliverySettings.deliveryAddress?.roadAddress && (
-                        <div className="space-y-2">
-                          <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
-                          <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
-                            onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
-                            placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
-                        </div>
+                      {!skipDelivery && (
+                        <>
+                          <div className="flex gap-2">
+                            <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
+                              className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
+                            <button type="button" onClick={() => handleAddressSearch('delivery')}
+                              className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
+                              <Search className="w-4 h-4" /> 주소 검색
+                            </button>
+                          </div>
+                          {deliverySettings.deliveryAddress?.roadAddress && (
+                            <div className="space-y-2">
+                              <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
+                              <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
+                                onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
+                                placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -1438,14 +1457,18 @@ export default function CreateCoBuyRequestPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex gap-2 w-full max-w-sm">
-                    <button onClick={handleShare} className="flex-1 py-3 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center justify-center gap-1.5 text-sm">
-                      <Share2 className="w-4 h-4" /> 공유하기
-                    </button>
-                    <button onClick={() => router.push('/home/my-page/cobuy')} className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
-                      확인 <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button onClick={() => router.push('/home/my-page/cobuy')} className="w-full max-w-sm py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
+                    확인 <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <a
+                    href="http://pf.kakao.com/_xjSdYG/chat"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full max-w-sm mt-3 py-3 bg-[#FEE500] text-[#191919] rounded-2xl font-semibold text-sm hover:brightness-95 transition"
+                  >
+                    <img src="/icons/kakaotalk_channel.png" alt="카카오톡" className="w-5 h-5" />
+                    카카오톡으로 문의하기
+                  </a>
                 </div>
               )}
             </div>
@@ -1462,16 +1485,10 @@ export default function CreateCoBuyRequestPage() {
                     </button>
                   )}
                   {currentStep === 'schedule-address' ? (
-                    <div className="flex-1 flex flex-col gap-2">
-                      <button onClick={() => handleSubmit(false)} disabled={isCreating}
-                        className="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
-                        {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <><Sparkles className="w-4 h-4" /> 제출하기</>}
-                      </button>
-                      <button onClick={() => handleSubmit(true)} disabled={isCreating}
-                        className="w-full py-2.5 text-sm text-gray-400 hover:text-gray-600 transition">
-                        아직 모르겠어요 (일정/배송 없이 제출)
-                      </button>
-                    </div>
+                    <button onClick={() => handleSubmit(skipDelivery)} disabled={isCreating}
+                      className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
+                      {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <><Sparkles className="w-4 h-4" /> 제출하기</>}
+                    </button>
                   ) : (
                     <button onClick={handleNext}
                       className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 text-sm">
