@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         <strong>답변 내용:</strong><br/>
         <span style="white-space: pre-wrap;">${replyContent}</span>
       </div>
-      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 굿즈 문의 게시판에서 자동 발송되었습니다.</p>
+      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 유니폼 문의 게시판에서 자동 발송되었습니다.</p>
     </div>
   `;
 
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
   const success = await sendMailjetEmail({
     to: [{ email: writerEmail, name: writerName }],
-    subject: `[모두의 굿즈] 문의 답변 알림: ${inquiry.title}`,
+    subject: `[모두의 유니폼] 문의 답변 알림: ${inquiry.title}`,
     textPart,
     htmlPart,
     customId: 'inquiry-reply-notification',

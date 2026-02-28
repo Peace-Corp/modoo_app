@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         ${fileCount > 0 ? `<tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">첨부파일</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${fileCount}개</td></tr>` : ''}
       </table>
       ${content ? `<div style="margin-top: 16px; padding: 12px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px;"><strong>추가 내용:</strong><br/><span style="white-space: pre-wrap;">${content}</span></div>` : ''}
-      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 굿즈 문의 게시판에서 자동 발송되었습니다.</p>
+      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 유니폼 문의 게시판에서 자동 발송되었습니다.</p>
     </div>
   `;
 
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
   const success = await sendMailjetEmail({
     to: [{ email: adminEmail, name: '관리자' }],
-    subject: `[모두의 굿즈] 새 문의: ${title}`,
+    subject: `[모두의 유니폼] 새 문의: ${title}`,
     textPart,
     htmlPart,
     customId: 'inquiry-notification',

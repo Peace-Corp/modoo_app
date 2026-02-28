@@ -218,7 +218,7 @@ export async function sendOrderNotificationEmails(
   try {
     await sendMailjetEmail({
       to: [{ email: params.customerEmail, name: params.customerName }],
-      subject: `[모두의 굿즈] 주문이 완료되었습니다 (${params.orderId})`,
+      subject: `[모두의 유니폼] 주문이 완료되었습니다 (${params.orderId})`,
       textPart: buildCustomerText(params),
       htmlPart: buildCustomerHtml(params),
       customId: `order-confirm-${params.orderId}`,

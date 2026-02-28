@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">배송 주소</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${deliveryAddress || '-'}</td></tr>
       </table>
       <p style="margin-top: 16px;"><a href="${requestLink}" style="color: #3B55A5;">요청 상세 보기</a></p>
-      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 굿즈에서 자동 발송되었습니다.</p>
+      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 유니폼에서 자동 발송되었습니다.</p>
     </div>
   `;
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       </table>
       <p style="margin-top: 16px;">관리자가 디자인을 확인한 후 연락드리겠습니다.</p>
       <p style="margin-top: 8px;"><a href="${submitterLink}" style="color: #3B55A5;">요청 확인하기</a></p>
-      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 굿즈에서 자동 발송되었습니다.</p>
+      <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 유니폼에서 자동 발송되었습니다.</p>
     </div>
   `;
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     }),
     sendMailjetEmail({
       to: [{ email: submitterEmail, name: submitterName }],
-      subject: `[모두의 굿즈] 공동구매 요청이 접수되었습니다`,
+      subject: `[모두의 유니폼] 공동구매 요청이 접수되었습니다`,
       textPart: submitterText,
       htmlPart: submitterHtml,
       customId: `cobuy-request-submitter-${shareToken}`,
