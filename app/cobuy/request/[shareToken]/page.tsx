@@ -127,8 +127,6 @@ export default function CoBuyRequestFeedbackPage() {
         if (request?.status === 'design_shared') {
           setRequest(prev => prev ? { ...prev, status: 'feedback' } : prev);
         }
-      } else if (res.status === 401) {
-        setError('로그인이 필요합니다.');
       }
     } catch {
       // ignore
@@ -322,7 +320,7 @@ export default function CoBuyRequestFeedbackPage() {
                 >
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className={`font-medium ${comment.is_admin ? 'text-blue-700' : 'text-gray-700'}`}>
-                      {comment.is_admin ? '관리자' : '나'}
+                      {comment.is_admin ? '관리자' : '고객'}
                     </span>
                     <span className="text-gray-400">{formatDate(comment.created_at)}</span>
                   </div>

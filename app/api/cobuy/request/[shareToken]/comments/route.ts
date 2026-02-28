@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase-admin';
 
 export const runtime = 'nodejs';
 
@@ -46,12 +47,7 @@ export async function POST(
   try {
     const { shareToken } = await params;
     const supabase = await createClient();
-
-    // Verify authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const adminSupabase = createAdminClient();
 
     // Get the request by share token
     const { data: request, error: reqError } = await supabase
@@ -64,11 +60,6 @@ export async function POST(
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
     }
 
-    // Verify the user owns this request
-    if (request.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const body = await req.json();
     const { content } = body;
 
@@ -76,12 +67,15 @@ export async function POST(
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
 
-    // Insert comment
-    const { data: comment, error: commentError } = await supabase
+    // Check if user is authenticated (optional)
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Insert comment (use admin client to bypass RLS for anonymous users)
+    const { data: comment, error: commentError } = await adminSupabase
       .from('cobuy_request_comments')
       .insert({
         request_id: request.id,
-        user_id: user.id,
+        user_id: user?.id || null,
         content: content.trim(),
         is_admin: false,
       })
@@ -95,7 +89,7 @@ export async function POST(
 
     // Auto-update status to 'feedback' if current status is 'design_shared'
     if (request.status === 'design_shared') {
-      await supabase
+      await adminSupabase
         .from('cobuy_requests')
         .update({ status: 'feedback', updated_at: new Date().toISOString() })
         .eq('id', request.id);

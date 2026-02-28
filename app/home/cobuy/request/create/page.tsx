@@ -107,6 +107,9 @@ export default function CreateCoBuyRequestPage() {
   // Drawing mode
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingColor, setDrawingColor] = useState('#000000');
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [hasTextSelected, setHasTextSelected] = useState(false);
+  const [textColor, setTextColor] = useState('#333333');
 
   // Undo/redo history
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
@@ -503,7 +506,7 @@ export default function CreateCoBuyRequestPage() {
       originX: 'center',
       originY: 'center',
       fontFamily: 'Arial',
-      fill: '#333',
+      fill: textColor,
       fontSize: 30,
     });
     canvas.add(text);
@@ -521,6 +524,7 @@ export default function CreateCoBuyRequestPage() {
     input.onchange = async (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+      setIsImageLoading(true);
       try {
         const supabase = createClient();
         const ext = file.name.split('.').pop() || 'png';
@@ -544,6 +548,8 @@ export default function CreateCoBuyRequestPage() {
       } catch (err) {
         console.error('Error adding image:', err);
         alert('이미지 추가 중 오류가 발생했습니다.');
+      } finally {
+        setIsImageLoading(false);
       }
     };
     input.click();
@@ -684,6 +690,41 @@ export default function CreateCoBuyRequestPage() {
     }
   }, [currentStep, isDrawing, getActiveCanvas]);
 
+  // Track text selection for color buttons
+  const activeCanvas = canvasMap[activeSideId] || null;
+  useEffect(() => {
+    if (!activeCanvas || currentStep !== 'freeform-design') return;
+    const checkTextSelected = () => {
+      const obj = activeCanvas.getActiveObject();
+      if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox')) {
+        setHasTextSelected(true);
+        setTextColor((obj as any).fill || '#333333');
+      } else {
+        setHasTextSelected(false);
+      }
+    };
+    const onCleared = () => setHasTextSelected(false);
+    activeCanvas.on('selection:created', checkTextSelected);
+    activeCanvas.on('selection:updated', checkTextSelected);
+    activeCanvas.on('selection:cleared', onCleared);
+    return () => {
+      activeCanvas.off('selection:created', checkTextSelected);
+      activeCanvas.off('selection:updated', checkTextSelected);
+      activeCanvas.off('selection:cleared', onCleared);
+    };
+  }, [activeCanvas, currentStep]);
+
+  const changeTextColor = (color: string) => {
+    setTextColor(color);
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const obj = canvas.getActiveObject();
+    if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox')) {
+      (obj as any).set('fill', color);
+      canvas.renderAll();
+    }
+  };
+
   const animationClass = isAnimating
     ? slideDirection === 'right' ? 'opacity-0 translate-x-4' : 'opacity-0 -translate-x-4'
     : 'opacity-100 translate-x-0';
@@ -700,7 +741,7 @@ export default function CreateCoBuyRequestPage() {
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col w-72 shrink-0 bg-gray-50/80 border-r border-gray-200 p-6">
           <div className="mb-8">
-            <h1 className="text-lg font-bold text-gray-900">공동구매 요청</h1>
+            <h1 className="text-lg font-bold text-gray-900">과잠 공동구매 요청</h1>
             {selectedProduct && (
               <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-200">
                 {selectedProduct.thumbnail_image_link && (
@@ -749,7 +790,7 @@ export default function CreateCoBuyRequestPage() {
             <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
               <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
                 <div>
-                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">공동구매 요청</h1>
+                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매 요청</h1>
                   {currentStep !== 'product-select' && currentStep !== ('success' as Step) && (
                     <p className="text-xs md:text-sm text-gray-500">
                       {STEPS.find(s => s.id === currentStep)?.label}
@@ -938,6 +979,14 @@ export default function CreateCoBuyRequestPage() {
 
                   {/* Canvas with side arrows — all sides rendered, only active visible */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
+                    {isImageLoading && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
+                        <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 shadow-lg">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-[#3B55A5]" />
+                          <span className="text-xs text-gray-600">이미지 로딩중...</span>
+                        </div>
+                      </div>
+                    )}
                     {freeformSides.length > 1 && validFreeformIndex > 0 && (
                       <button
                         onClick={() => setActiveSide(freeformSides[validFreeformIndex - 1].id)}
@@ -1005,6 +1054,25 @@ export default function CreateCoBuyRequestPage() {
                               key={color}
                               onClick={() => changeDrawingColor(color)}
                               className={`w-7 h-7 rounded-full border-2 transition-all ${drawingColor === color ? 'border-[#3B55A5] scale-110 shadow-sm' : 'border-gray-300'}`}
+                              style={{ backgroundColor: color }}
+                              aria-label={label}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Text color picker */}
+                      {hasTextSelected && !isDrawing && (
+                        <div className="flex items-center gap-1.5">
+                          {[
+                            { color: '#000000', label: '검정' },
+                            { color: '#2563EB', label: '파랑' },
+                            { color: '#DC2626', label: '빨강' },
+                            { color: '#FFFFFF', label: '흰색' },
+                          ].map(({ color, label }) => (
+                            <button
+                              key={color}
+                              onClick={() => changeTextColor(color)}
+                              className={`w-7 h-7 rounded-full border-2 transition-all ${textColor === color ? 'border-[#3B55A5] scale-110 shadow-sm' : 'border-gray-300'}`}
                               style={{ backgroundColor: color }}
                               aria-label={label}
                             />
