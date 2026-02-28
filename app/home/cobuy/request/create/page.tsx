@@ -551,7 +551,7 @@ export default function CreateCoBuyRequestPage() {
 
       // Send notification emails (fire-and-forget)
       const submitterEmail = isAuthenticated ? user?.email : guestEmail.trim();
-      const submitterName = isAuthenticated ? (user?.user_metadata?.name || user?.email) : guestName.trim();
+      const submitterName = isAuthenticated ? (user?.name || user?.email) : guestName.trim();
       fetch('/api/cobuy/notify/request-submitted', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
