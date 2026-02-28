@@ -12,6 +12,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import Footer from "../components/Footer";
+import PromotionalPopup from "../components/PromotionalPopup";
 import { ChevronRight } from "lucide-react";
 
 const getActiveProducts = unstable_cache(
@@ -117,6 +118,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <PromotionalPopup />
       {/* Header */}
       <Header showHomeNav />
       <div className="lg:pt-6 pt-4 flex flex-col lg:flex-row lg:items-center border-b border-black/30 pb-4">
