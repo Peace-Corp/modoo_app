@@ -987,7 +987,7 @@ export default function CreateCoBuyRequestPage() {
                     </p>
                   )}
                 </div>
-                <button onClick={() => router.back()} disabled={isCreating} className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors lg:hidden">
+                <button onClick={() => router.push('/home')} disabled={isCreating} className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors lg:hidden">
                   <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
                 </button>
               </div>
