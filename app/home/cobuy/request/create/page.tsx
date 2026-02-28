@@ -9,7 +9,7 @@ import {
   Search, Calendar, Tag,
   Sparkles, ChevronRight, Check, Copy, ShoppingBag,
   TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone, Pencil,
-  Undo2, Redo2,
+  Undo2, Redo2, Replace,
 } from 'lucide-react';
 import {
   Product, ProductSide, CoBuyCustomField, CoBuyDeliverySettings, CoBuyAddressInfo,
@@ -107,6 +107,7 @@ export default function CreateCoBuyRequestPage() {
 
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [hasTextSelected, setHasTextSelected] = useState(false);
+  const [hasImageSelected, setHasImageSelected] = useState(false);
   const [textColor, setTextColor] = useState('#333333');
   const [textStroke, setTextStroke] = useState('');
   const [textEditModal, setTextEditModal] = useState<{ open: boolean; value: string }>({ open: false, value: '' });
@@ -276,6 +277,22 @@ export default function CreateCoBuyRequestPage() {
     (async () => {
       const fabric = await import('fabric');
       const isEditable = currentStep === 'freeform-design';
+
+      // Collect font families used in preset objects and ensure they're loaded
+      const fontFamilies = new Set<string>();
+      for (const side of newCanvases) {
+        const raw = cobuyPreset.canvas_state[side.id];
+        if (!raw) continue;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        for (const obj of parsed.objects || []) {
+          if (obj.fontFamily) fontFamilies.add(obj.fontFamily);
+        }
+      }
+      if (fontFamilies.size > 0) {
+        await Promise.all(
+          [...fontFamilies].map(f => document.fonts.load(`bold 30px "${f}"`).catch(() => {}))
+        );
+      }
 
       for (const side of newCanvases) {
         const canvas = canvasMap[side.id];
@@ -665,6 +682,59 @@ export default function CreateCoBuyRequestPage() {
     }
   };
 
+  const replaceFreeformImage = () => {
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== 'image') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setIsImageLoading(true);
+      try {
+        const supabase = createClient();
+        const ext = file.name.split('.').pop() || 'png';
+        const fileName = `freeform-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { data, error } = await supabase.storage
+          .from('user-designs')
+          .upload(`images/${fileName}`, file, { contentType: file.type });
+        if (error) { alert('이미지 업로드에 실패했습니다.'); return; }
+        setUploadedImagePaths(prev => [...prev, data.path]);
+        const { data: urlData } = supabase.storage.from('user-designs').getPublicUrl(data.path);
+        const fabric = await import('fabric');
+        const newImg = await fabric.FabricImage.fromURL(urlData.publicUrl, { crossOrigin: 'anonymous' });
+        // Keep same position, scale to fit same bounding box
+        const oldLeft = activeObj.left ?? canvas.width / 2;
+        const oldTop = activeObj.top ?? canvas.height / 2;
+        const oldBoundW = (activeObj.width || 1) * (activeObj.scaleX || 1);
+        const oldBoundH = (activeObj.height || 1) * (activeObj.scaleY || 1);
+        const newScale = Math.min(oldBoundW / (newImg.width || 1), oldBoundH / (newImg.height || 1));
+        newImg.set({
+          left: oldLeft,
+          top: oldTop,
+          originX: activeObj.originX || 'center',
+          originY: activeObj.originY || 'center',
+          scaleX: newScale,
+          scaleY: newScale,
+          angle: activeObj.angle || 0,
+        });
+        canvas.remove(activeObj);
+        canvas.add(newImg);
+        canvas.setActiveObject(newImg);
+        canvas.renderAll();
+      } catch (err) {
+        console.error('Error replacing image:', err);
+        alert('이미지 교체 중 오류가 발생했습니다.');
+      } finally {
+        setIsImageLoading(false);
+      }
+    };
+    input.click();
+  };
+
   // Undo/redo: only track user-added objects (not product images, guides, or layer filters)
   const isUserObject = (obj: any): boolean => {
     if (!obj) return false;
@@ -760,23 +830,28 @@ export default function CreateCoBuyRequestPage() {
   const activeCanvas = canvasMap[activeSideId] || null;
   useEffect(() => {
     if (!activeCanvas || currentStep !== 'freeform-design') return;
-    const checkTextSelected = () => {
+    const checkSelected = () => {
       const obj = activeCanvas.getActiveObject();
       if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox' || isCurvedText(obj))) {
         setHasTextSelected(true);
+        setHasImageSelected(false);
         setTextColor((obj as any).fill || '#333333');
         setTextStroke((obj as any).stroke || '');
+      } else if (obj && obj.type === 'image') {
+        setHasTextSelected(false);
+        setHasImageSelected(true);
       } else {
         setHasTextSelected(false);
+        setHasImageSelected(false);
       }
     };
-    const onCleared = () => setHasTextSelected(false);
-    activeCanvas.on('selection:created', checkTextSelected);
-    activeCanvas.on('selection:updated', checkTextSelected);
+    const onCleared = () => { setHasTextSelected(false); setHasImageSelected(false); };
+    activeCanvas.on('selection:created', checkSelected);
+    activeCanvas.on('selection:updated', checkSelected);
     activeCanvas.on('selection:cleared', onCleared);
     return () => {
-      activeCanvas.off('selection:created', checkTextSelected);
-      activeCanvas.off('selection:updated', checkTextSelected);
+      activeCanvas.off('selection:created', checkSelected);
+      activeCanvas.off('selection:updated', checkSelected);
       activeCanvas.off('selection:cleared', onCleared);
     };
   }, [activeCanvas, currentStep]);
@@ -1086,9 +1161,18 @@ export default function CreateCoBuyRequestPage() {
                     자유롭게 배치해주세요. 참고용이며, 관리자가 실제 디자인을 제작합니다.
                   </p>
 
-                  {/* Toolbar — fixed height, text controls swap in when text is selected */}
+                  {/* Toolbar — fixed height, controls swap based on selection */}
                   <div className="border-t border-gray-200 bg-white h-[52px] flex items-center">
-                    {hasTextSelected ? (
+                    {hasImageSelected ? (
+                      <div className="flex items-center justify-center gap-2 w-full">
+                        <button onClick={replaceFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
+                          <Replace className="w-4 h-4" /> 교체
+                        </button>
+                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                          <Trash2 className="w-4 h-4" /> 삭제
+                        </button>
+                      </div>
+                    ) : hasTextSelected ? (
                       <div className="flex items-center gap-2 px-3 w-full">
                         <button
                           onClick={handleEditTextContent}
