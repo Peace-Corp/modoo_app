@@ -9,7 +9,7 @@ import { Product, ProductConfig, CartItem, ProductColor } from "@/types/types";
 import { useCanvasStore } from "@/store/useCanvasStore";
 import { useCartStore } from "@/store/useCartStore";
 import Header from "@/app/components/Header";
-import { Share, X, Trash2, ChevronsUp, ArrowUp, ArrowDown, ChevronsDown } from "lucide-react";
+import { X, Trash2, ChevronsUp, ArrowUp, ArrowDown, ChevronsDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { calculateAllSidesPricing, type PricingSummary } from "@/app/utils/canvasPricing";
 import { saveDesign } from "@/lib/designService";
@@ -67,6 +67,7 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
   const [isRecallGuestDesignOpen, setIsRecallGuestDesignOpen] = useState(false);
   const [guestDesign, setGuestDesign] = useState<GuestDesign | null>(null);
   const [selectedTextObject, setSelectedTextObject] = useState<fabric.IText | fabric.Text | null>(null);
+  const [isSavingToMall, setIsSavingToMall] = useState(false);
 
   // Convert Product to ProductConfig format
   const productConfig: ProductConfig = {
@@ -450,15 +451,157 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
     loadCartItemDesign();
 	  }, [cartItemId, cartStoreItems, canvasMap, product.configuration, restoreAllCanvasState, setProductColor, incrementCanvasVersion]);
 
+  // Partner mall mode: new product addition or editing existing product
+  const partnerMallAdd = searchParams.get('partnerMallAdd');
+  const [partnerMallAddData, setPartnerMallAddData] = useState<{
+    shareToken: string;
+    mallName: string;
+    logoUrl: string;
+    displayName: string;
+    manufacturerColorId: string | null;
+    colorHex: string | null;
+    colorName: string | null;
+    colorCode: string | null;
+    existingId?: string;
+    canvasState?: Record<string, string>;
+  } | null>(null);
+
   useEffect(() => {
-    if (cartItemId) return;
+    if (!partnerMallAdd) return;
+
+    const loadPartnerMallAddData = async () => {
+      const raw = sessionStorage.getItem('partnerMallAddData');
+      if (!raw) return;
+
+      try {
+        const data = JSON.parse(raw);
+        setPartnerMallAddData(data);
+        sessionStorage.removeItem('partnerMallAddData');
+
+        // Wait for canvases to be ready
+        const checkCanvasesReady = () =>
+          product.configuration.every(side => canvasMap[side.id]);
+
+        let attempts = 0;
+        while (!checkCanvasesReady() && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+        if (!checkCanvasesReady()) return;
+
+        // Set product color
+        if (data.colorHex) {
+          setProductColor(data.colorHex);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // If editing existing product, restore its canvas state
+        if (data.existingId && data.canvasState && Object.keys(data.canvasState).length > 0) {
+          await restoreAllCanvasState(data.canvasState as Record<string, string>);
+          incrementCanvasVersion();
+        } else if (data.logoUrl) {
+          // New product: place the mall logo on the first side canvas
+          const firstSide = product.configuration[0];
+          if (!firstSide) return;
+          const canvas = canvasMap[firstSide.id];
+          if (!canvas) return;
+
+          try {
+            const logoImg = await fabric.FabricImage.fromURL(data.logoUrl, { crossOrigin: 'anonymous' });
+            // @ts-expect-error - Custom property
+            const printAreaLeft = canvas.printAreaLeft || 0;
+            // @ts-expect-error - Custom property
+            const printAreaTop = canvas.printAreaTop || 0;
+            // @ts-expect-error - Custom property
+            const scaledPrintW = canvas.printAreaWidth || firstSide.printArea.width;
+            const canvasScale = scaledPrintW / firstSide.printArea.width;
+
+            const centerX = firstSide.printArea.width / 2;
+            const centerY = firstSide.printArea.height / 2;
+            const maxWidth = firstSide.printArea.width * 0.2;
+            const maxHeight = firstSide.printArea.height * 0.2;
+            const logoScale = Math.min(
+              maxWidth / (logoImg.width || 100),
+              maxHeight / (logoImg.height || 100)
+            );
+
+            logoImg.set({
+              left: printAreaLeft + centerX * canvasScale,
+              top: printAreaTop + centerY * canvasScale,
+              scaleX: logoScale * canvasScale,
+              scaleY: logoScale * canvasScale,
+              originX: 'center',
+              originY: 'center',
+              data: { id: 'partner-mall-logo' },
+            });
+
+            canvas.add(logoImg);
+            canvas.setActiveObject(logoImg);
+            canvas.renderAll();
+            incrementCanvasVersion();
+          } catch (err) {
+            console.error('Failed to load mall logo:', err);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load partner mall add data:', err);
+      }
+    };
+
+    loadPartnerMallAddData();
+  }, [partnerMallAdd, canvasMap, product.configuration, setProductColor, restoreAllCanvasState, incrementCanvasVersion]);
+
+  // Save to partner mall (create or update)
+  const handleSaveToMall = async () => {
+    if (!partnerMallAddData) return;
+
+    setIsSavingToMall(true);
+    try {
+      const canvasState = saveAllCanvasState();
+      const previewUrl = generateProductThumbnail(canvasMap, 'front', 400, 400);
+
+      const isUpdate = !!partnerMallAddData.existingId;
+      const response = await fetch(`/api/partner-mall/${partnerMallAddData.shareToken}/products`, {
+        method: isUpdate ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(isUpdate
+            ? { id: partnerMallAddData.existingId }
+            : { product_id: product.id }),
+          logo_placements: {},
+          canvas_state: canvasState,
+          preview_url: previewUrl,
+          display_name: partnerMallAddData.displayName,
+          manufacturer_color_id: partnerMallAddData.manufacturerColorId,
+          color_hex: partnerMallAddData.colorHex,
+          color_name: partnerMallAddData.colorName,
+          color_code: partnerMallAddData.colorCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || '저장에 실패했습니다.');
+      }
+
+      router.push(`/mall/${partnerMallAddData.shareToken}`);
+    } catch (err) {
+      console.error('Save to mall error:', err);
+      alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
+    } finally {
+      setIsSavingToMall(false);
+    }
+  };
+
+  useEffect(() => {
+    if (cartItemId || partnerMallAdd) return;
 
     const saved = getGuestDesign(product.id);
     if (!saved) return;
 
     setGuestDesign(saved);
     setIsRecallGuestDesignOpen(true);
-  }, [cartItemId, product.id]);
+  }, [cartItemId, partnerMallAdd, product.id]);
 
   useEffect(() => {
     setEditMode(true);
@@ -704,14 +847,28 @@ export default function ProductEditorClientDesktop({ product }: ProductEditorCli
               </div>
 
               <div className="mt-4">
-                {/* Purchase Button */}
-                <button
-                  onClick={handlePurchaseClick}
-                  disabled={isSaving}
-                  className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-                >
-                  {isSaving ? '처리 중...' : '구매하기'}
-                </button>
+                {partnerMallAddData ? (
+                  <button
+                    onClick={handleSaveToMall}
+                    disabled={isSavingToMall}
+                    className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                  >
+                    {isSavingToMall ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : '몰에 저장'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handlePurchaseClick}
+                    disabled={isSaving}
+                    className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+                  >
+                    {isSaving ? '처리 중...' : '구매하기'}
+                  </button>
+                )}
               </div>
             </div>
               </>

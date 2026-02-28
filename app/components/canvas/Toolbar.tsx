@@ -143,8 +143,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ sides = [], handleExitEditMode, varia
     };
 
     canvas.add(text);
-    canvas.setActiveObject(text); // set the selected object to the text once created
-    canvas.renderAll();  // render the new object
+    canvas.setActiveObject(text);
+    canvas.renderAll();
+    text.enterEditing();
 
     // Manually trigger selection handler for newly created text
     handleObjectSelection(text);
