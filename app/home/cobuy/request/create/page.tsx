@@ -1457,7 +1457,7 @@ export default function CreateCoBuyRequestPage() {
                       </button>
                     </div>
                   </div>
-                  <button onClick={() => router.push('/home/my-page/cobuy')} className="w-full max-w-sm py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
+                  <button onClick={() => router.push('/home')} className="w-full max-w-sm py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
                     확인 <ChevronRight className="w-4 h-4" />
                   </button>
                   <a
