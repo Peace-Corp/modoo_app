@@ -16,6 +16,7 @@ import {
 } from '@/types/types';
 import { createCoBuyRequest } from '@/lib/cobuyRequestService';
 import CustomFieldBuilder from '@/app/components/cobuy/CustomFieldBuilder';
+import LayerColorSelector from '@/app/components/canvas/LayerColorSelector';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCanvasStore } from '@/store/useCanvasStore';
@@ -106,15 +107,26 @@ export default function CreateCoBuyRequestPage() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
-  // Check if selected product has any color options
-  const hasColorOptions = productColors.length > 0;
+  // Check if selected product has any color options (from product_colors table or layer configuration)
+  const hasLayerColorOptions = useMemo(() => {
+    const sides = selectedProduct?.configuration ?? [];
+    return sides.some((side: any) =>
+      (side.layers && side.layers.some((layer: any) => layer.colorOptions && layer.colorOptions.length > 0)) ||
+      (side.colorOptions && side.colorOptions.length > 0)
+    );
+  }, [selectedProduct]);
+  const hasColorOptions = productColors.length > 0 || hasLayerColorOptions;
 
-  // Redirect authenticated users to color-select when colors become available
+  // Redirect authenticated users to color-select when colors become available (initial load only)
+  const [hasVisitedColorSelect, setHasVisitedColorSelect] = useState(false);
   useEffect(() => {
-    if (isAuthenticated && hasColorOptions && currentStep === 'freeform-design') {
+    if (isAuthenticated && hasColorOptions && currentStep === 'freeform-design' && !hasVisitedColorSelect) {
       setCurrentStep('color-select');
     }
-  }, [isAuthenticated, hasColorOptions, currentStep]);
+    if (currentStep === 'color-select') {
+      setHasVisitedColorSelect(true);
+    }
+  }, [isAuthenticated, hasColorOptions, currentStep, hasVisitedColorSelect]);
 
   const visibleSteps = useMemo(() => {
     let steps = STEPS;
@@ -487,6 +499,7 @@ export default function CreateCoBuyRequestPage() {
     canvas.add(text);
     canvas.setActiveObject(text);
     canvas.renderAll();
+    text.enterEditing();
   };
 
   const addFreeformImage = () => {
@@ -738,27 +751,36 @@ export default function CreateCoBuyRequestPage() {
                     </p>
                   )}
 
-                  {/* Selected color name */}
-                  {selectedColorHex && (
-                    <p className="text-center text-sm font-medium text-gray-700 mb-3">
-                      {productColors.find(c => c.hex === selectedColorHex)?.name}
-                    </p>
+                  {/* Layer-based color selector (multi-layer products) */}
+                  {hasLayerColorOptions && colorPreviewSides.length > 0 && (
+                    <div className="space-y-3">
+                      <LayerColorSelector side={colorPreviewSides[colorPreviewIndex]} />
+                    </div>
                   )}
 
-                  {/* Color swatches */}
-                  <div className="flex gap-2.5 flex-wrap justify-center">
-                    {productColors.map(color => (
-                      <ColorSwatch
-                        key={color.id}
-                        hex={color.hex}
-                        selected={selectedColorHex === color.hex}
-                        onClick={() => {
-                          setSelectedColorHex(color.hex);
-                          setProductColor(color.hex);
-                        }}
-                      />
-                    ))}
-                  </div>
+                  {/* Legacy product-level color swatches */}
+                  {!hasLayerColorOptions && productColors.length > 0 && (
+                    <>
+                      {selectedColorHex && (
+                        <p className="text-center text-sm font-medium text-gray-700 mb-3">
+                          {productColors.find(c => c.hex === selectedColorHex)?.name}
+                        </p>
+                      )}
+                      <div className="flex gap-2.5 flex-wrap justify-center">
+                        {productColors.map(color => (
+                          <ColorSwatch
+                            key={color.id}
+                            hex={color.hex}
+                            selected={selectedColorHex === color.hex}
+                            onClick={() => {
+                              setSelectedColorHex(color.hex);
+                              setProductColor(color.hex);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
