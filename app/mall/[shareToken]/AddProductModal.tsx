@@ -241,7 +241,7 @@ export default function AddProductModal({
       // Build canvas state (same format as saveAllCanvasState)
       const canvasState: Record<string, string> = {};
       if (logoObject) {
-        const logoJson = logoObject.toObject(['data']);
+        const logoJson = logoObject.toObject(['data'] as any);
         logoJson.src = logoObject.getSrc();
         canvasState[side.id] = JSON.stringify({
           version: fabricCanvas.toJSON().version,
