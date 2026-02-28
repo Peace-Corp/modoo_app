@@ -1174,6 +1174,14 @@ export default function CreateCoBuyRequestPage() {
 
                   {/* Canvas — render all sides but only show current */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
+                    {(hasTextSelected || hasImageSelected) && (
+                      <button
+                        onClick={deleteFreeformObject}
+                        className="absolute top-2 right-2 z-10 p-2 border border-red-300 bg-white text-red-500 hover:bg-red-50 rounded-xl shadow-sm transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                     {isImageLoading && (
                       <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
                         <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 shadow-lg">
