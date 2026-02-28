@@ -91,6 +91,7 @@ export default function CreateCoBuyRequestPage() {
   });
   const isPublic = false;
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   // Saved canvas data (captured when leaving freeform step, since canvases unmount after)
   const [savedCanvasState, setSavedCanvasState] = useState<Record<string, string>>({});
@@ -498,6 +499,7 @@ export default function CreateCoBuyRequestPage() {
     // Validate schedule-address fields
     if (!receiveByDate) { alert('수령 희망일을 선택해주세요.'); return; }
     if (!deliverySettings.deliveryAddress?.roadAddress) { alert('배송받을 장소를 입력해주세요.'); return; }
+    if (!privacyConsent) { alert('개인정보 수집 동의가 필요합니다.'); return; }
     await handleCreate();
   };
 
@@ -1319,6 +1321,21 @@ export default function CreateCoBuyRequestPage() {
                             placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
                         </div>
                       )}
+                    </div>
+
+                    {/* Privacy Consent */}
+                    <div className="border-t border-gray-200 pt-5">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={privacyConsent}
+                          onChange={e => setPrivacyConsent(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs text-gray-700">
+                          <span className="font-semibold text-red-500">[필수]</span> 개인정보 수집 및 이용에 동의합니다. 입력하신 이름, 연락처, 주소 정보는 공동구매 요청 처리 및 배송 목적으로만 사용됩니다.
+                        </span>
+                      </label>
                     </div>
 
                   </div>
