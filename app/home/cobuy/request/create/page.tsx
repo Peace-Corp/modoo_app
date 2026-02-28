@@ -109,8 +109,6 @@ export default function CreateCoBuyRequestPage() {
   const [cobuyPreset, setCobuyPreset] = useState<Awaited<ReturnType<typeof getCobuyPreset>>>(null);
   const loadedCanvases = useRef(new WeakSet<any>());
 
-  // Freeform tutorial modal
-  const [showFreeformTutorial, setShowFreeformTutorial] = useState(true);
 
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [hasTextSelected, setHasTextSelected] = useState(false);
@@ -1291,36 +1289,6 @@ export default function CreateCoBuyRequestPage() {
                       </button>
                     </div>
                   </div>
-
-                  {/* Freeform tutorial modal (only on front) */}
-                  {currentStep === 'freeform-front' && showFreeformTutorial && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-                      <div className="bg-white rounded-2xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden">
-                        <div className="p-5">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="w-4 h-4 text-[#3B55A5]" />
-                            <h3 className="text-sm font-bold text-gray-900">디자인 가이드</h3>
-                          </div>
-                          <p className="text-sm text-gray-700 mb-4">
-                            아래 이미지처럼 대략적인 스케치만 그려주세요!
-                          </p>
-                          <div className="flex gap-3 mb-3">
-                            <img src="/tutorial/cobuy/sample_one.png" alt="예시 1" className="w-1/2 rounded-lg border border-gray-200" />
-                            <img src="/tutorial/cobuy/sample_two.png" alt="예시 2" className="w-1/2 rounded-lg border border-gray-200" />
-                          </div>
-                          <p className="text-xs text-gray-400 text-center">
-                            참고용이며, 관리자가 실제 디자인을 제작합니다.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setShowFreeformTutorial(false)}
-                          className="w-full py-3 text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2f4584] transition"
-                        >
-                          확인
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Text edit modal */}
                   {textEditModal.open && (
