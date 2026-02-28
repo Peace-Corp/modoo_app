@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import {
   X, ArrowLeft, ArrowRight, CheckCircle2, Share2,
   Truck, MapPin, Search, Calendar, Tag,
-  Sparkles, Gift, ChevronLeft, ChevronRight, Check, Copy, ShoppingBag,
+  Sparkles, Gift, ChevronRight, Check, Copy, ShoppingBag,
   TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone, Pencil,
   Undo2, Redo2,
 } from 'lucide-react';
@@ -22,6 +22,7 @@ import LayerColorSelector from '@/app/components/canvas/LayerColorSelector';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCanvasStore } from '@/store/useCanvasStore';
+import { isCurvedText } from '@/lib/curvedText';
 
 const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSideCanvas'), {
   ssr: false,
@@ -101,17 +102,18 @@ export default function CreateCoBuyRequestPage() {
 
   // CoBuy preset (auto-loaded onto canvas)
   const [cobuyPreset, setCobuyPreset] = useState<Awaited<ReturnType<typeof getCobuyPreset>>>(null);
-  const presetLoadedRef = useRef(false);
+  const loadedCanvases = useRef(new WeakSet<any>());
 
   // Freeform tutorial modal
   const [showFreeformTutorial, setShowFreeformTutorial] = useState(true);
 
-  // Drawing mode
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [drawingColor, setDrawingColor] = useState('#000000');
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [hasTextSelected, setHasTextSelected] = useState(false);
   const [textColor, setTextColor] = useState('#333333');
+  const [textStroke, setTextStroke] = useState('');
+  const [textEditModal, setTextEditModal] = useState<{ open: boolean; value: string }>({ open: false, value: '' });
+  const textColorInputRef = useRef<HTMLInputElement>(null);
+  const strokeColorInputRef = useRef<HTMLInputElement>(null);
 
   // Undo/redo history
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
@@ -252,22 +254,35 @@ export default function CreateCoBuyRequestPage() {
     });
   }, [selectedProduct]);
 
-  // Apply cobuy preset objects onto canvases when entering freeform-design
+  // Apply preset layer colors immediately when preset is fetched (before color-select)
   useEffect(() => {
-    if (currentStep !== 'freeform-design' || !cobuyPreset || presetLoadedRef.current) return;
+    if (!cobuyPreset?.layer_colors) return;
+    for (const [sideId, colorMap] of Object.entries(cobuyPreset.layer_colors)) {
+      if (typeof colorMap === 'object' && colorMap !== null) {
+        for (const [layerId, hex] of Object.entries(colorMap as Record<string, string>)) {
+          setLayerColor(sideId, layerId, hex);
+        }
+      }
+    }
+  }, [cobuyPreset, setLayerColor]);
+
+  // Apply preset objects onto any newly mounted canvas (color-select preview + freeform editor)
+  useEffect(() => {
+    if (!cobuyPreset?.canvas_state) return;
+    if (currentStep !== 'color-select' && currentStep !== 'freeform-design') return;
 
     const sides = selectedProduct?.configuration ?? [];
-    const allReady = sides.length > 0 && sides.every(s => canvasMap[s.id]);
-    if (!allReady) return;
-
-    presetLoadedRef.current = true;
+    const newCanvases = sides.filter(s => canvasMap[s.id] && !loadedCanvases.current.has(canvasMap[s.id]));
+    if (newCanvases.length === 0) return;
 
     (async () => {
       const fabric = await import('fabric');
+      const isEditable = currentStep === 'freeform-design';
 
-      for (const side of sides) {
+      for (const side of newCanvases) {
         const canvas = canvasMap[side.id];
         if (!canvas) continue;
+        loadedCanvases.current.add(canvas);
 
         const raw = cobuyPreset.canvas_state[side.id];
         if (!raw) continue;
@@ -279,7 +294,7 @@ export default function CreateCoBuyRequestPage() {
 
           const enlivened = await fabric.util.enlivenObjects(objects);
           for (const obj of enlivened) {
-            (obj as any).set({ selectable: true, evented: true });
+            (obj as any).set({ selectable: isEditable, evented: isEditable });
             canvas.add(obj as any);
           }
           canvas.renderAll();
@@ -287,19 +302,8 @@ export default function CreateCoBuyRequestPage() {
           console.error(`Failed to load preset for side ${side.id}:`, err);
         }
       }
-
-      // Apply preset layer colors
-      if (cobuyPreset.layer_colors) {
-        for (const [sideId, colorMap] of Object.entries(cobuyPreset.layer_colors)) {
-          if (typeof colorMap === 'object' && colorMap !== null) {
-            for (const [layerId, hex] of Object.entries(colorMap as Record<string, string>)) {
-              setLayerColor(sideId, layerId, hex);
-            }
-          }
-        }
-      }
     })();
-  }, [currentStep, cobuyPreset, selectedProduct, canvasMap, setLayerColor]);
+  }, [currentStep, cobuyPreset, selectedProduct, canvasMap]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
@@ -430,6 +434,25 @@ export default function CreateCoBuyRequestPage() {
   const handleBack = () => {
     const prev = getPrevStep(currentStep);
     if (prev) navigateToStep(prev, 'left');
+  };
+
+  // Freeform: 다음 advances through sides, then to next step
+  const handleFreeformNext = async () => {
+    if (validFreeformIndex < freeformSides.length - 1) {
+      setActiveSide(freeformSides[validFreeformIndex + 1].id);
+      return;
+    }
+    // Last side — capture state and move to next step
+    await handleNext();
+  };
+
+  // Freeform: 뒤로 goes to previous side, or previous step if on first side
+  const handleFreeformBack = () => {
+    if (validFreeformIndex > 0) {
+      setActiveSide(freeformSides[validFreeformIndex - 1].id);
+      return;
+    }
+    handleBack();
   };
 
   // Serialize canvas state for saving
@@ -624,30 +647,6 @@ export default function CreateCoBuyRequestPage() {
     }
   };
 
-  const toggleDrawingMode = async () => {
-    const canvas = getActiveCanvas();
-    if (!canvas) return;
-    const newDrawing = !isDrawing;
-    if (newDrawing) {
-      const fabric = await import('fabric');
-      canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-      canvas.freeDrawingBrush.color = drawingColor;
-      canvas.freeDrawingBrush.width = 3;
-    } else {
-      canvas.isDrawingMode = false;
-    }
-    setIsDrawing(newDrawing);
-  };
-
-  const changeDrawingColor = (color: string) => {
-    setDrawingColor(color);
-    const canvas = getActiveCanvas();
-    if (canvas && canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = color;
-    }
-  };
-
   // Undo/redo: only track user-added objects (not product images, guides, or layer filters)
   const isUserObject = (obj: any): boolean => {
     if (!obj) return false;
@@ -739,24 +738,16 @@ export default function CreateCoBuyRequestPage() {
     setIsUndoRedoing(false);
   }, [historyIndex, canvasHistory, getActiveCanvas, getUserObjects]);
 
-  // Disable drawing mode when leaving freeform step
-  useEffect(() => {
-    if (currentStep !== 'freeform-design' && isDrawing) {
-      const canvas = getActiveCanvas();
-      if (canvas) canvas.isDrawingMode = false;
-      setIsDrawing(false);
-    }
-  }, [currentStep, isDrawing, getActiveCanvas]);
-
   // Track text selection for color buttons
   const activeCanvas = canvasMap[activeSideId] || null;
   useEffect(() => {
     if (!activeCanvas || currentStep !== 'freeform-design') return;
     const checkTextSelected = () => {
       const obj = activeCanvas.getActiveObject();
-      if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox')) {
+      if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox' || isCurvedText(obj))) {
         setHasTextSelected(true);
         setTextColor((obj as any).fill || '#333333');
+        setTextStroke((obj as any).stroke || '');
       } else {
         setHasTextSelected(false);
       }
@@ -777,10 +768,45 @@ export default function CreateCoBuyRequestPage() {
     const canvas = getActiveCanvas();
     if (!canvas) return;
     const obj = canvas.getActiveObject();
-    if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox')) {
+    if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox' || isCurvedText(obj))) {
       (obj as any).set('fill', color);
       canvas.renderAll();
     }
+  };
+
+  const changeTextStroke = (stroke: string) => {
+    setTextStroke(stroke);
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const obj = canvas.getActiveObject();
+    if (obj && (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox' || isCurvedText(obj))) {
+      (obj as any).set({ stroke: stroke || null, strokeWidth: stroke ? 1 : 0 });
+      canvas.renderAll();
+    }
+  };
+
+  const handleEditTextContent = () => {
+    const canvas = getActiveCanvas();
+    if (!canvas) return;
+    const obj = canvas.getActiveObject();
+    if (!obj) return;
+    const currentText = (obj as any).text || '';
+    setTextEditModal({ open: true, value: currentText });
+  };
+
+  const handleTextEditConfirm = () => {
+    const canvas = getActiveCanvas();
+    if (!canvas) { setTextEditModal({ open: false, value: '' }); return; }
+    const obj = canvas.getActiveObject();
+    if (!obj) { setTextEditModal({ open: false, value: '' }); return; }
+    const newText = textEditModal.value;
+    if (isCurvedText(obj)) {
+      (obj as any).setText(newText);
+    } else {
+      (obj as any).set('text', newText);
+    }
+    canvas.renderAll();
+    setTextEditModal({ open: false, value: '' });
   };
 
   const animationClass = isAnimating
@@ -947,14 +973,16 @@ export default function CreateCoBuyRequestPage() {
                     <div className={`grid ${colorPreviewSides.length === 1 ? 'grid-cols-1 max-w-70 mx-auto' : 'grid-cols-2'} gap-3 mb-4`}>
                       {colorPreviewSides.map((side) => (
                         <div key={side.id} className="flex flex-col items-center">
-                          <div className="bg-[#EBEBEB] rounded-xl overflow-hidden">
-                            <SingleSideCanvas
-                              side={side}
-                              width={colorPreviewSides.length === 1 ? 280 : 150}
-                              height={colorPreviewSides.length === 1 ? 340 : 185}
-                              isEdit={false}
-                              freeform={true}
-                            />
+                          <div className={`bg-[#EBEBEB] rounded-xl overflow-hidden ${colorPreviewSides.length === 1 ? 'w-[280px] h-[350px]' : 'w-[150px] h-[187px]'}`}>
+                            <div className="origin-top-left" style={{ transform: `scale(${colorPreviewSides.length === 1 ? 280 / 400 : 150 / 400})` }}>
+                              <SingleSideCanvas
+                                side={side}
+                                width={400}
+                                height={500}
+                                isEdit={false}
+                                freeform={true}
+                              />
+                            </div>
                           </div>
                           {colorPreviewSides.length > 1 && (
                             <p className="text-[10px] text-gray-400 mt-1">{side.name}</p>
@@ -999,21 +1027,17 @@ export default function CreateCoBuyRequestPage() {
               {currentStep === 'freeform-design' && productConfig && currentFreeformSide && (
                 <div className="flex flex-col min-h-full">
                   {/* Top bar */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200">
-                    <button onClick={handleBack} className="text-sm text-gray-600 flex items-center gap-1">
-                      <ArrowLeft className="w-4 h-4" /> 뒤로
-                    </button>
-                    {freeformSides.length > 1 && (
-                      <span className="text-xs text-gray-400">
+                  <div className="flex items-center justify-center px-4 py-2.5 bg-white border-b border-gray-200">
+                    {freeformSides.length > 1 ? (
+                      <span className="text-xs font-medium text-gray-500">
                         {currentFreeformSide.name} ({validFreeformIndex + 1}/{freeformSides.length})
                       </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">디자인 편집</span>
                     )}
-                    <button onClick={handleNext} className="text-sm font-semibold text-[#3B55A5]">
-                      다음
-                    </button>
                   </div>
 
-                  {/* Canvas with side arrows — all sides rendered, only active visible */}
+                  {/* Canvas — all sides rendered, only active visible */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
                     {isImageLoading && (
                       <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
@@ -1023,14 +1047,6 @@ export default function CreateCoBuyRequestPage() {
                         </div>
                       </div>
                     )}
-                    {freeformSides.length > 1 && validFreeformIndex > 0 && (
-                      <button
-                        onClick={() => setActiveSide(freeformSides[validFreeformIndex - 1].id)}
-                        className="absolute left-1.5 z-10 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition"
-                      >
-                        <ChevronLeft className="w-5 h-5 text-gray-600" />
-                      </button>
-                    )}
 
                     {freeformSides.map((side, idx) => (
                       <div
@@ -1039,91 +1055,94 @@ export default function CreateCoBuyRequestPage() {
                       >
                         <SingleSideCanvas
                           side={side}
-                          width={340}
-                          height={420}
+                          width={400}
+                          height={500}
                           isEdit={true}
                           freeform={true}
                         />
                       </div>
                     ))}
-
-                    {freeformSides.length > 1 && validFreeformIndex < freeformSides.length - 1 && (
-                      <button
-                        onClick={() => setActiveSide(freeformSides[validFreeformIndex + 1].id)}
-                        className="absolute right-1.5 z-10 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition"
-                      >
-                        <ChevronRight className="w-5 h-5 text-gray-600" />
-                      </button>
-                    )}
                   </div>
 
                   <p className="text-[10px] text-gray-400 text-center py-1.5 bg-[#EBEBEB]">
                     자유롭게 배치해주세요. 참고용이며, 관리자가 실제 디자인을 제작합니다.
                   </p>
 
-                  {/* Simple toolbar */}
-                  <div className="flex flex-col items-center gap-1.5 py-2.5 bg-white border-t border-gray-200">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={toggleDrawingMode} className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition text-sm font-medium ${isDrawing ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
-                        <Pencil className="w-4 h-4" /> 그리기
-                      </button>
-                      <button onClick={() => { if (isDrawing) { const c = getActiveCanvas(); if (c) c.isDrawingMode = false; setIsDrawing(false); } addFreeformText(); }} className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
-                        <TextCursor className="w-4 h-4" /> 텍스트
-                      </button>
-                      <button onClick={() => { if (isDrawing) { const c = getActiveCanvas(); if (c) c.isDrawingMode = false; setIsDrawing(false); } addFreeformImage(); }} className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
-                        <ImagePlus className="w-4 h-4" /> 이미지
-                      </button>
-                      <button onClick={() => { if (isDrawing) { const c = getActiveCanvas(); if (c) c.isDrawingMode = false; setIsDrawing(false); } deleteFreeformObject(); }} className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-center gap-3">
-                      {/* Drawing color picker */}
-                      {isDrawing && (
-                        <div className="flex items-center gap-1.5">
-                          {[
-                            { color: '#000000', label: '검정' },
-                            { color: '#2563EB', label: '파랑' },
-                            { color: '#DC2626', label: '빨강' },
-                          ].map(({ color, label }) => (
-                            <button
-                              key={color}
-                              onClick={() => changeDrawingColor(color)}
-                              className={`w-7 h-7 rounded-full border-2 transition-all ${drawingColor === color ? 'border-[#3B55A5] scale-110 shadow-sm' : 'border-gray-300'}`}
-                              style={{ backgroundColor: color }}
-                              aria-label={label}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      {/* Text color picker */}
-                      {hasTextSelected && !isDrawing && (
-                        <div className="flex items-center gap-1.5">
-                          {[
-                            { color: '#000000', label: '검정' },
-                            { color: '#2563EB', label: '파랑' },
-                            { color: '#DC2626', label: '빨강' },
-                            { color: '#FFFFFF', label: '흰색' },
-                          ].map(({ color, label }) => (
-                            <button
-                              key={color}
-                              onClick={() => changeTextColor(color)}
-                              className={`w-7 h-7 rounded-full border-2 transition-all ${textColor === color ? 'border-[#3B55A5] scale-110 shadow-sm' : 'border-gray-300'}`}
-                              style={{ backgroundColor: color }}
-                              aria-label={label}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      {/* Undo/Redo */}
-                      <div className="flex items-center gap-1">
-                        <button onClick={undo} disabled={historyIndex <= 0} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
-                          <Undo2 className="w-4 h-4 text-gray-600" />
+                  {/* Toolbar — fixed height, text controls swap in when text is selected */}
+                  <div className="border-t border-gray-200 bg-white h-[52px] flex items-center">
+                    {hasTextSelected ? (
+                      <div className="flex items-center gap-2 px-3 w-full">
+                        <button
+                          onClick={handleEditTextContent}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-200 transition shrink-0"
+                        >
+                          <Pencil className="w-3 h-3" /> 수정
                         </button>
-                        <button onClick={redo} disabled={historyIndex >= canvasHistory.length - 1} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
-                          <Redo2 className="w-4 h-4 text-gray-600" />
-                        </button>
+                        <div className="w-px h-5 bg-gray-200" />
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-400 shrink-0">글자</span>
+                          {['#000000', '#FFFFFF', '#2563EB', '#DC2626'].map(c => (
+                            <button key={c} onClick={() => changeTextColor(c)}
+                              className={`w-6 h-6 rounded-full border-2 transition-all ${textColor === c ? 'border-[#3B55A5] scale-110' : 'border-gray-300'}`}
+                              style={{ backgroundColor: c }} />
+                          ))}
+                          <button onClick={() => textColorInputRef.current?.click()}
+                            className="w-6 h-6 rounded-full border-2 border-dashed border-gray-300 hover:border-gray-400 transition flex items-center justify-center bg-gray-50"
+                            style={!['#000000', '#FFFFFF', '#2563EB', '#DC2626', '#333333'].includes(textColor) ? { backgroundColor: textColor, borderStyle: 'solid', borderColor: '#3B55A5' } : undefined}
+                          >
+                            <span className="text-[10px] text-gray-400">+</span>
+                          </button>
+                          <input ref={textColorInputRef} type="color" value={textColor} onChange={e => changeTextColor(e.target.value)} className="sr-only" />
+                        </div>
+                        <div className="w-px h-5 bg-gray-200" />
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-400 shrink-0">테두리</span>
+                          {['none', '#000000', '#FFFFFF'].map(c => (
+                            <button key={c} onClick={() => changeTextStroke(c === 'none' ? '' : c)}
+                              className={`w-6 h-6 rounded-full border-2 transition-all ${textStroke === (c === 'none' ? '' : c) ? 'border-[#3B55A5] scale-110' : 'border-gray-300'}`}
+                              style={c === 'none' ? { background: 'linear-gradient(135deg, #fff 45%, #ef4444 50%, #fff 55%)' } : { backgroundColor: c }} />
+                          ))}
+                          <button onClick={() => strokeColorInputRef.current?.click()}
+                            className="w-6 h-6 rounded-full border-2 border-dashed border-gray-300 hover:border-gray-400 transition flex items-center justify-center bg-gray-50"
+                            style={textStroke && !['#000000', '#FFFFFF'].includes(textStroke) ? { backgroundColor: textStroke, borderStyle: 'solid', borderColor: '#3B55A5' } : undefined}
+                          >
+                            <span className="text-[10px] text-gray-400">+</span>
+                          </button>
+                          <input ref={strokeColorInputRef} type="color" value={textStroke || '#000000'} onChange={e => changeTextStroke(e.target.value)} className="sr-only" />
+                        </div>
                       </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 w-full">
+                        <button onClick={addFreeformText} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
+                          <TextCursor className="w-4 h-4" /> 텍스트
+                        </button>
+                        <button onClick={addFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
+                          <ImagePlus className="w-4 h-4" /> 이미지
+                        </button>
+                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-sm text-gray-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={undo} disabled={historyIndex <= 0} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
+                            <Undo2 className="w-4 h-4 text-gray-600" />
+                          </button>
+                          <button onClick={redo} disabled={historyIndex >= canvasHistory.length - 1} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
+                            <Redo2 className="w-4 h-4 text-gray-600" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom navigation — advances through sides then to next step */}
+                  <div className="shrink-0 border-t border-gray-200 bg-white p-3 safe-area-inset-bottom">
+                    <div className="flex gap-2">
+                      <button onClick={handleFreeformBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">
+                        <ArrowLeft className="w-4 h-4" /> 이전
+                      </button>
+                      <button onClick={handleFreeformNext} className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 text-sm">
+                        다음 <ArrowRight className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 
@@ -1153,6 +1172,39 @@ export default function CreateCoBuyRequestPage() {
                         >
                           확인
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Text edit modal */}
+                  {textEditModal.open && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+                      <div className="bg-white rounded-2xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden">
+                        <div className="p-4">
+                          <h3 className="text-sm font-bold text-gray-900 mb-3">텍스트 수정</h3>
+                          <input
+                            type="text"
+                            value={textEditModal.value}
+                            onChange={e => setTextEditModal(prev => ({ ...prev, value: e.target.value }))}
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') handleTextEditConfirm(); }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3B55A5] focus:border-transparent"
+                          />
+                        </div>
+                        <div className="flex border-t border-gray-200">
+                          <button
+                            onClick={() => setTextEditModal({ open: false, value: '' })}
+                            className="flex-1 py-3 text-sm font-medium text-gray-500 hover:bg-gray-50 transition"
+                          >
+                            취소
+                          </button>
+                          <button
+                            onClick={handleTextEditConfirm}
+                            className="flex-1 py-3 text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2f4584] transition"
+                          >
+                            확인
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

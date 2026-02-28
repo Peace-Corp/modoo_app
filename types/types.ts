@@ -291,7 +291,7 @@ export interface DesignTemplate {
   product_id: string;
   title: string;
   description: string | null;
-  canvas_state: Record<string, string>; // sideId -> JSON string of canvas objects
+  canvas_state: Record<string, any>; // sideId -> canvas state (objects, layerColors)
   preview_url: string | null;
   layer_colors: Record<string, Record<string, string>>; // sideId -> layerId -> hex color
   sort_order: number;
