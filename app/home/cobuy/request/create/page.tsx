@@ -1249,11 +1249,11 @@ export default function CreateCoBuyRequestPage() {
                       <p className="text-xs text-gray-500 mt-1">{title.length}/100자</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">설명 (선택)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">참고사항 (선택)</label>
                       <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="예: 이번 MT 단체티입니다!"
+                        placeholder="예: 이번 MT 단체티입니다! 뒷면에 이니셜 넣어주세요."
                         className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10 resize-none"
                         rows={3}
                         maxLength={500}

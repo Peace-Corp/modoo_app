@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
   const requestLink = `${siteUrl}/cobuy/request/${shareToken}`;
+  const submitterLink = `https://modoouniform.com/cobuy/request/${shareToken}`;
   const formattedDate = receiveByDate ? new Date(receiveByDate).toLocaleDateString('ko-KR') : '-';
 
   // Email to admin
