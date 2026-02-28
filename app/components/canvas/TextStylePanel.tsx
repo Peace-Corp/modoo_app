@@ -76,6 +76,7 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
 
   // System font families available
   const systemFonts = [
+    'Freshman',
     'Arial',
     'Times New Roman',
     'Courier New',

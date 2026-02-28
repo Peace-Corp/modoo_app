@@ -291,11 +291,12 @@ export interface DesignTemplate {
   product_id: string;
   title: string;
   description: string | null;
-  canvas_state: Record<string, string>; // sideId -> JSON string of canvas objects
+  canvas_state: Record<string, any>; // sideId -> canvas state (objects, layerColors)
   preview_url: string | null;
   layer_colors: Record<string, Record<string, string>>; // sideId -> layerId -> hex color
   sort_order: number;
   is_active: boolean;
+  type: string; // 'template' | 'cobuy_preset'
   created_at: string;
   updated_at: string;
 }
@@ -514,6 +515,7 @@ export interface CoBuyRequest {
   delivery_preferences: CoBuyDeliverySettings | null;
   custom_fields: CoBuyCustomField[];
   is_public: boolean;
+  uploaded_image_paths: string[];
   promo_image_url: string | null;
   guest_name: string | null;
   guest_email: string | null;
