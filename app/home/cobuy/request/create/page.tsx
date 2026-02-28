@@ -416,6 +416,7 @@ export default function CreateCoBuyRequestPage() {
     if (currentStep === 'basic-info') {
       if (!title.trim()) { alert('단체명을 입력해주세요.'); return; }
       if (!contactName.trim()) { alert('이름을 입력해주세요.'); return; }
+      if (!contactEmail.trim()) { alert('이메일을 입력해주세요.'); return; }
       if (!contactPhone.trim()) { alert('연락처를 입력해주세요.'); return; }
       if (!privacyConsent) { alert('개인정보 수집 동의가 필요합니다.'); return; }
 
@@ -931,7 +932,7 @@ export default function CreateCoBuyRequestPage() {
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col w-72 shrink-0 bg-gray-50/80 border-r border-gray-200 p-6">
           <div className="mb-8">
-            <h1 className="text-lg font-bold text-gray-900">과잠 공동구매 요청</h1>
+            <h1 className="text-lg font-bold text-gray-900">과잠 공동구매</h1>
             {selectedProduct && (
               <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-200">
                 {selectedProduct.thumbnail_image_link && (
@@ -980,7 +981,7 @@ export default function CreateCoBuyRequestPage() {
             <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
               <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
                 <div>
-                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매 요청</h1>
+                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매</h1>
                   {currentStep !== ('success' as Step) && (
                     <p className="text-xs md:text-sm text-gray-500">
                       {STEPS.find(s => s.id === currentStep)?.label}
@@ -1043,7 +1044,7 @@ export default function CreateCoBuyRequestPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이메일</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이메일 <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -1175,6 +1176,26 @@ export default function CreateCoBuyRequestPage() {
 
                   {/* Canvas — render all sides but only show current */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
+                    {/* Skip to design review toast */}
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2.5 pl-4 pr-1.5 py-1.5 bg-white/95 backdrop-blur-sm rounded-full shadow-lg border border-gray-200 animate-[slideDown_0.4s_ease-out]">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">디자인 파일이 없으세요?</span>
+                      <button
+                        onClick={() => {
+                          // Generate preview data URLs before jumping to design-review
+                          const previews: Record<string, string> = {};
+                          for (const [sideId, canvas] of Object.entries(canvasMap)) {
+                            try {
+                              previews[sideId] = (canvas as any).toDataURL({ format: 'png', multiplier: 0.5 });
+                            } catch {}
+                          }
+                          setSidePreviewUrls(previews);
+                          setCurrentStep('design-review');
+                        }}
+                        className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#3B55A5] hover:bg-[#2D4280] rounded-full transition-colors whitespace-nowrap"
+                      >
+                        디자인 요청하기
+                      </button>
+                    </div>
                     {(hasTextSelected || hasImageSelected) && (
                       <button
                         onClick={deleteFreeformObject}
@@ -1343,6 +1364,7 @@ export default function CreateCoBuyRequestPage() {
                     </div>
                     <h2 className="text-xl font-bold text-gray-900 mb-2">디자인을 확인해주세요</h2>
                     <p className="text-sm text-gray-600">완성된 디자인을 확인하고 참고사항을 남겨주세요.</p>
+                    <p className="text-xs text-gray-400">*작업 전 디자이너가 최종확인 후 진행됩니다</p>
                   </div>
 
                   {/* Preview images */}
@@ -1505,27 +1527,60 @@ export default function CreateCoBuyRequestPage() {
 
       {/* Welcome Popup */}
       {showWelcome && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden">
-            <div className="p-6 text-center">
-              <div className="w-14 h-14 rounded-full bg-[#3B55A5]/10 flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-7 h-7 text-[#3B55A5]" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center animate-[fadeIn_0.3s_ease-out]"
+          style={{ background: 'radial-gradient(circle at center, rgba(59,85,165,0.15), rgba(0,0,0,0.5))' }}>
+          <div className="bg-white rounded-3xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden animate-[popIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)]">
+            <div className="relative p-8 text-center overflow-hidden">
+              {/* Decorative background circles */}
+              <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-[#3B55A5]/5 animate-[pulse_3s_ease-in-out_infinite]" />
+              <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-indigo-100/50 animate-[pulse_3s_ease-in-out_infinite_1s]" />
+
+              <div className="relative">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#3B55A5] to-indigo-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-[#3B55A5]/30 animate-[bounceIn_0.5s_ease-out_0.2s_both]">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2 animate-[slideUp_0.4s_ease-out_0.3s_both]">과잠 공동구매</h2>
+                <p className="text-sm text-gray-500 leading-relaxed animate-[slideUp_0.4s_ease-out_0.4s_both]">
+                  색상 고르고, 수량 선택하면<br />
+                  <span className="font-semibold text-[#3B55A5]">견적 자동 완성!</span>
+                </p>
               </div>
-              <h2 className="text-lg font-bold text-gray-900 mb-3">과잠 공동구매 요청</h2>
-              <p className="text-base text-gray-700 leading-relaxed">
-                색상 고르고, 수량 선택하면<br />
-                <span className="font-semibold text-[#3B55A5]">견적 자동 완성!</span>
-              </p>
             </div>
-            <button
-              onClick={() => setShowWelcome(false)}
-              className="w-full py-3.5 text-sm font-semibold text-white bg-[#3B55A5] hover:bg-[#2f4584] transition"
-            >
-              시작하기
-            </button>
+            <div className="px-6 pb-6 animate-[slideUp_0.4s_ease-out_0.5s_both]">
+              <button
+                onClick={() => setShowWelcome(false)}
+                className="w-full py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3B55A5] to-indigo-500 hover:from-[#2f4584] hover:to-indigo-600 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-[#3B55A5]/25"
+              >
+                시작하기
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes popIn {
+          from { opacity: 0; transform: scale(0.85); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes bounceIn {
+          from { opacity: 0; transform: scale(0.3) rotate(-12deg); }
+          60% { transform: scale(1.1) rotate(3deg); }
+          to { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translate(-50%, -8px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </div>
   );
 }
