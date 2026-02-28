@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       <h2 style="color: #3B55A5; border-bottom: 2px solid #3B55A5; padding-bottom: 10px;">새로운 공동구매 요청</h2>
       <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; width: 120px; border: 1px solid #ddd;">요청자</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${submitterName} (${submitterEmail})</td></tr>
-        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">제목</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${title}</td></tr>
+        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">단체명</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${title}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">제품</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${productName}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">수령 희망일</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${formattedDate}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">배송 주소</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${deliveryAddress || '-'}</td></tr>
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     </div>
   `;
 
-  const adminText = `새로운 공동구매 요청\n요청자: ${submitterName} (${submitterEmail})\n제목: ${title}\n제품: ${productName}\n수령 희망일: ${formattedDate}\n배송 주소: ${deliveryAddress || '-'}\n링크: ${requestLink}`;
+  const adminText = `새로운 공동구매 요청\n요청자: ${submitterName} (${submitterEmail})\n단체명: ${title}\n제품: ${productName}\n수령 희망일: ${formattedDate}\n배송 주소: ${deliveryAddress || '-'}\n링크: ${requestLink}`;
 
   // Email to submitter
   const submitterHtml = `
@@ -59,17 +59,17 @@ export async function POST(request: NextRequest) {
       <h2 style="color: #3B55A5; border-bottom: 2px solid #3B55A5; padding-bottom: 10px;">공동구매 요청이 접수되었습니다</h2>
       <p style="margin-top: 16px; color: #333;">${submitterName}님, 공동구매 요청이 성공적으로 제출되었습니다.</p>
       <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; width: 120px; border: 1px solid #ddd;">제목</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${title}</td></tr>
+        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; width: 120px; border: 1px solid #ddd;">단체명</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${title}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">제품</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${productName}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">수령 희망일</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${formattedDate}</td></tr>
       </table>
       <p style="margin-top: 16px;">관리자가 디자인을 확인한 후 연락드리겠습니다.</p>
-      <p style="margin-top: 8px;"><a href="${requestLink}" style="color: #3B55A5;">요청 확인하기</a></p>
+      <p style="margin-top: 8px;"><a href="${submitterLink}" style="color: #3B55A5;">요청 확인하기</a></p>
       <p style="margin-top: 20px; color: #888; font-size: 12px;">이 메일은 모두의 굿즈에서 자동 발송되었습니다.</p>
     </div>
   `;
 
-  const submitterText = `공동구매 요청이 접수되었습니다\n${submitterName}님, 요청이 성공적으로 제출되었습니다.\n제목: ${title}\n제품: ${productName}\n수령 희망일: ${formattedDate}\n요청 확인: ${requestLink}`;
+  const submitterText = `공동구매 요청이 접수되었습니다\n${submitterName}님, 요청이 성공적으로 제출되었습니다.\n단체명: ${title}\n제품: ${productName}\n수령 희망일: ${formattedDate}\n요청 확인: ${submitterLink}`;
 
   // Send both emails
   const [adminSent, submitterSent] = await Promise.all([

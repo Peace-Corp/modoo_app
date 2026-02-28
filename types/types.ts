@@ -515,6 +515,7 @@ export interface CoBuyRequest {
   delivery_preferences: CoBuyDeliverySettings | null;
   custom_fields: CoBuyCustomField[];
   is_public: boolean;
+  uploaded_image_paths: string[];
   promo_image_url: string | null;
   guest_name: string | null;
   guest_email: string | null;

@@ -24,6 +24,7 @@ export interface CreateCoBuyRequestData {
   quantityExpectations?: CoBuyRequestQuantityExpectations;
   deliveryPreferences?: CoBuyDeliverySettings;
   customFields?: CoBuyCustomField[];
+  uploadedImagePaths?: string[];
   isPublic?: boolean;
   // Guest fields (for non-authenticated users)
   guestName?: string;
@@ -61,6 +62,7 @@ export async function createCoBuyRequest(
       quantity_expectations: data.quantityExpectations || null,
       delivery_preferences: data.deliveryPreferences || null,
       custom_fields: data.customFields || [],
+      uploaded_image_paths: data.uploadedImagePaths || [],
       is_public: data.isPublic ?? false,
       status: 'pending' as const,
       guest_name: isGuest ? data.guestName : null,

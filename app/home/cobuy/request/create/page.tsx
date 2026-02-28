@@ -43,7 +43,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'product-select', label: '제품 선택', icon: <ShoppingBag className="w-4 h-4" /> },
   { id: 'color-select', label: '색상 선택', icon: <Palette className="w-4 h-4" /> },
   { id: 'freeform-design', label: '디자인', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 'title-description', label: '제목 및 설명', icon: <Tag className="w-4 h-4" /> },
+  { id: 'title-description', label: '단체명 및 참고사항', icon: <Tag className="w-4 h-4" /> },
   { id: 'schedule-address', label: '일정 및 장소', icon: <Calendar className="w-4 h-4" /> },
 ];
 
@@ -80,6 +80,7 @@ export default function CreateCoBuyRequestPage() {
   const [expectedQuantity, setExpectedQuantity] = useState<number | ''>('');
   const minQuantity: number | '' = '';
   const maxQuantity: number | '' = '';
+  const [uploadedImagePaths, setUploadedImagePaths] = useState<string[]>([]);
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<CoBuyDeliverySettings>({
     enabled: false,
@@ -393,7 +394,7 @@ export default function CreateCoBuyRequestPage() {
       if (!emailRegex.test(guestEmail.trim())) { alert('올바른 이메일 형식을 입력해주세요.'); return; }
     }
     if (currentStep === 'title-description' && !title.trim()) {
-      alert('제목을 입력해주세요.');
+      alert('단체명을 입력해주세요.');
       return;
     }
     // Capture canvas state before leaving freeform step (canvases unmount after navigation)
@@ -532,6 +533,7 @@ export default function CreateCoBuyRequestPage() {
         quantityExpectations,
         deliveryPreferences: deliverySettings,
         customFields,
+        uploadedImagePaths,
         isPublic,
         ...(!isAuthenticated ? {
           guestName: guestName.trim(),
@@ -627,6 +629,7 @@ export default function CreateCoBuyRequestPage() {
           .from('user-designs')
           .upload(`images/${fileName}`, file, { contentType: file.type });
         if (error) { alert('이미지 업로드에 실패했습니다.'); return; }
+        setUploadedImagePaths(prev => [...prev, data.path]);
         const { data: urlData } = supabase.storage.from('user-designs').getPublicUrl(data.path);
         const fabric = await import('fabric');
         const img = await fabric.FabricImage.fromURL(urlData.publicUrl, { crossOrigin: 'anonymous' });
@@ -1231,17 +1234,17 @@ export default function CreateCoBuyRequestPage() {
                     <div className="w-10 h-10 rounded-xl bg-[#3B55A5]/20 flex items-center justify-center mb-3">
                       <Tag className="w-5 h-5 text-[#3B55A5]" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">제목 및 설명</h2>
-                    <p className="text-sm text-gray-600">참여자들이 쉽게 알아볼 수 있는 제목을 입력해주세요.</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">단체명 및 참고사항</h2>
+                    <p className="text-sm text-gray-600">단체명을 입력해주세요.</p>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1.5">제목 <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">단체명 <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        placeholder="예: 24학번 과잠 공동구매"
+                        placeholder="예: 서울대학교 컴퓨터공학과"
                         className="w-full px-3 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
                         maxLength={100}
                         autoFocus
