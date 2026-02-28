@@ -1207,8 +1207,8 @@ export default function CreateCoBuyRequestPage() {
                     ))}
                   </div>
 
-                  <p className="text-[10px] text-gray-400 text-center py-1.5 bg-[#EBEBEB]">
-                    자유롭게 배치해주세요. 참고용이며, 관리자가 실제 디자인을 제작합니다.
+                  <p className="text-xs text-gray-600 text-center py-1.5 bg-[#EBEBEB]">
+                    텍스트와 색상을 변경하여 원하는 디자인으로 완성해보세요.
                   </p>
 
                   {/* Toolbar */}
