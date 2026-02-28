@@ -1027,7 +1027,6 @@ export default function CreateCoBuyRequestPage() {
                         placeholder="예: 서울대학교 컴퓨터공학과"
                         className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                         maxLength={100}
-                        autoFocus
                       />
                     </div>
                     <div>
