@@ -6,8 +6,8 @@ import Script from 'next/script';
 import dynamic from 'next/dynamic';
 import {
   X, ArrowLeft, ArrowRight, CheckCircle2, Share2,
-  Truck, MapPin, Search, Calendar, Tag,
-  Sparkles, Gift, ChevronRight, Check, Copy, ShoppingBag,
+  Search, Calendar, Tag,
+  Sparkles, ChevronRight, Check, Copy, ShoppingBag,
   TextCursor, ImagePlus, Trash2, Palette, UserCircle, Mail, Phone, Pencil,
   Undo2, Redo2,
 } from 'lucide-react';
@@ -17,7 +17,6 @@ import {
 } from '@/types/types';
 import { createCoBuyRequest } from '@/lib/cobuyRequestService';
 import { getCobuyPreset } from '@/lib/templateService';
-import CustomFieldBuilder from '@/app/components/cobuy/CustomFieldBuilder';
 import LayerColorSelector from '@/app/components/canvas/LayerColorSelector';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -37,8 +36,6 @@ type Step =
   | 'freeform-design'
   | 'title-description'
   | 'schedule-address'
-  | 'delivery-participants'
-  | 'review'
   | 'success';
 
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
@@ -48,8 +45,6 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'freeform-design', label: '디자인', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'title-description', label: '제목 및 설명', icon: <Tag className="w-4 h-4" /> },
   { id: 'schedule-address', label: '일정 및 장소', icon: <Calendar className="w-4 h-4" /> },
-  { id: 'delivery-participants', label: '배송 및 참여자', icon: <Gift className="w-4 h-4" /> },
-  { id: 'review', label: '최종 확인', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
 export default function CreateCoBuyRequestPage() {
@@ -79,9 +74,10 @@ export default function CreateCoBuyRequestPage() {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate] = useState('');
+  const [endDate] = useState('');
   const [receiveByDate, setReceiveByDate] = useState('');
+  const [expectedQuantity, setExpectedQuantity] = useState<number | ''>('');
   const minQuantity: number | '' = '';
   const maxQuantity: number | '' = '';
   const [customFields, setCustomFields] = useState<CoBuyCustomField[]>([]);
@@ -363,7 +359,7 @@ export default function CreateCoBuyRequestPage() {
 
   const stepOrder: Step[] = [
     'guest-info', 'product-select', 'color-select', 'freeform-design', 'title-description',
-    'schedule-address', 'delivery-participants', 'review'
+    'schedule-address'
   ];
 
   const shouldSkipStep = (step: Step): boolean => {
@@ -400,14 +396,6 @@ export default function CreateCoBuyRequestPage() {
       alert('제목을 입력해주세요.');
       return;
     }
-    if (currentStep === 'schedule-address') {
-      if (!startDate || !endDate) { alert('시작일과 종료일을 선택해주세요.'); return; }
-      if (new Date(endDate) <= new Date(startDate)) { alert('종료일은 시작일보다 나중이어야 합니다.'); return; }
-      if (!receiveByDate) { alert('수령 희망일을 선택해주세요.'); return; }
-      if (!deliverySettings.deliveryAddress?.roadAddress) { alert('배송받을 장소를 입력해주세요.'); return; }
-      if (!deliverySettings.pickupAddress?.roadAddress) { alert('배부 장소를 입력해주세요.'); return; }
-    }
-
     // Capture canvas state before leaving freeform step (canvases unmount after navigation)
     if (currentStep === 'freeform-design') {
       const states = serializeCanvasState();
@@ -505,6 +493,13 @@ export default function CreateCoBuyRequestPage() {
     }
   };
 
+  const handleSubmit = async () => {
+    // Validate schedule-address fields
+    if (!receiveByDate) { alert('수령 희망일을 선택해주세요.'); return; }
+    if (!deliverySettings.deliveryAddress?.roadAddress) { alert('배송받을 장소를 입력해주세요.'); return; }
+    await handleCreate();
+  };
+
   const handleCreate = async () => {
     if (!selectedProduct) return;
     if (!isAuthenticated && (!guestName.trim() || !guestEmail.trim())) return;
@@ -523,6 +518,7 @@ export default function CreateCoBuyRequestPage() {
       const quantityExpectations: CoBuyRequestQuantityExpectations = {
         minQuantity: minQuantity === '' ? undefined : Number(minQuantity),
         maxQuantity: maxQuantity === '' ? undefined : Number(maxQuantity),
+        estimatedQuantity: expectedQuantity === '' ? undefined : Number(expectedQuantity),
       };
 
       const result = await createCoBuyRequest({
@@ -548,6 +544,23 @@ export default function CreateCoBuyRequestPage() {
 
       setCreatedShareToken(result.share_token);
       navigateToStep('success' as Step, 'right');
+
+      // Send notification emails (fire-and-forget)
+      const submitterEmail = isAuthenticated ? user?.email : guestEmail.trim();
+      const submitterName = isAuthenticated ? (user?.user_metadata?.name || user?.email) : guestName.trim();
+      fetch('/api/cobuy/notify/request-submitted', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          productName: selectedProduct.title,
+          receiveByDate,
+          deliveryAddress: deliverySettings.deliveryAddress?.roadAddress,
+          submitterEmail,
+          submitterName,
+          shareToken: result.share_token,
+        }),
+      }).catch(err => console.error('Failed to send notification emails:', err));
     } catch (error) {
       console.error('Error creating CoBuy request:', error);
       alert('요청 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -1247,6 +1260,18 @@ export default function CreateCoBuyRequestPage() {
                       />
                       <p className="text-xs text-gray-500 mt-1">{description.length}/500자</p>
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">예상 수량</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={expectedQuantity}
+                        onChange={(e) => setExpectedQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        placeholder="예: 30"
+                        min={1}
+                        className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1264,21 +1289,9 @@ export default function CreateCoBuyRequestPage() {
                     {/* Schedule */}
                     <div className="space-y-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">일정</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1.5">시작일 <span className="text-red-500">*</span></label>
-                          <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)}
-                            className="w-full px-2 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1.5">종료일 <span className="text-red-500">*</span></label>
-                          <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)}
-                            className="w-full px-2 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
-                        </div>
-                      </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">수령 희망일 <span className="text-red-500">*</span></label>
-                        <input type="datetime-local" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
+                        <input type="date" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
                           className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
                       </div>
                     </div>
@@ -1305,160 +1318,10 @@ export default function CreateCoBuyRequestPage() {
                       )}
                     </div>
 
-                    {/* Pickup Address */}
-                    <div className="space-y-3 border-t border-gray-200 pt-5">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배부 장소</p>
-                      <p className="text-xs text-gray-500">참여자들이 물품을 수령할 장소예요.</p>
-                      <div className="flex gap-2">
-                        <input type="text" value={deliverySettings.pickupAddress?.postalCode || ''} readOnly
-                          className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
-                        <button type="button" onClick={() => handleAddressSearch('pickup')}
-                          className="flex-1 px-3 py-2.5 bg-pink-600 text-white rounded-xl hover:bg-pink-700 font-medium flex items-center justify-center gap-1.5 text-sm">
-                          <Search className="w-4 h-4" /> 주소 검색
-                        </button>
-                      </div>
-                      {deliverySettings.pickupAddress?.roadAddress && (
-                        <div className="space-y-2">
-                          <input type="text" value={deliverySettings.pickupAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
-                          <input type="text" value={deliverySettings.pickupAddress.addressDetail || ''}
-                            onChange={e => setDeliverySettings(prev => ({
-                              ...prev,
-                              pickupAddress: prev.pickupAddress ? { ...prev.pickupAddress, addressDetail: e.target.value } : undefined,
-                              pickupLocation: prev.pickupAddress ? `${prev.pickupAddress.roadAddress} ${e.target.value}`.trim() : ''
-                            }))}
-                            placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-pink-500" maxLength={100} />
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Delivery Option & Participant Info */}
-              {currentStep === 'delivery-participants' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center mb-3">
-                      <Gift className="w-5 h-5 text-teal-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">배송 및 참여자 정보</h2>
-                  </div>
-                  <div className="space-y-6">
-                    {/* Delivery Option */}
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 옵션</p>
-                      {[
-                        { enabled: false, icon: <MapPin className="w-4 h-4" />, label: '직접 수령만', desc: '모든 참여자가 지정된 장소에서 수령해요.' },
-                        { enabled: true, icon: <Truck className="w-4 h-4" />, label: '개별 배송 허용', desc: '참여자가 배송비를 내고 배송받을 수 있어요.' },
-                      ].map(opt => (
-                        <button key={String(opt.enabled)} onClick={() => setDeliverySettings(prev => ({ ...prev, enabled: opt.enabled }))}
-                          className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${deliverySettings.enabled === opt.enabled ? 'border-[#3B55A5] bg-[#3B55A5]/10 ring-4 ring-[#3B55A5]/10' : 'border-gray-200 hover:border-gray-300'}`}>
-                          <div className="flex items-start gap-3">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${deliverySettings.enabled === opt.enabled ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500'}`}>
-                              {opt.icon}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-gray-900 text-sm">{opt.label}</span>
-                                {deliverySettings.enabled === opt.enabled && <Check className="w-4 h-4 text-[#3B55A5]" />}
-                              </div>
-                              <p className="text-xs text-gray-600 mt-0.5">{opt.desc}</p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                      {deliverySettings.enabled && (
-                        <div className="p-3 bg-teal-50 rounded-xl border border-teal-200">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-teal-800">배송비</span>
-                            <span className="text-sm font-semibold text-teal-700">₩4,000</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Custom Fields */}
-                    <div className="space-y-3 border-t border-gray-200 pt-5">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">참여자 정보 수집</p>
-                      <div className="bg-violet-50 rounded-xl p-3 border border-violet-200">
-                        <p className="text-xs font-medium text-violet-800 mb-2">빠른 추가</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {['이니셜', '학번', '연락처'].map(label => (
-                            <button key={label} onClick={() => {
-                              if (customFields.length >= 10) return;
-                              setCustomFields([...customFields, { id: `field-${Date.now()}`, type: 'text', label, required: false }]);
-                            }} className="px-3 py-1.5 bg-white border border-violet-200 rounded-lg text-xs font-medium hover:bg-violet-100 text-violet-700">
-                              + {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <CustomFieldBuilder fields={customFields} onChange={setCustomFields} maxFields={10} />
-                      <p className="text-xs text-gray-500">* 사이즈 선택은 자동으로 추가되어 있어요</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Review */}
-              {currentStep === 'review' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center mb-3">
-                      <CheckCircle2 className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">요청 내용 확인</h2>
-                  </div>
-                  <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
-                    {!isAuthenticated && (
-                      <div className="pb-3 border-b border-gray-200">
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">요청자 정보</p>
-                        <p className="text-sm font-medium text-gray-900">{guestName}</p>
-                        <p className="text-xs text-gray-600">{guestEmail}</p>
-                        {guestPhone && <p className="text-xs text-gray-600">{guestPhone}</p>}
-                      </div>
-                    )}
-                    <div className="pb-3 border-b border-gray-200">
-                      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">제품</p>
-                      <p className="font-semibold text-gray-900 text-sm">{selectedProduct?.title}</p>
-                      {selectedColorHex && (
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: selectedColorHex }} />
-                          <span className="text-xs text-gray-600">{productColors.find(c => c.hex === selectedColorHex)?.name}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="pb-3 border-b border-gray-200">
-                      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">기본 정보</p>
-                      <p className="font-semibold text-gray-900 text-sm">{title}</p>
-                      {description && <p className="text-xs text-gray-600 mt-1">{description}</p>}
-                    </div>
-                    <div className="pb-3 border-b border-gray-200">
-                      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">일정</p>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><p className="text-gray-500">시작</p><p className="font-medium">{startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '-'}</p></div>
-                        <div><p className="text-gray-500">종료</p><p className="font-medium">{endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '-'}</p></div>
-                      </div>
-                    </div>
-                    {deliverySettings.deliveryAddress && (
-                      <div className="pb-3 border-b border-gray-200">
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">배송/수령</p>
-                        <p className="text-xs text-gray-600">{deliverySettings.deliveryAddress.roadAddress} {deliverySettings.deliveryAddress.addressDetail}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">수집 정보 ({customFields.length}개)</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {customFields.map(f => (
-                          <span key={f.id} className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full text-xs">
-                            {f.label}{f.required && <span className="text-red-500 ml-1">*</span>}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Success */}
               {currentStep === ('success' as Step) && createdShareToken && (
@@ -1502,15 +1365,15 @@ export default function CreateCoBuyRequestPage() {
                       <ArrowLeft className="w-4 h-4" /> 이전
                     </button>
                   )}
-                  {currentStep !== 'review' ? (
+                  {currentStep === 'schedule-address' ? (
+                    <button onClick={handleSubmit} disabled={isCreating}
+                      className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
+                      {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <><Sparkles className="w-4 h-4" /> 제출하기</>}
+                    </button>
+                  ) : (
                     <button onClick={handleNext}
                       className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold hover:from-[#2D4280] hover:to-[#243366] shadow-lg shadow-[#3B55A5]/25 flex items-center justify-center gap-1.5 text-sm">
                       다음 <ArrowRight className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <button onClick={handleCreate} disabled={isCreating}
-                      className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
-                      {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <><Sparkles className="w-4 h-4" /> 요청 제출</>}
                     </button>
                   )}
                 </div>
