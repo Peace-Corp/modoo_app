@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-  const requestLink = `${siteUrl}/cobuy/request/${shareToken}`;
-  const submitterLink = `https://modoouniform.com/cobuy/request/${shareToken}`;
+  const baseUrl = 'https://modoouniform.com';
+  const requestLink = `${baseUrl}/cobuy/request/${shareToken}`;
+  const submitterLink = requestLink;
   const formattedDate = receiveByDate ? new Date(receiveByDate).toLocaleDateString('ko-KR') : '-';
 
   // Email to admin
