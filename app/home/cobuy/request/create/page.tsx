@@ -35,7 +35,6 @@ const SingleSideCanvas = dynamic(() => import('@/app/components/canvas/SingleSid
 
 type Step =
   | 'basic-info'
-  | 'design-choice'
   | 'color-select'
   | 'freeform-front'
   | 'freeform-back'
@@ -47,7 +46,6 @@ type RequestType = 'design' | 'consultation';
 
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'basic-info', label: '기본 정보', icon: <UserCircle className="w-4 h-4" /> },
-  { id: 'design-choice', label: '진행 방식', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'color-select', label: '색상 선택', icon: <Palette className="w-4 h-4" /> },
   { id: 'freeform-front', label: '앞면 디자인', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'freeform-back', label: '뒷면 디자인', icon: <Sparkles className="w-4 h-4" /> },
@@ -77,6 +75,7 @@ export default function CreateCoBuyRequestPage() {
 
   // Design choice: 'design' = self-design, 'consultation' = skip design, request consultation
   const [requestType, setRequestType] = useState<RequestType | null>(null);
+  const [showDesignChoice, setShowDesignChoice] = useState(false);
 
   // Product selection (fixed to a single product)
   const FIXED_PRODUCT_ID = '0d8f53fa-bac2-4f0a-8eb4-870a70e072eb';
@@ -164,14 +163,16 @@ export default function CreateCoBuyRequestPage() {
     if (currentStep === 'basic-info') {
       return !!(title.trim() && contactName.trim() && contactEmail.trim() && contactPhone.trim() && (expectedQuantity !== '' && Number(expectedQuantity) >= 1) && privacyConsent);
     }
-    if (currentStep === 'design-choice') return !!requestType;
     return true;
-  }, [currentStep, title, contactName, contactEmail, contactPhone, expectedQuantity, privacyConsent, requestType]);
+  }, [currentStep, title, contactName, contactEmail, contactPhone, expectedQuantity, privacyConsent]);
 
   const visibleSteps = useMemo(() => {
     let steps = STEPS.filter(s => s.id !== 'color-select' || hasColorOptions);
     if (!hasBackSide) steps = steps.filter(s => s.id !== 'freeform-back');
-    if (isConsultation) steps = steps.filter(s => !designSteps.includes(s.id));
+    if (isConsultation) {
+      steps = steps.filter(s => !designSteps.includes(s.id));
+      steps = steps.map(s => s.id === 'schedule-address' ? { ...s, label: '상담 요청' } : s);
+    }
     return steps;
   }, [hasColorOptions, hasBackSide, isConsultation]);
 
@@ -411,7 +412,7 @@ export default function CreateCoBuyRequestPage() {
   }, []);
 
   const stepOrder: Step[] = [
-    'basic-info', 'design-choice', 'color-select', 'freeform-front', 'freeform-back', 'design-review',
+    'basic-info', 'color-select', 'freeform-front', 'freeform-back', 'design-review',
     'schedule-address'
   ];
 
@@ -477,24 +478,10 @@ export default function CreateCoBuyRequestPage() {
           }
         });
       }
-    }
 
-    // Design choice validation
-    if (currentStep === 'design-choice') {
-      if (!requestType) { alert('진행 방식을 선택해주세요.'); return; }
-      gtagEvent('공구_진행방식_선택', { type: requestType });
-
-      // For consultation, save the premade template canvas state directly
-      if (requestType === 'consultation' && cobuyPreset?.canvas_state) {
-        const states: Record<string, string> = {};
-        for (const [sideId, raw] of Object.entries(cobuyPreset.canvas_state)) {
-          states[sideId] = typeof raw === 'string' ? raw : JSON.stringify(raw);
-        }
-        setSavedCanvasState(states);
-        if (cobuyPreset.layer_colors) {
-          setSavedColorSelections(cobuyPreset.layer_colors as Record<string, Record<string, string>>);
-        }
-      }
+      // Show design choice modal instead of advancing directly
+      setShowDesignChoice(true);
+      return;
     }
 
     // Capture canvas state before leaving last freeform step
@@ -533,6 +520,32 @@ export default function CreateCoBuyRequestPage() {
   const handleBack = () => {
     const prev = getPrevStep(currentStep);
     if (prev) navigateToStep(prev, 'left');
+  };
+
+  const handleDesignChoice = (choice: RequestType) => {
+    setRequestType(choice);
+    setShowDesignChoice(false);
+    gtagEvent('공구_진행방식_선택', { type: choice });
+
+    if (choice === 'consultation') {
+      // Save premade template canvas state directly
+      if (cobuyPreset?.canvas_state) {
+        const states: Record<string, string> = {};
+        for (const [sideId, raw] of Object.entries(cobuyPreset.canvas_state)) {
+          states[sideId] = typeof raw === 'string' ? raw : JSON.stringify(raw);
+        }
+        setSavedCanvasState(states);
+        if (cobuyPreset.layer_colors) {
+          setSavedColorSelections(cobuyPreset.layer_colors as Record<string, Record<string, string>>);
+        }
+      }
+      // Skip design steps, go to schedule-address
+      navigateToStep('schedule-address', 'right');
+    } else {
+      // Continue normal flow
+      const next = getNextStep('basic-info');
+      if (next) navigateToStep(next, 'right');
+    }
   };
 
   // Serialize canvas state for saving
@@ -1204,76 +1217,6 @@ export default function CreateCoBuyRequestPage() {
                 </div>
               )}
 
-              {/* Step: Design Choice */}
-              {currentStep === 'design-choice' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">어떻게 진행할까요?</h2>
-                    <p className="text-sm text-gray-500">디자인 진행 방식을 선택해주세요.</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* Option 1: Self-design */}
-                    <button
-                      onClick={() => setRequestType('design')}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                        requestType === 'design'
-                          ? 'border-[#3B55A5] bg-[#3B55A5]/5 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          requestType === 'design' ? 'bg-[#3B55A5]/20' : 'bg-gray-100'
-                        }`}>
-                          <PaintBucket className={`w-5 h-5 ${requestType === 'design' ? 'text-[#3B55A5]' : 'text-gray-400'}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold mb-0.5 ${requestType === 'design' ? 'text-[#3B55A5]' : 'text-gray-900'}`}>
-                            직접 디자인하기
-                          </p>
-                          <p className="text-xs text-gray-500 leading-relaxed">
-                            색상을 선택하고 텍스트/이미지를 직접 배치해서 디자인해보세요.
-                          </p>
-                        </div>
-                        {requestType === 'design' && (
-                          <Check className="w-5 h-5 text-[#3B55A5] shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Option 2: Consultation */}
-                    <button
-                      onClick={() => setRequestType('consultation')}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                        requestType === 'consultation'
-                          ? 'border-orange-500 bg-orange-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          requestType === 'consultation' ? 'bg-orange-100' : 'bg-gray-100'
-                        }`}>
-                          <MessageSquare className={`w-5 h-5 ${requestType === 'consultation' ? 'text-orange-600' : 'text-gray-400'}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold mb-0.5 ${requestType === 'consultation' ? 'text-orange-600' : 'text-gray-900'}`}>
-                            상담 요청하기
-                          </p>
-                          <p className="text-xs text-gray-500 leading-relaxed">
-                            디자인은 건너뛰고, 담당자에게 직접 상담을 요청합니다.
-                          </p>
-                        </div>
-                        {requestType === 'consultation' && (
-                          <Check className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Step 2: Color Selection */}
               {currentStep === 'color-select' && selectedProduct && (
                 <div className="max-w-lg mx-auto py-6 px-4 md:py-10 md:px-6">
@@ -1605,7 +1548,7 @@ export default function CreateCoBuyRequestPage() {
                     <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
                       <Calendar className="w-5 h-5 text-orange-600" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">일정 및 배송</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">{isConsultation ? '상담 요청' : '일정 및 배송'}</h2>
                   </div>
                   <div className="space-y-6">
                     {/* Consultation notes */}
@@ -1783,6 +1726,51 @@ export default function CreateCoBuyRequestPage() {
 
         </div>
       </div>
+
+      {/* Design Choice Modal */}
+      {showDesignChoice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center animate-[fadeIn_0.2s_ease-out]"
+          style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white rounded-3xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden animate-[popIn_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+            <div className="p-5 pb-3">
+              <h3 className="text-lg font-bold text-gray-900 mb-0.5">어떻게 진행할까요?</h3>
+              <p className="text-xs text-gray-500">디자인 진행 방식을 선택해주세요.</p>
+            </div>
+            <div className="px-5 pb-5 space-y-2.5">
+              <button
+                onClick={() => handleDesignChoice('design')}
+                className="w-full text-left p-3.5 rounded-2xl border-2 border-gray-200 hover:border-[#3B55A5] hover:bg-[#3B55A5]/5 transition-all active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#3B55A5]/10 flex items-center justify-center shrink-0">
+                    <PaintBucket className="w-4.5 h-4.5 text-[#3B55A5]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900">직접 디자인하기</p>
+                    <p className="text-[11px] text-gray-500">색상 선택 및 텍스트/이미지 배치</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
+                </div>
+              </button>
+              <button
+                onClick={() => handleDesignChoice('consultation')}
+                className="w-full text-left p-3.5 rounded-2xl border-2 border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-all active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                    <MessageSquare className="w-4.5 h-4.5 text-orange-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900">상담 요청하기</p>
+                    <p className="text-[11px] text-gray-500">디자인 건너뛰고 담당자에게 상담 요청</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Welcome Popup */}
       {showWelcome && (
