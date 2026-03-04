@@ -9,6 +9,8 @@ interface RequestSubmittedBody {
   deliveryAddress: string;
   submitterEmail: string;
   submitterName: string;
+  submitterPhone?: string;
+  contactPreference: 'phone' | 'email';
   shareToken: string;
   estimatedQuantity: number;
 }
@@ -26,7 +28,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { title, productName, receiveByDate, deliveryAddress, submitterEmail, submitterName, shareToken, estimatedQuantity } = body;
+  const {
+    title, productName, receiveByDate, deliveryAddress,
+    submitterEmail, submitterName, submitterPhone,
+    contactPreference, shareToken, estimatedQuantity,
+  } = body;
 
   if (!submitterEmail || !title) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -34,18 +40,26 @@ export async function POST(request: NextRequest) {
 
   const baseUrl = 'https://modoouniform.com';
   const requestLink = `${baseUrl}/cobuy/request/${shareToken}`;
-  const submitterLink = requestLink;
   const formattedDate = receiveByDate ? new Date(receiveByDate).toLocaleDateString('ko-KR') : '-';
   const pricing = getPricingInfo(estimatedQuantity);
+  const logoUrl = `${baseUrl}/icons/modoo_logo.png`;
 
-  // Email to admin
+  // Determine call schedule based on current time
+  const now = new Date();
+  const hour = now.getHours();
+  const callSchedule = hour < 15
+    ? '오늘 ~ 다음날'
+    : '내일 ~ 모레';
+
+  // ── Admin email (same for both preferences) ──
   const adminHtml = `
     <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <h2 style="color: #3B55A5; border-bottom: 2px solid #3B55A5; padding-bottom: 10px;">새로운 공동구매 요청</h2>
       <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; width: 120px; border: 1px solid #ddd;">요청자</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${submitterName} (${submitterEmail})</td></tr>
+        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; width: 120px; border: 1px solid #ddd;">요청자</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${submitterName} (${submitterEmail}${submitterPhone ? `, ${submitterPhone}` : ''})</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">단체명</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${title}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">제품</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${productName}</td></tr>
+        <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">연락 선호</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${contactPreference === 'phone' ? '전화' : '이메일'}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">수령 희망일</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${formattedDate}</td></tr>
         <tr><td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">배송 주소</td><td style="padding: 8px 12px; border: 1px solid #ddd;">${deliveryAddress || '-'}</td></tr>
       </table>
@@ -54,71 +68,124 @@ export async function POST(request: NextRequest) {
     </div>
   `;
 
-  const adminText = `새로운 공동구매 요청\n요청자: ${submitterName} (${submitterEmail})\n단체명: ${title}\n제품: ${productName}\n수령 희망일: ${formattedDate}\n배송 주소: ${deliveryAddress || '-'}\n링크: ${requestLink}`;
+  const adminText = `새로운 공동구매 요청\n요청자: ${submitterName} (${submitterEmail}${submitterPhone ? `, ${submitterPhone}` : ''})\n단체명: ${title}\n제품: ${productName}\n연락 선호: ${contactPreference === 'phone' ? '전화' : '이메일'}\n수령 희망일: ${formattedDate}\n배송 주소: ${deliveryAddress || '-'}\n링크: ${requestLink}`;
 
-  // Email to submitter
-  const logoUrl = `${baseUrl}/icons/modoo_logo.png`;
+  // ── Submitter email: different content based on contact preference ──
+  const fontStyle = `font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;`;
 
-  const pricingHtml = pricing ? `
-      <div style="margin: 24px 0; padding: 16px; background: #f0f4ff; border-radius: 8px; border: 1px solid #d0d9f0;">
-        <h3 style="margin: 0 0 12px 0; font-size: 15px; color: #3B55A5;">예상 견적</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 6px 0; color: #555;">예상 수량</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${estimatedQuantity}벌</td></tr>
-          <tr><td style="padding: 6px 0; color: #555;">벌당 단가</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${pricing.unitPrice.toLocaleString('ko-KR')}원 ${pricing.note || ''}</td></tr>
-          <tr style="border-top: 1px solid #c0c9e0;"><td style="padding: 8px 0; color: #333; font-weight: bold;">합계</td><td style="padding: 8px 0; text-align: right; font-weight: bold; font-size: 16px; color: #3B55A5;">${pricing.totalPrice.toLocaleString('ko-KR')}원</td></tr>
-        </table>
-        <p style="margin: 8px 0 0 0; font-size: 11px; color: #888;">* 실제 금액은 디자인 확정 후 변동될 수 있습니다.</p>
-      </div>` : `
-      <div style="margin: 24px 0; padding: 16px; background: #fff5f5; border-radius: 8px; border: 1px solid #f0d0d0;">
-        <p style="margin: 0; font-size: 14px; color: #c00;">예상 수량 ${estimatedQuantity}벌은 성수기 제작이 불가한 수량입니다 (최소 20벌 이상). 자세한 사항은 문의해주세요.</p>
-      </div>`;
-
-  const submitterHtml = `
-    <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-      <!-- Header -->
+  const headerHtml = `
       <div style="text-align: center; padding: 24px 0; background: #f8f9fc;">
         <img src="${logoUrl}" alt="모두의 유니폼" style="height: 48px;" />
       </div>
-      <div style="height: 3px; background: #3B55A5;"></div>
+      <div style="height: 3px; background: #3B55A5;"></div>`;
 
-      <!-- Body -->
-      <div style="padding: 32px 28px;">
-        <p style="font-size: 17px; color: #222; line-height: 1.7; margin: 0 0 8px 0;"><strong>안녕하세요,</strong></p>
-        <p style="font-size: 17px; color: #222; line-height: 1.7; margin: 0 0 24px 0;"><strong>모두의 유니폼입니다.</strong></p>
-
-        <p style="font-size: 14px; color: #444; line-height: 1.8; margin: 0 0 12px 0;">과잠 공동구매 요청이 정상적으로 접수되었습니다.</p>
-        <p style="font-size: 14px; color: #444; line-height: 1.8; margin: 0 0 24px 0;">접수해주신 내용을 확인 후 빠르게 연락드리겠습니다. 아래 <strong>'요청 확인하기'</strong>에서 접수 내용을 확인하실 수 있습니다.</p>
-
-        ${pricingHtml}
-
-        <!-- Buttons -->
-        <div style="text-align: center; margin: 28px 0;">
-          <a href="${submitterLink}" style="display: block; width: 80%; max-width: 360px; margin: 0 auto 10px auto; padding: 14px 0; background-color: #3B55A5; color: #ffffff; border-radius: 8px; font-weight: bold; font-size: 15px; text-decoration: none; text-align: center;">요청 확인하기</a>
-          <a href="http://pf.kakao.com/_xjSdYG/chat" target="_blank" rel="noopener noreferrer" style="display: block; width: 80%; max-width: 360px; margin: 0 auto 10px auto; padding: 14px 0; background-color: #FEE500; color: #191919; border-radius: 8px; font-weight: bold; font-size: 15px; text-decoration: none; text-align: center;">카카오톡 채팅 상담</a>
-          <a href="tel:01081400621" style="display: block; width: 80%; max-width: 360px; margin: 0 auto 6px auto; padding: 14px 0; background-color: #ffffff; color: #333; border: 1.5px solid #ddd; border-radius: 8px; font-weight: bold; font-size: 15px; text-decoration: none; text-align: center;">전화 상담 (010-8140-0621)</a>
-          <p style="margin: 0; font-size: 12px; color: #999;">모바일에서 클릭 시 바로 전화가 연결됩니다.</p>
-        </div>
-
-        <p style="font-size: 14px; color: #444; line-height: 1.8; margin: 24px 0 4px 0;">궁금하신 점이 있으시면 카카오톡 또는 전화로 편하게 문의해주세요.</p>
-        <p style="font-size: 14px; color: #444; line-height: 1.8; margin: 0;">감사합니다.</p>
-      </div>
-
-      <!-- Footer -->
+  const footerHtml = `
       <div style="border-top: 1px solid #e5e7eb; padding: 24px 28px; background: #f8f9fc;">
         <img src="${logoUrl}" alt="모두의 유니폼" style="height: 32px; margin-bottom: 12px;" />
         <p style="margin: 0 0 2px 0; font-size: 13px; font-weight: bold; color: #333;">MODOO UNIFORM | 모두의 유니폼</p>
-        <p style="margin: 0 0 2px 0; font-size: 12px; color: #888;">대표이사 김현준</p>
         <p style="margin: 0 0 2px 0; font-size: 12px; color: #888;">서울특별시 마포구 성지3길 55, 4층</p>
         <p style="margin: 0; font-size: 12px; color: #888;">T. 010-8140-0621 | W. <a href="https://www.modoouniform.com" style="color: #3B55A5; text-decoration: none;">www.modoouniform.com</a></p>
+      </div>`;
+
+  const contactButtonsHtml = `
+      <div style="margin: 24px 0 0 0;">
+        <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">궁금한게 있으신가요?</p>
+        <div>
+          <a href="tel:01081400621" style="display: inline-block; padding: 10px 20px; background: #ffffff; color: #333; border: 1.5px solid #ddd; border-radius: 8px; font-size: 13px; font-weight: bold; text-decoration: none; margin-right: 8px;">전화문의하기</a>
+          <a href="http://pf.kakao.com/_xjSdYG/chat" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 10px 20px; background: #FEE500; color: #191919; border-radius: 8px; font-size: 13px; font-weight: bold; text-decoration: none;">카톡 문의하기</a>
+        </div>
+      </div>`;
+
+  let submitterHtml: string;
+  let submitterText: string;
+  let submitterSubject: string;
+
+  if (contactPreference === 'phone') {
+    // ── Phone preference: confirmation page-style email ──
+    submitterSubject = `[모두의 유니폼] 공동구매 요청이 접수되었습니다`;
+
+    submitterHtml = `
+    <div style="${fontStyle} max-width: 600px; margin: 0 auto; background: #ffffff;">
+      ${headerHtml}
+      <div style="padding: 32px 28px;">
+        <p style="font-size: 15px; color: #444; line-height: 1.8; margin: 0 0 24px 0;">
+          요청하신 디자인, 견적 등 상세 내용을<br/>전문 담당자가 확인 후 <strong>전화로 연락드릴 예정</strong>입니다.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+          <tr><td style="padding: 10px 0; color: #888; font-size: 13px; width: 80px; vertical-align: top;">단체명</td><td style="padding: 10px 0; font-size: 14px; color: #222;">${title}</td></tr>
+          <tr><td style="padding: 10px 0; color: #888; font-size: 13px; vertical-align: top;">이름</td><td style="padding: 10px 0; font-size: 14px; color: #222;">${submitterName}</td></tr>
+          <tr><td style="padding: 10px 0; color: #888; font-size: 13px; vertical-align: top;">연락처</td><td style="padding: 10px 0; font-size: 14px; color: #222;">${submitterPhone || '-'}</td></tr>
+        </table>
+
+        <div style="padding: 16px; background: #f0f4ff; border-radius: 8px; border: 1px solid #d0d9f0; margin-bottom: 24px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #3B55A5;">전화드릴 예정 날짜</p>
+          <p style="margin: 0 0 4px 0; font-size: 13px; color: #555;">오후 3시가 지나지 않은 경우 : 오늘 ~ 다음날</p>
+          <p style="margin: 0; font-size: 13px; color: #555;">오후 3시가 지난 경우 : 내일 ~ 모레</p>
+          <p style="margin: 8px 0 0 0; font-size: 13px; color: #3B55A5; font-weight: bold;">→ 예상: ${callSchedule}</p>
+        </div>
+
+        ${contactButtonsHtml}
       </div>
-    </div>
-  `;
+      ${footerHtml}
+    </div>`;
 
-  const pricingText = pricing
-    ? `\n예상 견적:\n  예상 수량: ${estimatedQuantity}벌\n  벌당 단가: ${pricing.unitPrice.toLocaleString('ko-KR')}원 ${pricing.note || ''}\n  합계: ${pricing.totalPrice.toLocaleString('ko-KR')}원\n  * 실제 금액은 디자인 확정 후 변동될 수 있습니다.`
-    : `\n예상 수량 ${estimatedQuantity}벌은 성수기 제작이 불가한 수량입니다 (최소 20벌 이상). 자세한 사항은 문의해주세요.`;
+    submitterText = `요청이 접수되었습니다\n\n요청하신 디자인, 견적 등 상세 내용을 전문 담당자가 확인 후 전화로 연락드릴 예정입니다.\n\n단체명: ${title}\n이름: ${submitterName}\n연락처: ${submitterPhone || '-'}\n\n전화드릴 예정: ${callSchedule}\n\n궁금한게 있으신가요?\n전화문의: 010-8140-0621\n카톡 문의: http://pf.kakao.com/_xjSdYG/chat\n\n모두의 유니폼\n서울특별시 마포구 성지3길 55, 4층`;
 
-  const submitterText = `공동구매 요청이 접수되었습니다\n${submitterName}님, 요청이 성공적으로 제출되었습니다.\n단체명: ${title}\n제품: ${productName}\n수령 희망일: ${formattedDate}\n예상 수량: ${estimatedQuantity}벌\n${pricingText}\n\n요청 확인: ${submitterLink}\n\n카카오톡 문의: http://pf.kakao.com/_xjSdYG/chat\n전화 문의: 01081400621`;
+  } else {
+    // ── Email preference: detailed email with pricing + coupon ──
+    submitterSubject = `[모두의 유니폼] 공동구매 요청이 접수되었습니다`;
+
+    const pricingHtml = pricing ? `
+        <div style="margin: 24px 0; padding: 16px; background: #f0f4ff; border-radius: 8px; border: 1px solid #d0d9f0;">
+          <h3 style="margin: 0 0 12px 0; font-size: 15px; color: #3B55A5;">예상 견적</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 6px 0; color: #555;">예상 수량</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${estimatedQuantity}벌</td></tr>
+            <tr><td style="padding: 6px 0; color: #555;">벌당 단가</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${pricing.unitPrice.toLocaleString('ko-KR')}원 ${pricing.note || ''}</td></tr>
+            <tr style="border-top: 1px solid #c0c9e0;"><td style="padding: 8px 0; color: #333; font-weight: bold;">합계</td><td style="padding: 8px 0; text-align: right; font-weight: bold; font-size: 16px; color: #3B55A5;">${pricing.totalPrice.toLocaleString('ko-KR')}원</td></tr>
+          </table>
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #888;">* 실제 금액은 디자인 확정 후 변동될 수 있습니다.</p>
+        </div>` : '';
+
+    const pricingText = pricing
+      ? `\n예상 견적:\n  예상 수량: ${estimatedQuantity}벌\n  벌당 단가: ${pricing.unitPrice.toLocaleString('ko-KR')}원 ${pricing.note || ''}\n  합계: ${pricing.totalPrice.toLocaleString('ko-KR')}원\n  * 실제 금액은 디자인 확정 후 변동될 수 있습니다.`
+      : '';
+
+    submitterHtml = `
+    <div style="${fontStyle} max-width: 600px; margin: 0 auto; background: #ffffff;">
+      ${headerHtml}
+      <div style="padding: 32px 28px;">
+        <p style="font-size: 15px; color: #444; line-height: 1.8; margin: 0 0 24px 0;">
+          요청하신 디자인, 견적 등 상세 내용을<br/>전문 담당자가 확인 후 <strong>이메일로 연락드릴 예정</strong>입니다.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+          <tr><td style="padding: 10px 0; color: #888; font-size: 13px; width: 100px; vertical-align: top;">단체명</td><td style="padding: 10px 0; font-size: 14px; color: #222;">${title}</td></tr>
+          <tr><td style="padding: 10px 0; color: #888; font-size: 13px; vertical-align: top;">이름</td><td style="padding: 10px 0; font-size: 14px; color: #222;">${submitterName}</td></tr>
+          <tr><td style="padding: 10px 0; color: #888; font-size: 13px; vertical-align: top;">이메일 주소</td><td style="padding: 10px 0; font-size: 14px; color: #222;">${submitterEmail}</td></tr>
+        </table>
+
+        <p style="font-size: 13px; color: #888; margin: 0 0 4px 0;">담당자 : 김현준 대리</p>
+
+        ${pricingHtml}
+
+        ${contactButtonsHtml}
+
+        ${deliveryAddress ? `
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee;">
+          <p style="font-size: 13px; color: #888; margin: 0 0 4px 0;">모두의 유니폼</p>
+          <p style="font-size: 13px; color: #555; margin: 0;">${deliveryAddress}</p>
+        </div>` : ''}
+
+        <div style="margin-top: 24px; padding: 16px; background: #FFFBEB; border-radius: 8px; border: 1px solid #FDE68A;">
+          <p style="margin: 0; font-size: 14px; font-weight: bold; color: #92400E;">할인 쿠폰 : modoogwajam</p>
+        </div>
+      </div>
+      ${footerHtml}
+    </div>`;
+
+    submitterText = `공동구매 요청이 접수되었습니다\n\n요청하신 디자인, 견적 등 상세 내용을 전문 담당자가 확인 후 이메일로 연락드릴 예정입니다.\n\n단체명: ${title}\n이름: ${submitterName}\n이메일 주소: ${submitterEmail}\n\n담당자: 김현준 대리${pricingText}\n\n궁금한게 있으신가요?\n전화문의: 010-8140-0621\n카톡 문의: http://pf.kakao.com/_xjSdYG/chat\n${deliveryAddress ? `\n모두의 유니폼\n${deliveryAddress}` : ''}\n\n할인 쿠폰: modoogwajam`;
+  }
 
   // Send both emails
   const [adminSent, submitterSent] = await Promise.all([
@@ -131,7 +198,7 @@ export async function POST(request: NextRequest) {
     }),
     sendMailjetEmail({
       to: [{ email: submitterEmail, name: submitterName }],
-      subject: `[모두의 유니폼] 공동구매 요청이 접수되었습니다`,
+      subject: submitterSubject,
       textPart: submitterText,
       htmlPart: submitterHtml,
       customId: `cobuy-request-submitter-${shareToken}`,

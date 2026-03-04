@@ -15,7 +15,7 @@ import {
   Product, ProductSide, CoBuyCustomField, CoBuyDeliverySettings, CoBuyAddressInfo,
   CoBuyRequestSchedulePreferences, CoBuyRequestQuantityExpectations,
 } from '@/types/types';
-import { createCoBuyRequest, createDraftCoBuyRequest, updateCoBuyRequest } from '@/lib/cobuyRequestService';
+import { createCoBuyRequest } from '@/lib/cobuyRequestService';
 import { getPricingInfo } from '@/lib/cobuyPricing';
 declare global { interface Window { gtag?: (...args: any[]) => void } }
 const gtagEvent = (name: string, params?: Record<string, any>) => {
@@ -42,6 +42,7 @@ type Step =
   | 'freeform-back'
   | 'design-review'
   | 'schedule-address'
+  | 'user-info'
   | 'success';
 
 type RequestType = 'design' | 'consultation';
@@ -53,6 +54,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'freeform-back', label: '뒷면 디자인', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'design-review', label: '디자인 확인', icon: <Eye className="w-4 h-4" /> },
   { id: 'schedule-address', label: '일정 및 배송', icon: <Calendar className="w-4 h-4" /> },
+  { id: 'user-info', label: '기본 정보', icon: <UserCircle className="w-4 h-4" /> },
 ];
 
 export default function CreateCoBuyRequestPage() {
@@ -66,13 +68,11 @@ export default function CreateCoBuyRequestPage() {
   const [createdShareToken, setCreatedShareToken] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  // Welcome popup
-  const [showWelcome, setShowWelcome] = useState(true);
-
   // Contact info (for all users)
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactPreference, setContactPreference] = useState<'phone' | 'email'>('phone');
   const [privacyConsent, setPrivacyConsent] = useState(false);
 
   // Design choice: 'design' = self-design, 'consultation' = skip design, request consultation
@@ -94,7 +94,7 @@ export default function CreateCoBuyRequestPage() {
   const [endDate] = useState('');
   const [receiveByDate, setReceiveByDate] = useState('');
   const [skipDelivery, setSkipDelivery] = useState(false);
-  const [expectedQuantity, setExpectedQuantity] = useState<number | ''>('');
+  const [expectedQuantity, setExpectedQuantity] = useState<number | ''>(100);
   const minQuantity: number | '' = '';
   const maxQuantity: number | '' = '';
   const [uploadedImagePaths, setUploadedImagePaths] = useState<string[]>([]);
@@ -110,9 +110,6 @@ export default function CreateCoBuyRequestPage() {
   });
   const isPublic = false;
   const [isPostcodeScriptLoaded, setIsPostcodeScriptLoaded] = useState(false);
-
-  // Draft save
-  const [draftRequestId, setDraftRequestId] = useState<string | null>(null);
 
   // Saved canvas data (captured when leaving freeform step, since canvases unmount after)
   const [savedCanvasState, setSavedCanvasState] = useState<Record<string, string>>({});
@@ -134,11 +131,13 @@ export default function CreateCoBuyRequestPage() {
   const textColorInputRef = useRef<HTMLInputElement>(null);
   const strokeColorInputRef = useRef<HTMLInputElement>(null);
 
-  // Undo/redo history
+  // Undo/redo history (per-side)
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isUndoRedoing, setIsUndoRedoing] = useState(false);
   const isLoadingPresetsRef = useRef(false);
+  const sideHistoryRef = useRef<Record<string, { history: string[]; index: number }>>({});
+  const prevSideIdRef = useRef<string | null>(null);
 
   // Tutorial guide state
   const [tutorialStep, setTutorialStep] = useState<number>(-1);
@@ -175,7 +174,7 @@ export default function CreateCoBuyRequestPage() {
 
   const canProceed = useMemo(() => {
     if (currentStep === 'basic-info') {
-      return !!(expectedQuantity !== '' && Number(expectedQuantity) >= 1);
+      return !!(expectedQuantity !== '' && Number(expectedQuantity) >= 10);
     }
     return true;
   }, [currentStep, expectedQuantity]);
@@ -272,6 +271,28 @@ export default function CreateCoBuyRequestPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, setEditMode, setActiveSide]);
+
+  // Save/restore undo history per side when switching
+  useEffect(() => {
+    if (!activeSideId || !isFreeformStep) return;
+    // Save history for the side we're leaving
+    if (prevSideIdRef.current && prevSideIdRef.current !== activeSideId) {
+      sideHistoryRef.current[prevSideIdRef.current] = { history: canvasHistory, index: historyIndex };
+    }
+    // Restore history for the side we're entering
+    if (prevSideIdRef.current !== activeSideId) {
+      const saved = sideHistoryRef.current[activeSideId];
+      if (saved) {
+        setCanvasHistory(saved.history);
+        setHistoryIndex(saved.index);
+      } else {
+        setCanvasHistory([]);
+        setHistoryIndex(-1);
+      }
+    }
+    prevSideIdRef.current = activeSideId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSideId, isFreeformStep]);
 
   // Fetch the fixed product
   useEffect(() => {
@@ -370,12 +391,27 @@ export default function CreateCoBuyRequestPage() {
       // Reset history so preset state becomes the baseline (can't undo past this)
       isLoadingPresetsRef.current = false;
       if (isFreeformStep) {
+        // Save baseline for each loaded side
+        for (const side of newCanvases) {
+          const c = canvasMap[side.id];
+          if (!c) continue;
+          const objs = c.getObjects().filter((obj: any) => isUserObject(obj));
+          const serialized = objs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
+          sideHistoryRef.current[side.id] = { history: [JSON.stringify(serialized)], index: 0 };
+        }
+        // Set current state to active side's baseline
         const activeCanvas = getActiveCanvas();
         if (activeCanvas) {
-          const userObjs = getUserObjects(activeCanvas);
-          const serialized = userObjs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
-          setCanvasHistory([JSON.stringify(serialized)]);
-          setHistoryIndex(0);
+          const saved = sideHistoryRef.current[activeSideId];
+          if (saved) {
+            setCanvasHistory(saved.history);
+            setHistoryIndex(saved.index);
+          } else {
+            const userObjs = getUserObjects(activeCanvas);
+            const serialized = userObjs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
+            setCanvasHistory([JSON.stringify(serialized)]);
+            setHistoryIndex(0);
+          }
         }
       }
     })();
@@ -440,7 +476,7 @@ export default function CreateCoBuyRequestPage() {
 
   const stepOrder: Step[] = [
     'basic-info', 'color-select', 'freeform-front', 'freeform-back', 'design-review',
-    'schedule-address'
+    'schedule-address', 'user-info'
   ];
 
   const shouldSkipStep = (step: Step): boolean => {
@@ -469,7 +505,7 @@ export default function CreateCoBuyRequestPage() {
   const handleNext = async () => {
     // Step 1 validation
     if (currentStep === 'basic-info') {
-      if (expectedQuantity === '' || Number(expectedQuantity) < 1) { alert('예상 수량을 입력해주세요.'); return; }
+      if (expectedQuantity === '' || Number(expectedQuantity) < 10) { alert('최소 10벌 이상 입력해주세요.'); return; }
 
       gtagEvent('공구_기본정보_완료', { 예상수량: Number(expectedQuantity) });
 
@@ -597,36 +633,8 @@ export default function CreateCoBuyRequestPage() {
     if (!title.trim()) { alert('단체명을 입력해주세요.'); return; }
     if (!contactName.trim()) { alert('이름을 입력해주세요.'); return; }
     if (!contactEmail.trim()) { alert('이메일을 입력해주세요.'); return; }
-    if (!contactPhone.trim()) { alert('연락처를 입력해주세요.'); return; }
+    if (contactPreference === 'phone' && !contactPhone.trim()) { alert('연락처를 입력해주세요.'); return; }
     if (!privacyConsent) { alert('개인정보 수집 동의가 필요합니다.'); return; }
-
-    // Background draft save (if not already saved)
-    if (!draftRequestId && selectedProduct) {
-      createDraftCoBuyRequest({
-        productId: selectedProduct.id,
-        title: title.trim(),
-        contactName: contactName.trim(),
-        contactEmail: contactEmail.trim(),
-        contactPhone: contactPhone.trim(),
-        estimatedQuantity: Number(expectedQuantity),
-      }).then(result => {
-        if (result) {
-          setDraftRequestId(result.id);
-          fetch('/api/cobuy/notify/draft-created', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: title.trim(),
-              contactName: contactName.trim(),
-              contactEmail: contactEmail.trim(),
-              contactPhone: contactPhone.trim(),
-              estimatedQuantity: Number(expectedQuantity),
-              productName: selectedProduct.title,
-            }),
-          }).catch(() => {});
-        }
-      });
-    }
 
     await handleCreate();
   };
@@ -670,12 +678,7 @@ export default function CreateCoBuyRequestPage() {
         requestType: requestType || 'design',
       };
 
-      let result;
-      if (draftRequestId) {
-        result = await updateCoBuyRequest(draftRequestId, submitData);
-      } else {
-        result = await createCoBuyRequest(submitData);
-      }
+      const result = await createCoBuyRequest(submitData);
 
       if (!result) throw new Error('Failed to create request');
 
@@ -696,6 +699,8 @@ export default function CreateCoBuyRequestPage() {
           deliveryAddress: deliverySettings.deliveryAddress?.roadAddress,
           submitterEmail,
           submitterName,
+          submitterPhone: contactPhone.trim() || undefined,
+          contactPreference,
           shareToken: result.share_token,
           estimatedQuantity: Number(expectedQuantity),
         }),
@@ -779,7 +784,7 @@ export default function CreateCoBuyRequestPage() {
         if (img.width > maxW || img.height > maxH) {
           img.scale(Math.min(maxW / img.width, maxH / img.height));
         }
-        img.set({ left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center' });
+        img.set({ left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center', data: { storagePath: data.path } });
         canvas.add(img);
         canvas.setActiveObject(img);
         canvas.renderAll();
@@ -793,13 +798,22 @@ export default function CreateCoBuyRequestPage() {
     input.click();
   };
 
-  const deleteFreeformObject = () => {
+  const deleteFreeformObject = async () => {
     const canvas = getActiveCanvas();
     if (!canvas) return;
     gtagEvent('공구_디자인_객체삭제');
     const active = canvas.getActiveObjects();
     if (active.length > 0) {
-      active.forEach(obj => canvas.remove(obj));
+      const supabase = createClient();
+      for (const obj of active) {
+        // Delete uploaded images from storage
+        if (obj.type === 'image' && (obj as any).data?.storagePath) {
+          const storagePath = (obj as any).data.storagePath;
+          supabase.storage.from('user-designs').remove([storagePath]);
+          setUploadedImagePaths(prev => prev.filter(p => p !== storagePath));
+        }
+        canvas.remove(obj);
+      }
       canvas.discardActiveObject();
       canvas.renderAll();
     }
@@ -842,7 +856,14 @@ export default function CreateCoBuyRequestPage() {
           scaleX: newScale,
           scaleY: newScale,
           angle: activeObj.angle || 0,
+          data: { storagePath: data.path },
         });
+        // Delete old image from storage if it was user-uploaded
+        if ((activeObj as any).data?.storagePath) {
+          const oldPath = (activeObj as any).data.storagePath;
+          supabase.storage.from('user-designs').remove([oldPath]);
+          setUploadedImagePaths(prev => prev.filter(p => p !== oldPath));
+        }
         canvas.remove(activeObj);
         canvas.add(newImg);
         canvas.setActiveObject(newImg);
@@ -909,10 +930,13 @@ export default function CreateCoBuyRequestPage() {
     setCanvasHistory(prev => {
       const trimmed = prev.slice(0, historyIndex + 1);
       const next = [...trimmed, json];
-      setHistoryIndex(next.length - 1);
+      const newIndex = next.length - 1;
+      setHistoryIndex(newIndex);
+      // Keep per-side ref in sync
+      if (activeSideId) sideHistoryRef.current[activeSideId] = { history: next, index: newIndex };
       return next;
     });
-  }, [getActiveCanvas, getUserObjects, historyIndex, isUndoRedoing]);
+  }, [getActiveCanvas, getUserObjects, historyIndex, isUndoRedoing, activeSideId]);
 
   // Listen for user object changes to save history
   useEffect(() => {
@@ -1281,7 +1305,7 @@ export default function CreateCoBuyRequestPage() {
     : 'opacity-100 translate-x-0';
 
   return (
-    <div className="fixed inset-0 bg-white lg:bg-gray-100/80 z-50 flex flex-col lg:items-center lg:justify-center">
+    <div className="fixed inset-0 bg-white lg:bg-gray-100/80 z-50 flex flex-col lg:items-center lg:justify-center overflow-x-hidden">
       {/* Daum Postcode Script */}
       {!isPostcodeScriptLoaded && (
         <Script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" strategy="lazyOnload" onLoad={() => setIsPostcodeScriptLoaded(true)} />
@@ -1351,16 +1375,13 @@ export default function CreateCoBuyRequestPage() {
             <header className="shrink-0 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
               <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
                 <div>
-                  <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매</h1>
+                  {/* <h1 className="text-base md:text-lg font-bold text-gray-900 lg:hidden">과잠 공동구매</h1> */}
                   {currentStep !== ('success' as Step) && (
                     <p className="text-xs md:text-sm text-gray-500">
                       {STEPS.find(s => s.id === currentStep)?.label}
                     </p>
                   )}
                 </div>
-                <button onClick={() => router.push('/home')} disabled={isCreating} className="p-1.5 md:p-2 rounded-xl hover:bg-gray-100 transition-colors lg:hidden">
-                  <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
-                </button>
               </div>
               {currentStep !== ('success' as Step) && (
                 <div className="px-4 pb-3 md:px-6 md:pb-4 lg:hidden">
@@ -1381,11 +1402,25 @@ export default function CreateCoBuyRequestPage() {
               {currentStep === 'basic-info' && (
                 <div className="max-w-lg mx-auto py-6 px-4">
                   <p className="text-center text-sm font-semibold text-gray-700 mb-5">
-                    예상 수량을 입력하고 바로 견적을 받아보세요!
+                    {'예상 수량을 입력하고 바로 견적을 받아보세요!'.split('').map((char, i) => (
+                      <motion.span
+                        key={i}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.05 + i * 0.03 }}
+                      >
+                        {char}
+                      </motion.span>
+                    ))}
                   </p>
 
                   {/* Receipt card */}
-                  <div className="bg-white border border-gray-300 rounded-lg p-5 mb-5">
+                  <motion.div
+                    className="bg-white border border-gray-300 rounded-t-lg p-5"
+                    initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25, delay: 0.2 }}
+                  >
                     <div className="flex items-center justify-center gap-2 mb-3">
                       <span className="text-sm text-gray-600 font-medium">제작 수량 :</span>
                       <input
@@ -1393,7 +1428,7 @@ export default function CreateCoBuyRequestPage() {
                         inputMode="numeric"
                         value={expectedQuantity}
                         onChange={e => setExpectedQuantity(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
-                        min={1}
+                        min={10}
                         className="w-20 px-2 py-1 text-xl font-bold text-center border-2 border-gray-300 rounded-lg focus:outline-none focus:border-[#3B55A5] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                       />
                       <span className="text-sm text-gray-600 font-medium">벌</span>
@@ -1404,7 +1439,7 @@ export default function CreateCoBuyRequestPage() {
                         min={10}
                         max={200}
                         step={1}
-                        value={expectedQuantity === '' ? 20 : Number(expectedQuantity)}
+                        value={expectedQuantity === '' ? 100 : Number(expectedQuantity)}
                         onChange={e => setExpectedQuantity(parseInt(e.target.value))}
                         className="w-48 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-[#3B55A5] [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#3B55A5] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-md"
                       />
@@ -1412,12 +1447,17 @@ export default function CreateCoBuyRequestPage() {
                     {(() => {
                       const qty = expectedQuantity === '' ? 0 : Number(expectedQuantity);
                       const pricing = getPricingInfo(qty);
-                      if (qty < 1) return null;
+                      if (qty < 10) return null;
                       if (!pricing) return (
-                        <p className="text-xs text-red-500 text-center">최소 20벌부터 제작 가능합니다.</p>
+                        <p className="text-xs text-red-500 text-center">최소 10벌부터 제작 가능합니다.</p>
                       );
                       return (
-                        <>
+                        <motion.div
+                          key={pricing.unitPrice}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                        >
                           <p className="text-center text-base font-bold text-gray-900 mb-3">
                             예상 벌당 단가 : <SlotNumber value={pricing.unitPrice} className="text-gray-900" />원
                           </p>
@@ -1426,10 +1466,10 @@ export default function CreateCoBuyRequestPage() {
                             <p>*기본 단가로, 디자인이 복잡해지거나</p>
                             <p>&nbsp;개별 이니셜등이 필요한 경우 소정의 비용이 추가될 수 있습니다.</p>
                           </div>
-                        </>
+                        </motion.div>
                       );
                     })()}
-                  </div>
+                  </motion.div>
 
                   {/* Promotional banner */}
                   {(() => {
@@ -1438,7 +1478,12 @@ export default function CreateCoBuyRequestPage() {
                     if (!pricing) return null;
                     const discount = Math.round(pricing.totalPrice * 0.1);
                     return (
-                      <div className="rounded-2xl overflow-hidden mb-5 relative" style={{ aspectRatio: '4/3' }}>
+                      <motion.div
+                        className="rounded-b-xl overflow-hidden relative"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25, delay: 0.4 }}
+                      >
                         {/* Background gradient */}
                         <div className="absolute inset-0 bg-gradient-to-br from-[#5C6DB5] via-[#7B8CC9] to-[#A8B4D8]" />
                         {/* Decorative circle */}
@@ -1446,14 +1491,55 @@ export default function CreateCoBuyRequestPage() {
                         <div className="absolute -bottom-20 -right-6 w-48 h-48 rounded-full bg-white/5" />
                         {/* Content */}
                         <div className="relative p-5 flex flex-col items-start justify-center h-full text-white">
-                          <img src="/icons/modoo_logo.png" alt="modoo" className="h-5 mb-3 brightness-0 invert opacity-80" />
-                          <p className="text-sm font-medium opacity-90 mb-2">2026 새학기 맞이</p>
-                          <p className="text-base font-bold leading-snug">지금 견적 받고</p>
-                          {/* <p className="text-base font-bold leading-snug">{Math.round(discount / 10000)}만원 할인쿠폰 받기</p> */}
-                          <p className="text-5xl font-black tracking-tight mt-4"><SlotNumber value={discount} className="text-white" />원 할인</p>
-                          <p className="text-[10px] opacity-50 mt-2">기본 견적가 기준의 할인 | 변동가능</p>
+                          <motion.img
+                            src="/icons/modoo_logo.png" alt="modoo"
+                            className="h-5 mb-3 brightness-0 invert opacity-80"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 0.8, x: 0 }}
+                            transition={{ duration: 0.4, delay: 0.5 }}
+                          />
+                          <p className="text-sm font-medium opacity-90">
+                            {'2026 새학기 맞이'.split('').map((char, i) => (
+                              <motion.span
+                                key={i}
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 0.9, y: 0 }}
+                                transition={{ duration: 0.25, delay: 0.6 + i * 0.03 }}
+                              >
+                                {char}
+                              </motion.span>
+                            ))}
+                          </p>
+                          <p className="text-base font-bold leading-snug">
+                            {'지금 견적 받고'.split('').map((char, i) => (
+                              <motion.span
+                                key={i}
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: 0.85 + i * 0.04 }}
+                              >
+                                {char}
+                              </motion.span>
+                            ))}
+                          </p>
+                          <motion.p
+                            className="text-5xl font-black tracking-tight mt-4"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 1.2 }}
+                          >
+                            <SlotNumber value={discount} className="text-white" />원 <span className="text-lg">할인</span>
+                          </motion.p>
+                          <motion.p
+                            className="text-[10px] opacity-50 mt-2"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.5 }}
+                            transition={{ duration: 0.4, delay: 1.5 }}
+                          >
+                            기본 견적가 기준의 할인 | 변동가능
+                          </motion.p>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })()}
                 </div>
@@ -1522,13 +1608,7 @@ export default function CreateCoBuyRequestPage() {
 
               {/* Step 3-1 & 3-2: Freeform Design (front or back) */}
               {isFreeformStep && productConfig && currentFreeformSide && (
-                <div className="flex flex-col min-h-full">
-                  {/* Top bar */}
-                  <div className="flex items-center justify-center px-4 py-2.5 bg-white border-b border-gray-200">
-                    <span className="text-xs font-medium text-gray-500">
-                      {currentFreeformSide.name} 디자인
-                    </span>
-                  </div>
+                <div className="flex flex-col min-h-full overflow-x-hidden">
 
                   {/* Canvas — render all sides but only show current */}
                   <div className="flex-1 flex items-center justify-center bg-[#EBEBEB] relative">
@@ -1618,30 +1698,30 @@ export default function CreateCoBuyRequestPage() {
                           {/* Character + speech bubble — fixed bottom-left */}
                           <motion.div
                             key={tutorialStep}
-                            className="absolute bottom-20 left-3 z-10"
+                            className="absolute bottom-28 left-3 z-10"
                             initial={{ opacity: 0, y: 20, scale: 0.9 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                           >
                             <div className="flex items-end gap-2">
-                              <motion.span
-                                className="text-3xl shrink-0 select-none mb-1"
+                              <motion.img
+                                src="/icons/modi.png"
+                                alt="모디"
+                                className="w-14 h-14 shrink-0 select-none mb-1"
                                 animate={{ y: [0, -4, 0] }}
                                 transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                              >
-                                🐻
-                              </motion.span>
-                              <div className="relative bg-white rounded-2xl px-4 py-3 shadow-lg border border-gray-200 max-w-[220px]">
-                                <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">
+                              />
+                              <div className="relative bg-white rounded-2xl px-4 py-3 shadow-lg border border-gray-200 max-w-[260px]">
+                                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                                   {tutorialSteps[tutorialStep].text}
                                 </p>
                                 <div className="flex items-center justify-between mt-2">
-                                  <span className="text-[10px] text-gray-300">
+                                  <span className="text-xs text-gray-300">
                                     {tutorialStep + 1}/{tutorialSteps.length}
                                   </span>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); dismissTutorial(); }}
-                                    className="text-[10px] text-gray-400 hover:text-gray-600"
+                                    className="text-xs text-gray-400 hover:text-gray-600"
                                   >
                                     건너뛰기
                                   </button>
@@ -1657,10 +1737,10 @@ export default function CreateCoBuyRequestPage() {
                     {tutorialDismissed && currentStep === 'freeform-front' && (
                       <button
                         onClick={restartTutorial}
-                        className="absolute bottom-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-lg hover:bg-white hover:shadow-md transition-all"
+                        className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center hover:bg-white hover:shadow-md transition-all p-1.5"
                         title="튜토리얼 다시보기"
                       >
-                        🐻
+                        <img src="/icons/modi.png" alt="모디" className="w-7 h-7" />
                       </button>
                     )}
                   </div>
@@ -1670,7 +1750,7 @@ export default function CreateCoBuyRequestPage() {
                   </p>
 
                   {/* Toolbar */}
-                  <div className="border-t border-gray-200 bg-white h-[52px] flex items-center">
+                  <div className="border-t border-gray-200 bg-white h-[52px] flex items-center overflow-x-auto overflow-y-hidden px-3">
                     {hasImageSelected ? (
                       <div className="flex items-center justify-center gap-2 w-full">
                         <button onClick={replaceFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
@@ -1720,9 +1800,6 @@ export default function CreateCoBuyRequestPage() {
                           </button>
                           <input ref={strokeColorInputRef} type="color" value={textStroke || '#000000'} onChange={e => changeTextStroke(e.target.value)} className="sr-only" />
                         </div>
-                        <button onClick={deleteFreeformObject} className="ml-auto p-1.5 border border-red-300 text-red-500 hover:bg-red-50 rounded-lg transition shrink-0">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-2 w-full">
@@ -1731,9 +1808,6 @@ export default function CreateCoBuyRequestPage() {
                         </button>
                         <button onClick={addFreeformImage} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition text-sm font-medium text-gray-700">
                           <ImagePlus className="w-4 h-4" /> 이미지
-                        </button>
-                        <button onClick={deleteFreeformObject} className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-500 hover:bg-red-50 rounded-xl transition text-sm">
-                          <Trash2 className="w-4 h-4" />
                         </button>
                         <div className="flex items-center gap-1">
                           <button onClick={undo} disabled={historyIndex <= 0} className="p-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-30">
@@ -1747,9 +1821,9 @@ export default function CreateCoBuyRequestPage() {
                     )}
                   </div>
 
-                  {/* Bottom navigation */}
-                  <div className="shrink-0 border-t border-gray-200 bg-white p-3 safe-area-inset-bottom">
-                    <div className="flex gap-2">
+                  {/* Bottom navigation — fixed to bottom */}
+                  <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white p-3 safe-area-inset-bottom">
+                    <div className="flex gap-2 max-w-lg mx-auto">
                       <button onClick={handleBack} className="py-3 px-5 border-2 border-gray-200 rounded-2xl font-semibold hover:bg-gray-50 flex items-center gap-1.5 text-sm text-gray-700">
                         <ArrowLeft className="w-4 h-4" /> 이전
                       </button>
@@ -1758,6 +1832,8 @@ export default function CreateCoBuyRequestPage() {
                       </button>
                     </div>
                   </div>
+                  {/* Spacer for fixed bottom nav */}
+                  <div className="h-[68px] shrink-0" />
 
                   {/* Text edit modal */}
                   {textEditModal.open && (
@@ -1826,16 +1902,16 @@ export default function CreateCoBuyRequestPage() {
 
                   {/* Character speech bubble */}
                   <div className="flex items-start gap-2.5 mb-5">
-                    <motion.span
-                      className="text-4xl shrink-0"
+                    <motion.img
+                      src="/icons/modi_happy.png"
+                      alt="모디"
+                      className="w-14 h-14 shrink-0"
                       initial={{ scale: 0, rotate: -30 }}
                       animate={{ scale: 1, rotate: 0 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 12, delay: 0.1 }}
-                    >
-                      🤩
-                    </motion.span>
+                    />
                     <motion.div
-                      className="relative bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 text-xs text-gray-700 leading-relaxed"
+                      className="relative bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-700 leading-relaxed"
                       initial={{ opacity: 0, scale: 0.8, x: -20 }}
                       animate={{ opacity: 1, scale: 1, x: 0 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.3 }}
@@ -1906,96 +1982,212 @@ export default function CreateCoBuyRequestPage() {
                 </div>
               )}
 
-              {/* Step 5: Schedule & Addresses */}
+              {/* Step 5: Schedule & Delivery */}
               {currentStep === 'schedule-address' && (
-                <div className="max-w-lg mx-auto py-8 px-4">
-                  <div className="mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
-                      <Calendar className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">{isConsultation ? '상담 요청' : '일정 및 배송'}</h2>
+                <div className="max-w-lg mx-auto py-6 px-4">
+                  {/* Modi character speech bubble */}
+                  <div className="flex items-start gap-2.5 mb-6">
+                    <motion.img
+                      src="/icons/modi_thinking.png"
+                      alt="모디"
+                      className="w-14 shrink-0"
+                      initial={{ scale: 0, rotate: -30 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 12, delay: 0.1 }}
+                    />
+                    <motion.div
+                      className="relative bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-700 leading-relaxed"
+                      initial={{ opacity: 0, scale: 0.8, x: -20 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.3 }}
+                    >
+                      <p>단체복은 뭐니뭐니해도</p>
+                      <p>일정에 맞춰 도착하는 것이 가장 중요해요!</p>
+                      <p className="mt-1">꼭 받아야하시는 날짜가 있나요?</p>
+                    </motion.div>
                   </div>
+
                   <div className="space-y-6">
-                    {/* Contact info */}
+                    {/* Schedule */}
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">연락처 정보</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">일정</p>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">단체명 <span className="text-red-500">*</span></label>
-                        <input
-                          type="text"
-                          value={title}
-                          onChange={e => setTitle(e.target.value)}
-                          placeholder="예: 서울대학교 컴퓨터공학과"
-                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                          maxLength={100}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">이름 <span className="text-red-500">*</span></label>
-                        <input
-                          type="text"
-                          value={contactName}
-                          onChange={e => setContactName(e.target.value)}
-                          placeholder="홍길동"
-                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">이메일 <span className="text-red-500">*</span></label>
-                        <input
-                          type="email"
-                          value={contactEmail}
-                          onChange={e => setContactEmail(e.target.value)}
-                          placeholder="example@email.com"
-                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">연락처 <span className="text-red-500">*</span></label>
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          value={contactPhone}
-                          onChange={e => {
-                            const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
-                            const formatted = digits.length <= 3 ? digits : digits.length <= 7 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-                            setContactPhone(formatted);
-                          }}
-                          placeholder="010-0000-0000"
-                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                        />
-                      </div>
-                      <div className="pt-1">
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={privacyConsent}
-                            onChange={e => setPrivacyConsent(e.target.checked)}
-                            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="text-xs text-gray-700">
-                            <span className="font-semibold text-red-500">[필수]</span> 개인정보 수집 및 이용에 동의합니다. 입력하신 이름, 연락처, 주소 정보는 공동구매 요청 처리 및 배송 목적으로만 사용됩니다.
-                          </span>
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                          수령 희망일
+                          <span className="ml-1.5 text-[10px] text-gray-400 font-normal">이전 고르셨어요</span>
                         </label>
+                        <input type="date" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
+                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5]" />
                       </div>
+                    </div>
+
+                    {/* Delivery Address */}
+                    <div className="space-y-3 border-t border-gray-200 pt-5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 주소</p>
+                      <p className="text-xs text-gray-500">공장에서 제품을 배송받을 주소예요.</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSkipDelivery(false)}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${!skipDelivery ? 'bg-[#3B55A5] text-white shadow-md shadow-[#3B55A5]/20' : 'border-2 border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                        >
+                          주소 입력하기
+                        </button>
+                        <button
+                          onClick={() => setSkipDelivery(true)}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${skipDelivery ? 'bg-[#3B55A5] text-white shadow-md shadow-[#3B55A5]/20' : 'border-2 border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                        >
+                          아직 모르겠어요
+                        </button>
+                      </div>
+                      {!skipDelivery && (
+                        <>
+                          {!deliverySettings.deliveryAddress?.roadAddress ? (
+                            <button type="button" onClick={() => handleAddressSearch('delivery')}
+                              className="w-full px-3 py-2.5 bg-white border-2 border-[#3B55A5] text-[#3B55A5] rounded-xl hover:bg-[#3B55A5]/5 font-medium flex items-center justify-center gap-1.5 text-sm">
+                              <Search className="w-4 h-4" /> 주소 검색
+                            </button>
+                          ) : (
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <input type="text" value={deliverySettings.deliveryAddress.postalCode || ''} readOnly
+                                  className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
+                                <button type="button" onClick={() => handleAddressSearch('delivery')}
+                                  className="flex-1 px-3 py-2.5 bg-white border-2 border-[#3B55A5] text-[#3B55A5] rounded-xl hover:bg-[#3B55A5]/5 font-medium flex items-center justify-center gap-1.5 text-sm">
+                                  <Search className="w-4 h-4" /> 주소 검색
+                                </button>
+                              </div>
+                              <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
+                              <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
+                                onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
+                                placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5]" maxLength={100} />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 6: User Info */}
+              {currentStep === 'user-info' && (
+                <div className="max-w-lg mx-auto py-6 px-4">
+                  <h2 className="text-base font-bold text-gray-900 text-center mb-4">할인쿠폰과 함께 견적을 보내드릴게요</h2>
+
+                  {/* Modi character speech bubble */}
+                  <div className="flex items-start gap-2.5 mb-6">
+                    <motion.img
+                      src="/icons/modi_thumbsup.png"
+                      alt="모디"
+                      className="w-14 h-14 shrink-0"
+                      initial={{ scale: 0, rotate: -30 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 12, delay: 0.1 }}
+                    />
+                    <motion.div
+                      className="relative bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-700 leading-relaxed"
+                      initial={{ opacity: 0, scale: 0.8, x: -20 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.3 }}
+                    >
+                      <p>여기까지 오시느라 고생 많으셨습니다!</p>
+                      <p>이제 전문 담당자가</p>
+                      <p>정확한 견적을 산출해서 곧 연락드릴게요!</p>
+                      <p className="mt-1">어디로 보내드리면 될까요?</p>
+                    </motion.div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* 단체명 */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">단체명 <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        placeholder="예: 서울대학교 컴퓨터공학과"
+                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
+                        maxLength={100}
+                      />
+                    </div>
+
+                    {/* 이름 */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">이름 <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={contactName}
+                        onChange={e => setContactName(e.target.value)}
+                        placeholder="홍길동"
+                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
+                      />
+                    </div>
+
+                    {/* Contact preference toggle */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setContactPreference('phone')}
+                        className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${contactPreference === 'phone' ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                        전화가 편해요
+                      </button>
+                      <button
+                        onClick={() => setContactPreference('email')}
+                        className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${contactPreference === 'email' ? 'bg-[#3B55A5] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                        이메일이 편해요
+                      </button>
+                    </div>
+
+                    {/* Email field */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                        이메일 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={contactEmail}
+                        onChange={e => setContactEmail(e.target.value)}
+                        placeholder="example@email.com"
+                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
+                      />
+                    </div>
+
+                    {/* Phone field */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                        전화번호 {contactPreference === 'phone' && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        value={contactPhone}
+                        onChange={e => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+                          const formatted = digits.length <= 3 ? digits : digits.length <= 7 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+                          setContactPhone(formatted);
+                        }}
+                        placeholder="010-0000-0000"
+                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">별도이 없어도 괜찮습니다</p>
                     </div>
 
                     {/* Consultation notes */}
                     {isConsultation && (
-                      <div className="space-y-3">
+                      <div className="space-y-3 border-t border-gray-200 pt-4">
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">참고사항</p>
                         <textarea
                           value={description}
                           onChange={e => setDescription(e.target.value)}
                           placeholder="원하시는 디자인, 참고 이미지 링크 등 자유롭게 남겨주세요."
-                          className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 resize-none"
+                          className="w-full px-3 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5] focus:ring-4 focus:ring-[#3B55A5]/10 resize-none"
                           rows={3}
                           maxLength={500}
                         />
                         <p className="text-xs text-gray-400">{description.length}/500자</p>
-
-                        <label className={`flex items-center justify-center gap-1.5 w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 cursor-pointer hover:border-orange-500 hover:text-orange-500 transition ${isUploadingRef ? 'opacity-50 pointer-events-none' : ''}`}>
-                          {isUploadingRef ? <div className="w-4 h-4 border-2 border-gray-300 border-t-orange-500 rounded-full animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                        <label className={`flex items-center justify-center gap-1.5 w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 cursor-pointer hover:border-[#3B55A5] hover:text-[#3B55A5] transition ${isUploadingRef ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {isUploadingRef ? <div className="w-4 h-4 border-2 border-gray-300 border-t-[#3B55A5] rounded-full animate-spin" /> : <ImagePlus className="w-4 h-4" />}
                           {isUploadingRef ? '업로드 중...' : '참고 파일 첨부'}
                           <input type="file" accept="image/*,.pdf,.ai,.psd,.zip" multiple className="hidden" onChange={handleReferenceFileUpload} />
                         </label>
@@ -2021,54 +2213,19 @@ export default function CreateCoBuyRequestPage() {
                       </div>
                     )}
 
-                    {/* Schedule */}
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">일정</p>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">수령 희망일</label>
-                        <input type="date" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
-                          className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500" />
-                      </div>
-                    </div>
-
-                    {/* Delivery Address */}
-                    <div className="space-y-3 border-t border-gray-200 pt-5">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">배송 주소</p>
-                      <p className="text-xs text-gray-500">공장에서 제품을 배송받을 주소예요.</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setSkipDelivery(false)}
-                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${!skipDelivery ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                        >
-                          주소 입력하기
-                        </button>
-                        <button
-                          onClick={() => setSkipDelivery(true)}
-                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${skipDelivery ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                        >
-                          아직 모르겠어요
-                        </button>
-                      </div>
-                      {!skipDelivery && (
-                        <>
-                          <div className="flex gap-2">
-                            <input type="text" value={deliverySettings.deliveryAddress?.postalCode || ''} readOnly
-                              className="w-24 px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" placeholder="우편번호" />
-                            <button type="button" onClick={() => handleAddressSearch('delivery')}
-                              className="flex-1 px-3 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium flex items-center justify-center gap-1.5 text-sm">
-                              <Search className="w-4 h-4" /> 주소 검색
-                            </button>
-                          </div>
-                          {deliverySettings.deliveryAddress?.roadAddress && (
-                            <div className="space-y-2">
-                              <input type="text" value={deliverySettings.deliveryAddress.roadAddress} readOnly className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50" />
-                              <input type="text" value={deliverySettings.deliveryAddress.addressDetail || ''}
-                                onChange={e => setDeliverySettings(prev => ({ ...prev, deliveryAddress: prev.deliveryAddress ? { ...prev.deliveryAddress, addressDetail: e.target.value } : undefined }))}
-                                placeholder="상세주소" className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" maxLength={100} />
-                            </div>
-                          )}
-                        </>
-                      )}
+                    {/* Privacy consent */}
+                    <div className="pt-2">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={privacyConsent}
+                          onChange={e => setPrivacyConsent(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#3B55A5] focus:ring-[#3B55A5]"
+                        />
+                        <span className="text-xs text-gray-700">
+                          <span className="font-semibold text-red-500">[필수]</span> 개인정보 수집 및 이용에 동의합니다. 입력하신 이름, 연락처, 주소 정보는 공동구매 요청 처리 및 배송 목적으로만 사용됩니다.
+                        </span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -2133,10 +2290,10 @@ export default function CreateCoBuyRequestPage() {
                       <ArrowLeft className="w-4 h-4" /> 이전
                     </button>
                   )}
-                  {currentStep === 'schedule-address' ? (
+                  {currentStep === 'user-info' ? (
                     <button onClick={() => handleSubmit(skipDelivery)} disabled={isCreating}
-                      className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-semibold shadow-lg shadow-green-500/25 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
-                      {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <><Sparkles className="w-4 h-4" /> 제출하기</>}
+                      className="flex-1 py-3 bg-gradient-to-r from-[#3B55A5] to-[#3B55A0] text-white rounded-2xl font-semibold shadow-lg flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
+                      {isCreating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 제출 중...</> : <>제출하기</>}
                     </button>
                   ) : currentStep === 'basic-info' ? (
                     <button onClick={handleNext} disabled={!canProceed}
@@ -2186,7 +2343,7 @@ export default function CreateCoBuyRequestPage() {
                 className="group relative text-center p-5 rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-[#3B55A5] hover:shadow-lg hover:shadow-[#3B55A5]/10 transition-all duration-200 active:scale-[0.97] flex flex-col items-center"
               >
                 <div className="text-5xl mb-3 group-hover:scale-110 transition-transform duration-200">🎨</div>
-                <p className="text-[13px] font-bold text-gray-900 mb-2">내가 직접 디자인 해볼래요</p>
+                <p className="text-[13px] font-bold text-gray-900 mb-2">제가 직접 <br></br>디자인 해볼래요</p>
                 <p className="text-[11px] text-gray-400 leading-relaxed">
                   제공 텍스트, 이미지를 배치해보고
                   디자인 시안을 바로 확인할 수 있어요
@@ -2211,38 +2368,6 @@ export default function CreateCoBuyRequestPage() {
       )}
 
       {/* Welcome Popup */}
-      {showWelcome && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center animate-[fadeIn_0.3s_ease-out]"
-          style={{ background: 'radial-gradient(circle at center, rgba(59,85,165,0.15), rgba(0,0,0,0.5))' }}>
-          <div className="bg-white rounded-3xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden animate-[popIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)]">
-            <div className="relative p-8 text-center overflow-hidden">
-              {/* Decorative background circles */}
-              <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-[#3B55A5]/5 animate-[pulse_3s_ease-in-out_infinite]" />
-              <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-indigo-100/50 animate-[pulse_3s_ease-in-out_infinite_1s]" />
-
-              <div className="relative">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#3B55A5] to-indigo-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-[#3B55A5]/30 animate-[bounceIn_0.5s_ease-out_0.2s_both]">
-                  <Sparkles className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2 animate-[slideUp_0.4s_ease-out_0.3s_both]">과잠 공동구매</h2>
-                <p className="text-sm text-gray-500 leading-relaxed animate-[slideUp_0.4s_ease-out_0.4s_both]">
-                  색상 고르고, 수량 선택하면<br />
-                  <span className="font-semibold text-[#3B55A5]">견적 자동 완성!</span>
-                </p>
-              </div>
-            </div>
-            <div className="px-6 pb-6 animate-[slideUp_0.4s_ease-out_0.5s_both]">
-              <button
-                onClick={() => { setShowWelcome(false); gtagEvent('공구_시작하기_클릭'); }}
-                className="w-full py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3B55A5] to-indigo-500 hover:from-[#2f4584] hover:to-indigo-600 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-[#3B55A5]/25"
-              >
-                시작하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Color step tutorial overlay — top level so it covers entire screen */}
       <AnimatePresence>
         {colorTutorialStep >= 0 && !colorTutorialDismissed && currentStep === 'color-select' && (
@@ -2262,41 +2387,34 @@ export default function CreateCoBuyRequestPage() {
             <div className="absolute inset-0 bg-black/50" />
             <motion.div
               key={colorTutorialStep}
-              className={`absolute z-10 ${
-                COLOR_TUTORIAL_STEPS[colorTutorialStep].position === 'center'
-                  ? 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2'
-                  : 'bottom-36 left-1/2 -translate-x-1/2'
-              }`}
+              className="absolute bottom-28 left-3 z-10"
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ type: 'spring', stiffness: 350, damping: 25 }}
             >
               <div className="flex items-end gap-2">
-                <motion.span
-                  className="text-3xl shrink-0 select-none mb-1"
+                <motion.img
+                  src="/icons/modi.png"
+                  alt="모디"
+                  className="w-14 h-14 shrink-0 select-none mb-1"
                   animate={{ y: [0, -4, 0] }}
                   transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                >
-                  🐻
-                </motion.span>
-                <div className="relative bg-white rounded-2xl px-4 py-3 shadow-lg border border-gray-200 max-w-[240px]">
-                  <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">
+                />
+                <div className="relative bg-white rounded-2xl px-4 py-3 shadow-lg border border-gray-200 max-w-[280px]">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                     {COLOR_TUTORIAL_STEPS[colorTutorialStep].text}
                   </p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-gray-300">
+                    <span className="text-xs text-gray-300">
                       {colorTutorialStep + 1}/{COLOR_TUTORIAL_STEPS.length}
                     </span>
                     <button
                       onClick={(e) => { e.stopPropagation(); dismissColorTutorial(); }}
-                      className="text-[10px] text-gray-400 hover:text-gray-600"
+                      className="text-xs text-gray-400 hover:text-gray-600"
                     >
                       건너뛰기
                     </button>
                   </div>
-                  {COLOR_TUTORIAL_STEPS[colorTutorialStep].position === 'bottom' && (
-                    <div className="absolute -bottom-1.5 left-10 w-3 h-3 bg-white border-r border-b border-gray-200 rotate-45" />
-                  )}
                 </div>
               </div>
             </motion.div>
