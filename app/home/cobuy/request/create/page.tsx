@@ -650,7 +650,7 @@ export default function CreateCoBuyRequestPage() {
       const schedulePreferences: CoBuyRequestSchedulePreferences = {
         preferredStartDate: startDate || undefined,
         preferredEndDate: endDate || undefined,
-        receiveByDate: receiveByDate || undefined,
+        receiveByDate: receiveByDate && receiveByDate !== 'undecided' ? receiveByDate : undefined,
       };
 
       const quantityExpectations: CoBuyRequestQuantityExpectations = {
@@ -1511,7 +1511,7 @@ export default function CreateCoBuyRequestPage() {
                             ))}
                           </p>
                           <p className="text-base font-bold leading-snug">
-                            {'지금 견적 받고'.split('').map((char, i) => (
+                            {'지금 견적만 받아도'.split('').map((char, i) => (
                               <motion.span
                                 key={i}
                                 initial={{ opacity: 0, y: 6 }}
@@ -1523,12 +1523,12 @@ export default function CreateCoBuyRequestPage() {
                             ))}
                           </p>
                           <motion.p
-                            className="text-5xl font-black tracking-tight mt-4"
+                            className="text-3xl font-black tracking-tight mt-4"
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 1.2 }}
                           >
-                            <SlotNumber value={discount} className="text-white" />원 <span className="text-lg">할인</span>
+                            <SlotNumber value={discount} className="text-white" />원 <span className="text-lg">할인쿠폰 즉시 지급</span>
                           </motion.p>
                           <motion.p
                             className="text-[10px] opacity-50 mt-2"
@@ -1536,7 +1536,7 @@ export default function CreateCoBuyRequestPage() {
                             animate={{ opacity: 0.5 }}
                             transition={{ duration: 0.4, delay: 1.5 }}
                           >
-                            기본 견적가 기준의 할인 | 변동가능
+                            기본 견적가 기준의 할인
                           </motion.p>
                         </div>
                       </motion.div>
@@ -2011,14 +2011,24 @@ export default function CreateCoBuyRequestPage() {
                     {/* Schedule */}
                     <div className="space-y-3">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">일정</p>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          수령 희망일
-                          <span className="ml-1.5 text-[10px] text-gray-400 font-normal">이전 고르셨어요</span>
-                        </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { if (receiveByDate === 'undecided') setReceiveByDate(''); }}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${receiveByDate !== 'undecided' ? 'bg-[#3B55A5] text-white shadow-md shadow-[#3B55A5]/20' : 'border-2 border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                        >
+                          날짜 입력하기
+                        </button>
+                        <button
+                          onClick={() => setReceiveByDate('undecided')}
+                          className={`flex-1 py-2.5 text-sm rounded-xl font-medium transition ${receiveByDate === 'undecided' ? 'bg-[#3B55A5] text-white shadow-md shadow-[#3B55A5]/20' : 'border-2 border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                        >
+                          아직 모르겠어요
+                        </button>
+                      </div>
+                      {receiveByDate !== 'undecided' && (
                         <input type="date" value={receiveByDate} onChange={e => setReceiveByDate(e.target.value)}
                           className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#3B55A5]" />
-                      </div>
+                      )}
                     </div>
 
                     {/* Delivery Address */}
@@ -2153,10 +2163,11 @@ export default function CreateCoBuyRequestPage() {
                       />
                     </div>
 
-                    {/* Phone field */}
+                    {/* Phone field (only when phone preference) */}
+                    {contactPreference === 'phone' && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                        전화번호 {contactPreference === 'phone' && <span className="text-red-500">*</span>}
+                        전화번호 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -2172,6 +2183,7 @@ export default function CreateCoBuyRequestPage() {
                       />
                       <p className="text-[10px] text-gray-400 mt-1">별도이 없어도 괜찮습니다</p>
                     </div>
+                    )}
 
                     {/* Consultation notes */}
                     {isConsultation && (
@@ -2254,7 +2266,7 @@ export default function CreateCoBuyRequestPage() {
                       </button>
                     </div>
                   </div>
-                  <button onClick={() => router.push('/home')} className="w-full max-w-sm py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
+                  <button onClick={() => router.push(`/cobuy/request/${createdShareToken}`)} className="w-full max-w-sm py-3 bg-gradient-to-r from-[#3B55A5] to-[#2D4280] text-white rounded-2xl font-semibold flex items-center justify-center gap-1.5 text-sm">
                     확인 <ChevronRight className="w-4 h-4" />
                   </button>
                   <a
@@ -2345,8 +2357,8 @@ export default function CreateCoBuyRequestPage() {
                 <div className="text-5xl mb-3 group-hover:scale-110 transition-transform duration-200">🎨</div>
                 <p className="text-[13px] font-bold text-gray-900 mb-2">제가 직접 <br></br>디자인 해볼래요</p>
                 <p className="text-[11px] text-gray-400 leading-relaxed">
-                  제공 텍스트, 이미지를 배치해보고
-                  디자인 시안을 바로 확인할 수 있어요
+                  텍스트, 이미지를 배치해보고
+                  <br></br>디자인 시안을 바로 <br></br>확인할 수 있어요
                 </p>
               </button>
               <button
@@ -2354,12 +2366,12 @@ export default function CreateCoBuyRequestPage() {
                 className="group relative text-center p-5 rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-orange-400 hover:shadow-lg hover:shadow-orange-400/10 transition-all duration-200 active:scale-[0.97] flex flex-col items-center"
               >
                 <div className="text-5xl mb-3 group-hover:scale-110 transition-transform duration-200">🤔</div>
-                <p className="text-[13px] font-bold text-gray-900 mb-2">전문 디자이너에게 부탁할래요</p>
+                <p className="text-[13px] font-bold text-gray-900 mb-2">전문 디자이너에게 <br></br> 부탁할래요</p>
                 <p className="text-[11px] text-gray-400 leading-relaxed">
-                  디자인도 어렵고,
-                  기기에 로고 파일까지 없다면
-                  전문 디자이너에게 요청해서
-                  <span className="font-semibold text-gray-600"> 무료</span>로 시안을 받아볼 수 있어요
+                  디자인이 어려우신가요?<br></br>
+                  이미지 파일이 없으신가요?<br></br>
+                  전문 디자이너에게<br></br>
+                  <span className='text-black'>무료로 시안을 받아보세요</span>
                 </p>
               </button>
             </div>
