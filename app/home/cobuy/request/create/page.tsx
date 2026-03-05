@@ -333,9 +333,10 @@ export default function CreateCoBuyRequestPage() {
     }
   }, [cobuyPreset, setLayerColor]);
 
-  // Apply preset objects onto any newly mounted canvas
+  // Apply preset or saved user state onto any newly mounted canvas
   useEffect(() => {
-    if (!cobuyPreset?.canvas_state) return;
+    const hasSavedState = Object.keys(savedCanvasState).length > 0;
+    if (!cobuyPreset?.canvas_state && !hasSavedState) return;
     if (!isFreeformStep && currentStep !== 'color-select') return;
 
     const sides = selectedProduct?.configuration ?? [];
@@ -347,11 +348,20 @@ export default function CreateCoBuyRequestPage() {
       const fabric = await import('fabric');
       const isEditable = isFreeformStep;
 
-      // Collect font families used in preset objects and ensure they're loaded
-      const fontFamilies = new Set<string>();
+      // For each side, prefer savedCanvasState (user edits) over preset
+      const stateSource: Record<string, string> = {};
       for (const side of newCanvases) {
-        const raw = cobuyPreset.canvas_state[side.id];
-        if (!raw) continue;
+        if (savedCanvasState[side.id]) {
+          stateSource[side.id] = savedCanvasState[side.id];
+        } else if (cobuyPreset?.canvas_state?.[side.id]) {
+          const raw = cobuyPreset.canvas_state[side.id];
+          stateSource[side.id] = typeof raw === 'string' ? raw : JSON.stringify(raw);
+        }
+      }
+
+      // Collect font families and ensure they're loaded
+      const fontFamilies = new Set<string>();
+      for (const raw of Object.values(stateSource)) {
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
         for (const obj of parsed.objects || []) {
           if (obj.fontFamily) fontFamilies.add(obj.fontFamily);
@@ -368,7 +378,7 @@ export default function CreateCoBuyRequestPage() {
         if (!canvas) continue;
         loadedCanvases.current.add(canvas);
 
-        const raw = cobuyPreset.canvas_state[side.id];
+        const raw = stateSource[side.id];
         if (!raw) continue;
 
         try {
@@ -383,14 +393,13 @@ export default function CreateCoBuyRequestPage() {
           }
           canvas.renderAll();
         } catch (err) {
-          console.error(`Failed to load preset for side ${side.id}:`, err);
+          console.error(`Failed to load state for side ${side.id}:`, err);
         }
       }
 
-      // Reset history so preset state becomes the baseline (can't undo past this)
+      // Reset history so loaded state becomes the baseline
       isLoadingPresetsRef.current = false;
       if (isFreeformStep) {
-        // Save baseline for each loaded side
         for (const side of newCanvases) {
           const c = canvasMap[side.id];
           if (!c) continue;
@@ -398,7 +407,6 @@ export default function CreateCoBuyRequestPage() {
           const serialized = objs.map((obj: any) => obj.toObject(['data', 'excludeFromExport']));
           sideHistoryRef.current[side.id] = { history: [JSON.stringify(serialized)], index: 0 };
         }
-        // Set current state to active side's baseline
         const activeCanvas = getActiveCanvas();
         if (activeCanvas) {
           const saved = sideHistoryRef.current[activeSideId];
@@ -414,7 +422,7 @@ export default function CreateCoBuyRequestPage() {
         }
       }
     })();
-  }, [currentStep, cobuyPreset, selectedProduct, canvasMap]);
+  }, [currentStep, cobuyPreset, selectedProduct, canvasMap, savedCanvasState]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).daum?.Postcode) {
@@ -513,33 +521,15 @@ export default function CreateCoBuyRequestPage() {
       return;
     }
 
-    // Capture canvas state before leaving last freeform step
-    const lastFreeformStep = hasBackSide ? 'freeform-back' : 'freeform-front';
-    if (currentStep === lastFreeformStep) {
-      const states = serializeCanvasState();
-      setSavedCanvasState(states);
-      // Save colors
-      const colorData: Record<string, any> = { ...layerColors };
-      if (selectedColorHex) {
-        const selectedColor = productColors.find(c => c.hex === selectedColorHex);
-        colorData._productColor = {
-          hex: selectedColorHex,
-          name: selectedColor?.name,
-          colorCode: selectedColor?.colorCode,
-        };
+    // Capture canvas state before leaving freeform steps
+    if (isFreeformStep) {
+      captureCanvasState();
+      // Generate uploadable preview when leaving the last freeform step
+      const lastFreeformStep = hasBackSide ? 'freeform-back' : 'freeform-front';
+      if (currentStep === lastFreeformStep) {
+        const preview = await generatePreview();
+        setSavedPreviewUrl(preview);
       }
-      setSavedColorSelections(colorData);
-      // Generate preview data URLs for review step
-      const previews: Record<string, string> = {};
-      for (const [sideId, canvas] of Object.entries(canvasMap)) {
-        try {
-          previews[sideId] = (canvas as any).toDataURL({ format: 'png', multiplier: 0.5 });
-        } catch {}
-      }
-      setSidePreviewUrls(previews);
-      // Also generate uploadable preview
-      const preview = await generatePreview();
-      setSavedPreviewUrl(preview);
     }
 
     const next = getNextStep(currentStep);
@@ -547,6 +537,10 @@ export default function CreateCoBuyRequestPage() {
   };
 
   const handleBack = () => {
+    // Capture canvas state before leaving freeform steps
+    if (isFreeformStep) {
+      captureCanvasState();
+    }
     const prev = getPrevStep(currentStep);
     if (prev) navigateToStep(prev, 'left');
   };
@@ -602,6 +596,34 @@ export default function CreateCoBuyRequestPage() {
       states[sideId] = JSON.stringify(canvasData);
     });
     return states;
+  };
+
+  // Save canvas state (called before navigating away from freeform steps)
+  const captureCanvasState = () => {
+    if (Object.keys(canvasMap).length === 0) return;
+    const states = serializeCanvasState();
+    if (Object.keys(states).length > 0) {
+      setSavedCanvasState(states);
+    }
+    const colorData: Record<string, any> = { ...layerColors };
+    if (selectedColorHex) {
+      const selectedColor = productColors.find(c => c.hex === selectedColorHex);
+      colorData._productColor = {
+        hex: selectedColorHex,
+        name: selectedColor?.name,
+        colorCode: selectedColor?.colorCode,
+      };
+    }
+    setSavedColorSelections(colorData);
+    const previews: Record<string, string> = {};
+    for (const [sideId, canvas] of Object.entries(canvasMap)) {
+      try {
+        previews[sideId] = (canvas as any).toDataURL({ format: 'png', multiplier: 0.5 });
+      } catch {}
+    }
+    if (Object.keys(previews).length > 0) {
+      setSidePreviewUrls(previews);
+    }
   };
 
   // Generate preview from canvas
