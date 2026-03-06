@@ -1478,7 +1478,7 @@ export default function CreateCoBuyRequestPage() {
                           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                         >
                           <p className="text-center text-base font-bold text-gray-900 mb-3">
-                            예상 벌당 단가 : <span className="line-through text-gray-400"><SlotNumber value={pricing.unitPrice} className="text-gray-400" />원</span>
+                            예상 벌당 단가 : <SlotNumber value={pricing.unitPrice} className="text-gray-400" style={{ textDecorationLine: 'line-through' }} /><span className="text-gray-400 line-through">원</span>
                             <span className="text-red-500 ml-1"><SlotNumber value={pricing.discountedUnitPrice} className="text-red-500" />원</span>
                           </p>
                           <div className="text-[11px] text-gray-500 space-y-0.5">
@@ -2554,7 +2554,7 @@ function ColorSwatch({ hex, selected, onClick }: { hex: string; selected: boolea
 // Slot-machine animated number
 // ============================================================================
 
-function SlotNumber({ value, className }: { value: number; className?: string }) {
+function SlotNumber({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) {
   const formatted = value.toLocaleString();
   const prevRef = useRef(formatted);
   const [digits, setDigits] = useState(formatted.split(''));
@@ -2579,7 +2579,7 @@ function SlotNumber({ value, className }: { value: number; className?: string })
   }, [formatted]);
 
   return (
-    <span className={`inline-flex overflow-hidden ${className || ''}`}>
+    <span className={`inline-flex overflow-hidden ${className || ''}`} style={style}>
       {digits.map((d, i) => (
         <span
           key={`${i}-${digits.length}`}
