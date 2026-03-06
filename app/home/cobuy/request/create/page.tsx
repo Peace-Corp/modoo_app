@@ -1478,7 +1478,8 @@ export default function CreateCoBuyRequestPage() {
                           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                         >
                           <p className="text-center text-base font-bold text-gray-900 mb-3">
-                            예상 벌당 단가 : <SlotNumber value={pricing.unitPrice} className="text-gray-900" />원
+                            예상 벌당 단가 : <SlotNumber value={pricing.unitPrice} className="text-gray-400" style={{ textDecorationLine: 'line-through' }} /><span className="text-gray-400 line-through">원</span>
+                            <span className="text-red-500 ml-1"><SlotNumber value={pricing.discountedUnitPrice} className="text-red-500" />원</span>
                           </p>
                           <div className="text-[11px] text-gray-500 space-y-0.5">
                             <p>*수량이 많아질수록 개당 단가가 줄어듭니다</p>
@@ -1495,7 +1496,7 @@ export default function CreateCoBuyRequestPage() {
                     const qty = expectedQuantity === '' ? 0 : Number(expectedQuantity);
                     const pricing = getPricingInfo(qty);
                     if (!pricing) return null;
-                    const discount = Math.round(pricing.totalPrice * 0.1);
+                    const discount = pricing.totalPrice - pricing.discountedTotalPrice;
                     return (
                       <motion.div
                         className="rounded-b-xl overflow-hidden relative"
@@ -2553,7 +2554,7 @@ function ColorSwatch({ hex, selected, onClick }: { hex: string; selected: boolea
 // Slot-machine animated number
 // ============================================================================
 
-function SlotNumber({ value, className }: { value: number; className?: string }) {
+function SlotNumber({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) {
   const formatted = value.toLocaleString();
   const prevRef = useRef(formatted);
   const [digits, setDigits] = useState(formatted.split(''));
@@ -2578,7 +2579,7 @@ function SlotNumber({ value, className }: { value: number; className?: string })
   }, [formatted]);
 
   return (
-    <span className={`inline-flex overflow-hidden ${className || ''}`}>
+    <span className={`inline-flex overflow-hidden ${className || ''}`} style={style}>
       {digits.map((d, i) => (
         <span
           key={`${i}-${digits.length}`}
