@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
-import { ChevronLeft, Package, MapPin, CreditCard, Truck } from 'lucide-react';
+import { ChevronLeft, Package, CreditCard, Truck, Phone, X } from 'lucide-react';
 import { OrderItem } from '@/types/types';
 
 interface OrderDetail {
@@ -61,6 +61,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -386,13 +387,45 @@ export default function OrderDetailPage() {
         {/* Actions */}
         <div className="flex gap-3">
           <button
-            onClick={() => router.push('/inquiries/new')}
+            onClick={() => setShowInquiryModal(true)}
             className="flex-1 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
           >
             문의하기
           </button>
         </div>
       </div>
+
+      {/* Inquiry Modal */}
+      {showInquiryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowInquiryModal(false)}>
+          <div className="bg-white rounded-2xl mx-4 w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold">문의하기</h3>
+              <button onClick={() => setShowInquiryModal(false)} className="p-1 hover:bg-gray-100 rounded-full transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <a
+                href="http://pf.kakao.com/_xjSdYG/chat"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-[#FEE500] text-[#191919] rounded-xl font-semibold text-sm hover:brightness-95 transition"
+              >
+                <img src="/icons/kakaotalk_channel.png" alt="카카오톡" className="w-5 h-5" />
+                카카오톡으로 문의하기
+              </a>
+              <a
+                href="tel:01081400621"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition"
+              >
+                <Phone className="w-4 h-4" />
+                전화로 문의하기
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

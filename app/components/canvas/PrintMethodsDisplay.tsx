@@ -14,7 +14,7 @@ export default function PrintMethodsDisplay({ allPrintMethods, enabledPrintMetho
 
   return (
     <div className={`py-2 ${className}`}>
-      <p className="text-[11px] font-semibold text-gray-500 mb-1.5">인쇄 방식</p>
+      <p className="text-[11px] font-semibold text-gray-500 mb-1.5">가능한 인쇄 방식</p>
       <div className="flex flex-wrap gap-1.5">
         {allPrintMethods.map((pm) => {
           const isEnabled = enabledPrintMethodIds.has(pm.id);

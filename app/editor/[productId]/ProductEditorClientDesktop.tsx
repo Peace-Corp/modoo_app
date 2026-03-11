@@ -48,6 +48,7 @@ export default function ProductEditorClientDesktop({ product, allPrintMethods = 
 
   const {
     setEditMode,
+    setActiveSide,
     productColor,
     setProductColor,
     saveAllCanvasState,
@@ -606,8 +607,11 @@ export default function ProductEditorClientDesktop({ product, allPrintMethods = 
 
   useEffect(() => {
     setEditMode(true);
+    if (product.configuration.length > 0) {
+      setActiveSide(product.configuration[0].id);
+    }
     return () => setEditMode(false);
-  }, [setEditMode]);
+  }, [setEditMode, setActiveSide, product.configuration]);
 
   // Listen for canvas selection changes
   useEffect(() => {
@@ -817,9 +821,9 @@ export default function ProductEditorClientDesktop({ product, allPrintMethods = 
                 })()}
 
                 <ObjectPreviewPanel sides={product.configuration} />
-                <ColorInfo />
-                <PrintMethodsDisplay allPrintMethods={allPrintMethods} enabledPrintMethodIds={enabledPrintMethodIds} className="mt-4" />
-                <PricingInfo basePrice={product.base_price} sides={product.configuration} />
+                {/* <ColorInfo /> */}
+                
+                {/* <PricingInfo basePrice={product.base_price} sides={product.configuration} /> */}
               </div>
             </div>
 
@@ -878,6 +882,7 @@ export default function ProductEditorClientDesktop({ product, allPrintMethods = 
           </aside>
 	        </div>
 
+          <PrintMethodsDisplay allPrintMethods={allPrintMethods} enabledPrintMethodIds={enabledPrintMethodIds} className="mt-4" />
           <ReviewsSection productId={product.id} limit={10} />
           <div className="w-full">
             <DescriptionImageSection title="주문상세" imageUrls={descriptionImageUrls} />
