@@ -54,8 +54,6 @@ export default function CheckoutPage() {
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('domestic');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('toss');
   const [tossWidgetKey, setTossWidgetKey] = useState(0);
-  const [useProfileInfo, setUseProfileInfo] = useState(true);
-
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
     email: '',
@@ -195,23 +193,16 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, fetchCoupons]);
 
-  // Auto-fill customer info from user profile when authenticated and useProfileInfo is true
+  // Auto-fill customer info from user profile when authenticated
   useEffect(() => {
-    if (isAuthenticated && user && useProfileInfo) {
+    if (isAuthenticated && user) {
       setCustomerInfo({
         name: user.name || '',
         email: user.email || '',
         phone: user.phone || '',
       });
-    } else if (!useProfileInfo) {
-      // Clear fields when switching to manual entry
-      setCustomerInfo({
-        name: '',
-        email: '',
-        phone: '',
-      });
     }
-  }, [isAuthenticated, user, useProfileInfo]);
+  }, [isAuthenticated, user]);
 
   // Calculate totals
   const totalPrice = items.reduce((total, item) => total + item.price_per_item * item.quantity, 0);
@@ -421,54 +412,35 @@ export default function CheckoutPage() {
 
       {/* Customer Information */}
       <div className="bg-white mt-2 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-medium text-black">주문자 정보</h2>
-          {isAuthenticated && user && (
-            <button
-              onClick={() => setUseProfileInfo(!useProfileInfo)}
-              className="text-sm text-[#3B55A5] hover:text-[#2D4280] font-medium"
-            >
-              {useProfileInfo ? '직접 입력' : '프로필 정보 사용'}
-            </button>
-          )}
-        </div>
+        <h2 className="font-medium text-black mb-4">주문자 정보</h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">이름</label>
+            <label className="block text-sm text-gray-700 mb-1">이름 <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={customerInfo.name}
               onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-              disabled={isAuthenticated && useProfileInfo}
-              className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
-                isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
-              }`}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
               placeholder="이름을 입력하세요"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">이메일</label>
+            <label className="block text-sm text-gray-700 mb-1">이메일 <span className="text-red-500">*</span></label>
             <input
               type="email"
               value={customerInfo.email}
               onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-              disabled={isAuthenticated && useProfileInfo}
-              className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
-                isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
-              }`}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
               placeholder="example@email.com"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">휴대폰 번호</label>
+            <label className="block text-sm text-gray-700 mb-1">휴대폰 번호 <span className="text-red-500">*</span></label>
             <input
               type="tel"
               value={customerInfo.phone}
               onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value.replace(/[^0-9]/g, '') })}
-              disabled={isAuthenticated && useProfileInfo}
-              className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black ${
-                isAuthenticated && useProfileInfo ? 'bg-gray-50 cursor-not-allowed' : ''
-              }`}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
               placeholder="01012345678"
             />
           </div>
@@ -679,7 +651,7 @@ export default function CheckoutPage() {
           <h2 className="font-medium text-black mb-3">픽업 안내</h2>
           <div className="bg-gray-50 p-4 rounded-lg">
             <p className="text-sm text-gray-700 mb-2">
-              <strong>픽업 장소:</strong> 서울특별시 마포구 새터산 4길 2, b102호
+              <strong>픽업 장소:</strong> 서울특별시 마포구 성지3길 55, 4층
             </p>
             <p className="text-sm text-gray-700 mb-2">
               <strong>운영 시간:</strong> 평일 10:00 ~ 18:00 (점심시간 12:00 ~ 13:00)
