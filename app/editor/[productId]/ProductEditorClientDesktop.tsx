@@ -817,9 +817,9 @@ export default function ProductEditorClientDesktop({ product, allPrintMethods = 
                 })()}
 
                 <ObjectPreviewPanel sides={product.configuration} />
-                <ColorInfo />
-                <PrintMethodsDisplay allPrintMethods={allPrintMethods} enabledPrintMethodIds={enabledPrintMethodIds} className="mt-4" />
-                <PricingInfo basePrice={product.base_price} sides={product.configuration} />
+                {/* <ColorInfo /> */}
+                
+                {/* <PricingInfo basePrice={product.base_price} sides={product.configuration} /> */}
               </div>
             </div>
 
@@ -878,6 +878,7 @@ export default function ProductEditorClientDesktop({ product, allPrintMethods = 
           </aside>
 	        </div>
 
+          <PrintMethodsDisplay allPrintMethods={allPrintMethods} enabledPrintMethodIds={enabledPrintMethodIds} className="mt-4" />
           <ReviewsSection productId={product.id} limit={10} />
           <div className="w-full">
             <DescriptionImageSection title="주문상세" imageUrls={descriptionImageUrls} />

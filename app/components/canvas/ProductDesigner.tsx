@@ -116,7 +116,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ config, layout = 'mob
     <div className={shouldFullscreen ? "min-h-screen" : ""}>
       <div className="">
         {isDesktop && config.sides.length > 1 && (
-          <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
+          <div className=" flex flex-wrap items-center justify-center gap-2 bg-[#EBEBEB] pt-2">
             {config.sides.map((side, index) => (
               <button
                 key={side.id}
