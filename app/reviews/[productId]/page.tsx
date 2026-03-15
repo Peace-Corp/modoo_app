@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { FaStar } from 'react-icons/fa';
+import { IoClose, IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import Header from '@/app/components/Header';
 
 interface Review {
@@ -13,6 +15,7 @@ interface Review {
   author_name: string;
   is_verified_purchase: boolean;
   helpful_count: number;
+  review_image_urls: string[];
   created_at: string;
 }
 
@@ -22,6 +25,8 @@ export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState(0);
+  const [modalImages, setModalImages] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [ratingDistribution, setRatingDistribution] = useState<Record<number, number>>({
     5: 0,
     4: 0,
@@ -171,6 +176,31 @@ export default function ReviewsPage() {
                   {/* Review Content */}
                   <p className="text-gray-700 mb-3 leading-relaxed">{review.content}</p>
 
+                  {/* Review Images */}
+                  {review.review_image_urls && review.review_image_urls.length > 0 && (
+                    <div className="flex gap-2 mb-3">
+                      {review.review_image_urls.map((url, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            setModalImages(review.review_image_urls);
+                            setCurrentImageIndex(index);
+                          }}
+                          className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0"
+                        >
+                          <Image
+                            src={url}
+                            alt={`리뷰 이미지 ${index + 1}`}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                            sizes="80px"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Helpful Count */}
                   {review.helpful_count > 0 && (
                     <div className="flex items-center gap-2">
@@ -185,6 +215,78 @@ export default function ReviewsPage() {
           </>
         )}
       </div>
+
+      {/* Image Modal */}
+      {modalImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setModalImages([])}
+        >
+          <div
+            className="relative max-w-lg w-full max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setModalImages([])}
+              className="absolute -top-10 right-0 p-1 rounded-full bg-white/80 hover:bg-white shadow-md z-10"
+              aria-label="닫기"
+            >
+              <IoClose size={24} className="text-gray-700" />
+            </button>
+
+            {/* Image */}
+            <div className="relative w-full aspect-square bg-gray-100 rounded-xl overflow-hidden">
+              <Image
+                src={modalImages[currentImageIndex]}
+                alt={`리뷰 이미지 ${currentImageIndex + 1}`}
+                fill
+                unoptimized
+                className="object-contain"
+                sizes="(max-width: 512px) 100vw, 512px"
+              />
+
+              {/* Navigation Arrows */}
+              {modalImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setCurrentImageIndex((prev) =>
+                      prev === 0 ? modalImages.length - 1 : prev - 1
+                    )}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow-md"
+                    aria-label="이전 이미지"
+                  >
+                    <IoChevronBack size={20} className="text-gray-700" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentImageIndex((prev) =>
+                      prev === modalImages.length - 1 ? 0 : prev + 1
+                    )}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow-md"
+                    aria-label="다음 이미지"
+                  >
+                    <IoChevronForward size={20} className="text-gray-700" />
+                  </button>
+
+                  {/* Indicator Dots */}
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {modalImages.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentImageIndex(index)}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                        }`}
+                        aria-label={`이미지 ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
