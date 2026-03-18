@@ -1154,7 +1154,7 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     canvas.on('object:moving', (e) => {
         const obj = e.target;
-        if (!obj) return; // for error handling if there is no object
+        if (!obj) return;
 
         // Update scale box position during movement
         updateScaleBox(obj);
@@ -1167,12 +1167,12 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // @ts-expect-error - Custom property
         const currentPrintCenterY = canvas.printCenterY || tempPrintCenterY;
 
-        let snappedX = objCenter.x;
-        let snappedY = objCenter.y;
+        let deltaX = 0;
+        let deltaY = 0;
 
         // Snap X: force the object to the vertical center line
         if (Math.abs(objCenter.x - currentPrintCenterX) < snapThreshold) {
-          snappedX = currentPrintCenterX;
+          deltaX = currentPrintCenterX - objCenter.x;
           verticalSnapLine.set('visible', true);
         } else {
           verticalSnapLine.set('visible', false);
@@ -1180,20 +1180,22 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
         // Snap Y: force the object to the horizontal center line
         if (Math.abs(objCenter.y - currentPrintCenterY) < snapThreshold) {
-          snappedY = currentPrintCenterY;
+          deltaY = currentPrintCenterY - objCenter.y;
           horizontalSnapLine.set('visible', true);
         } else {
           horizontalSnapLine.set('visible', false);
         }
 
-        // Apply snapped position if either axis snapped
-        if (snappedX !== objCenter.x || snappedY !== objCenter.y) {
-          obj.setPositionByOrigin(
-            new fabric.Point(snappedX, snappedY),
-            'center',
-            'center'
-          );
+        // Apply snap by adjusting left/top directly (works reliably on both mouse and touch)
+        if (deltaX !== 0 || deltaY !== 0) {
+          obj.set({
+            left: (obj.left || 0) + deltaX,
+            top: (obj.top || 0) + deltaY,
+          });
+          obj.setCoords();
         }
+
+        canvas.requestRenderAll();
     });
 
     canvas.on('mouse:up', () => {

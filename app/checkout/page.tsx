@@ -342,6 +342,22 @@ export default function CheckoutPage() {
 
   // Callback to save order data before payment request
   const handleBeforePaymentRequest = () => {
+    // Validate customer info
+    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
+      throw new Error('주문자 정보를 모두 입력해주세요.');
+    }
+
+    // Validate address based on shipping method
+    if (shippingMethod === 'domestic') {
+      if (!domesticAddress.roadAddress) {
+        throw new Error('배송 주소를 입력해주세요.');
+      }
+    } else if (shippingMethod === 'international') {
+      if (!internationalAddress.country || !internationalAddress.city || !internationalAddress.addressLine1) {
+        throw new Error('배송 주소를 입력해주세요.');
+      }
+    }
+
     // Prepare full address string (legacy field for backward compatibility)
     const fullAddress = shippingMethod !== 'pickup'
       ? shippingMethod === 'domestic'
