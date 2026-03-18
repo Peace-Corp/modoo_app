@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
 import {
@@ -19,7 +19,9 @@ import TossPaymentWidget from '../components/toss/TossPaymentWidget';
 import { useAuthStore } from '@/store/useAuthStore';
 import { generateOrderId } from '@/lib/orderIdUtils';
 import { CouponUsage } from '@/types/types';
-import { Ticket, ChevronDown, ChevronUp, X, Check, AlertCircle } from 'lucide-react';
+import { Ticket, ChevronDown, ChevronUp, X, Check, AlertCircle, Paperclip, Upload } from 'lucide-react';
+import { createClient as createBrowserClient } from '@/lib/supabase-client';
+import { uploadFileToStorage } from '@/lib/supabase-storage';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -48,6 +50,7 @@ interface InternationalAddress {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated } = useAuthStore();
   const [items, setItems] = useState<CartItemWithDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +78,12 @@ export default function CheckoutPage() {
     addressLine1: '',
     addressLine2: '',
   });
+
+  // Customer note & attachments
+  const [customerNote, setCustomerNote] = useState('');
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Coupon state
   const [availableCoupons, setAvailableCoupons] = useState<CouponUsage[]>([]);
@@ -155,12 +164,20 @@ export default function CheckoutPage() {
     return { orderId: id, orderName: name };
   }, [groupedItems]);
 
-  // Fetch cart items
+  // Fetch cart items (filtered to direct checkout items if applicable)
   useEffect(() => {
     const fetchCartItems = async () => {
       setIsLoading(true);
       try {
-        const cartItems = await getCartItemsWithDesigns();
+        let cartItems = await getCartItemsWithDesigns();
+
+        // If direct checkout, filter to only the specific items (passed via URL param)
+        const directItemsParam = searchParams.get('directItems');
+        if (directItemsParam) {
+          const directIds: string[] = JSON.parse(decodeURIComponent(directItemsParam));
+          cartItems = cartItems.filter(item => directIds.includes(item.id!));
+        }
+
         if (cartItems.length === 0) {
           router.push('/cart');
           return;
@@ -174,7 +191,7 @@ export default function CheckoutPage() {
     };
 
     fetchCartItems();
-  }, [router]);
+  }, [router, searchParams]);
 
   // Fetch available coupons
   const fetchCoupons = useCallback(async () => {
@@ -222,6 +239,40 @@ export default function CheckoutPage() {
         });
       }
     }).open();
+  };
+
+  // File upload handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles = Array.from(files);
+    setAttachmentFiles(prev => [...prev, ...newFiles]);
+    setIsUploading(true);
+
+    try {
+      const supabase = createBrowserClient();
+      const uploadedUrls: string[] = [];
+
+      for (const file of newFiles) {
+        const result = await uploadFileToStorage(supabase, file, 'order-attachments', `attachments/${orderId}`);
+        if (result.success && result.url) {
+          uploadedUrls.push(result.url);
+        }
+      }
+
+      setAttachmentUrls(prev => [...prev, ...uploadedUrls]);
+    } catch (error) {
+      console.error('File upload error:', error);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+    setAttachmentUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   // Coupon handlers
@@ -323,6 +374,9 @@ export default function CheckoutPage() {
       // Coupon data
       coupon_usage_id: selectedCoupon?.id || null,
       coupon_discount: couponDiscount,
+      // Customer note & attachments
+      customer_note: customerNote || null,
+      attachment_urls: attachmentUrls.length > 0 ? attachmentUrls : null,
     };
 
     // Store in sessionStorage for use in success page
@@ -360,9 +414,9 @@ export default function CheckoutPage() {
         </div>
 
       {/* Page Title */}
-      <div className="bg-white px-4 py-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-black">주문/결제</h1>
-      </div>
+      {/* <div className="bg-white px-4 py-4 border-b border-gray-200">
+        <h1 className="text-xl font-bold text-black">주문서</h1>
+      </div> */}
 
       {/* Order Summary */}
       <div className="bg-white mt-2 p-4">
@@ -448,7 +502,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Shipping Method */}
-      <div className="bg-white mt-2 p-4">
+      <div className="bg-white mt-2 p-4 text-sm">
         <h2 className="font-medium text-black mb-4">배송 방법</h2>
         <div className="space-y-2">
           <button
@@ -524,15 +578,15 @@ export default function CheckoutPage() {
 
       {/* Address Input - Domestic */}
       {shippingMethod === 'domestic' && (
-        <div className="bg-white mt-2 p-4">
-          <h2 className="font-medium text-black mb-4">배송지 정보</h2>
+        <div className="bg-white mt-2 p-4 text-sm">
+          <h2 className="font-medium text-black mb-4">배송지 정보<span className='text-red-500'>*</span></h2>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">주소</label>
+              {/* <label className="block text-sm text-gray-700 mb-1">주소</label> */}
               <div className="flex gap-2">
                 <button
                   onClick={handleAddressSearch}
-                  className="w-25 px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
+                  className="w-full px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
                 >
                   주소 검색
                 </button>
@@ -540,35 +594,36 @@ export default function CheckoutPage() {
                   type="text"
                   value={domesticAddress.postalCode}
                   readOnly
-                  className="flex-3 px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                  className="px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
                   placeholder="우편번호"
                 />
               </div>
             </div>
             {domesticAddress.roadAddress && (
-              <>
+              <div className='flex flex-col gap-2'>
                 <input
                   type="text"
                   value={domesticAddress.roadAddress}
                   readOnly
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-100"
                   placeholder="도로명 주소"
                 />
                 <input
                   type="text"
                   value={domesticAddress.jibunAddress}
                   readOnly
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-50"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black bg-gray-100"
                   placeholder="지번 주소"
                 />
+                <label className='text-xs'>상세 주소</label>
                 <input
                   type="text"
                   value={domesticAddress.detailAddress}
                   onChange={(e) => setDomesticAddress({ ...domesticAddress, detailAddress: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-black"
-                  placeholder="상세 주소를 입력하세요"
+                  placeholder="상세 주소 입력"
                 />
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -662,6 +717,54 @@ export default function CheckoutPage() {
           </div>
         </div>
       )}
+
+      {/* Customer Note & Attachments */}
+      <div className="bg-white mt-2 p-4">
+        <h2 className="font-medium text-black mb-3">요청사항</h2>
+        <textarea
+          value={customerNote}
+          onChange={(e) => setCustomerNote(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-black resize-none"
+          rows={3}
+          placeholder="배송 메모, 인쇄 관련 요청 등을 입력해주세요"
+        />
+        <div className="mt-3">
+          <label className="text-sm text-gray-600 mb-2 block">첨부파일</label>
+          <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition w-fit text-sm text-gray-500">
+            <Upload className="w-4 h-4" />
+            <span>파일 선택</span>
+            <input
+              type="file"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+              accept="image/*,.pdf,.ai,.psd,.eps,.svg,.zip"
+            />
+          </label>
+          {attachmentFiles.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {attachmentFiles.map((file, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                  <Paperclip className="w-3 h-3 shrink-0 text-gray-400" />
+                  <span className="truncate flex-1">{file.name}</span>
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {(file.size / 1024).toFixed(0)}KB
+                  </span>
+                  <button
+                    onClick={() => handleRemoveFile(idx)}
+                    className="text-gray-400 hover:text-red-500 shrink-0"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {isUploading && (
+            <p className="text-xs text-gray-500 mt-1">업로드 중...</p>
+          )}
+        </div>
+      </div>
 
       {/* Coupon Section - Only show for authenticated users */}
       {isAuthenticated && (
@@ -827,12 +930,11 @@ export default function CheckoutPage() {
             <span className="text-black">{deliveryFee.toLocaleString('ko-KR')}원</span>
           </div>
           {couponDiscount > 0 && (
-            <div className="flex justify-between text-sm p-2 -mx-2 bg-red-50 rounded-lg">
-              <span className="text-red-600 font-medium flex items-center gap-1">
-                <Ticket className="w-4 h-4" />
+            <div className="flex justify-between text-sm p-2 -mx-2 bg-blue-50 rounded-lg">
+              <span className="text-blue-600 font-medium flex items-center gap-1">
                 쿠폰 할인
               </span>
-              <span className="text-red-600 font-bold">-{couponDiscount.toLocaleString('ko-KR')}원</span>
+              <span className="text-blue-600 font-bold">-{couponDiscount.toLocaleString('ko-KR')}원</span>
             </div>
           )}
           <div className="h-px bg-gray-200 my-3"></div>
@@ -921,7 +1023,7 @@ export default function CheckoutPage() {
 
       {/* Toss Payment Widget - Only show when Toss is selected */}
       {paymentMethod === 'toss' && (
-        <div className='w-full px-4 mt-4'>
+        <div className='w-full px-4 bg-white '>
           <TossPaymentWidget
             key={tossWidgetKey}
             amount={finalTotal}

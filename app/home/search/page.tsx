@@ -43,6 +43,7 @@ export default function SearchPage() {
         .from('products')
         .select('*, manufacturers(name)')
         .eq('is_active', true)
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -183,7 +184,7 @@ export default function SearchPage() {
         {/* Products Grid */}
         <section className="max-w-7xl mx-auto py-2">
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="bg-white rounded-sm overflow-hidden shadow-sm">
                   <div className="aspect-4/5 bg-gray-200 animate-pulse" />
@@ -196,7 +197,7 @@ export default function SearchPage() {
               ))}
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2">
               {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

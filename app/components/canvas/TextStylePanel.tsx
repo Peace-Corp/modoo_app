@@ -30,6 +30,7 @@ import {
   isCurvedText,
   convertToCurvedText,
 } from '@/lib/curvedText';
+import { SYSTEM_FONT_NAMES } from '@/lib/fontConfig';
 
 interface TextStylePanelProps {
   selectedObject: fabric.IText | fabric.Text;
@@ -74,20 +75,8 @@ const TextStylePanel: React.FC<TextStylePanelProps> = ({ selectedObject, onClose
   // Get custom fonts from store
   const { customFonts, addFont, loadAllFonts } = useFontStore();
 
-  // System font families available
-  const systemFonts = [
-    'Freshman',
-    'Arial',
-    'Times New Roman',
-    'Courier New',
-    'Georgia',
-    'Verdana',
-    'Helvetica',
-    'Comic Sans MS',
-    'Impact',
-    'Trebuchet MS',
-    'Palatino',
-  ];
+  // System font families from shared config
+  const systemFonts = SYSTEM_FONT_NAMES;
 
   // Initialize state from selected object
   useEffect(() => {

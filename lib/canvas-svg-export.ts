@@ -4,6 +4,7 @@ import { uploadSVGToStorage, uploadDataUrlToStorage, UploadResult } from './supa
 import { STORAGE_BUCKETS, STORAGE_FOLDERS } from './storage-config';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CurvedText, isCurvedText } from './curvedText';
+import { SYSTEM_FONT_PATH_MAP } from './fontConfig';
 
 // Default DPI for high-resolution export (300 DPI for print quality)
 const EXPORT_DPI = 300;
@@ -14,19 +15,6 @@ const DPI_SCALE = EXPORT_DPI / SCREEN_DPI; // ~4.17x
 
 // Font cache to avoid reloading (shared with curvedText.ts concept)
 const fontCache: Map<string, opentype.Font> = new Map();
-
-// System font URLs (using Google Fonts CDN) - fallbacks for common fonts
-const systemFontUrls: Record<string, string> = {
-  Arial: 'https://fonts.gstatic.com/s/arimo/v29/P5sfzZCDf9_T_3cV7NCUECyoxNk.ttf',
-  'Times New Roman':
-    'https://fonts.gstatic.com/s/tinos/v24/buE4poGnedXvwgX8dGVh8TI-.ttf',
-  'Courier New':
-    'https://fonts.gstatic.com/s/cousine/v27/d6lIkaiiRdih4SpPzSMlzTbtz9k.ttf',
-  Georgia: 'https://fonts.gstatic.com/s/tinos/v24/buE4poGnedXvwgX8dGVh8TI-.ttf',
-  Verdana: 'https://fonts.gstatic.com/s/arimo/v29/P5sfzZCDf9_T_3cV7NCUECyoxNk.ttf',
-  Helvetica:
-    'https://fonts.gstatic.com/s/arimo/v29/P5sfzZCDf9_T_3cV7NCUECyoxNk.ttf',
-};
 
 /**
  * Load a font using opentype.js
@@ -46,7 +34,18 @@ async function loadFont(
   // Determine font URL
   let url = fontUrl;
   if (!url) {
-    url = systemFontUrls[fontFamily] || systemFontUrls['Arial'];
+    const localPath = SYSTEM_FONT_PATH_MAP[fontFamily];
+    if (localPath) {
+      url = localPath;
+    } else if (localPath === null) {
+      // Font explicitly has no local TTF (e.g. Comic Sans MS) — PNG fallback only
+      console.log(`[SVG Export] Font "${fontFamily}" has no local TTF — using PNG fallback`);
+      return null;
+    } else {
+      // Unknown font — fall back to Arimo
+      console.warn(`[SVG Export] Unknown font "${fontFamily}", falling back to Arimo`);
+      url = '/fonts/Arimo-Regular.ttf';
+    }
   }
 
   try {
