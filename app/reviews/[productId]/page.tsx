@@ -90,9 +90,9 @@ export default function ReviewsPage() {
         <Header back={true} />
       </div>
 
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-4xl mx-auto px-3 py-2">
         {/* Title */}
-        <h1 className="text-2xl font-bold mb-6">고객 리뷰</h1>
+        <h1 className="text-base font-bold mb-3">고객 리뷰</h1>
 
         {loading ? (
           <div className="text-center py-12">
@@ -105,37 +105,38 @@ export default function ReviewsPage() {
         ) : (
           <>
             {/* Rating Summary */}
-            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <div className="flex items-start gap-8">
+            <div className="bg-gray-50 rounded-lg p-3 mb-3">
+              <div className="flex items-start gap-4">
                 {/* Average Rating */}
                 <div className="text-center">
-                  <div className="text-5xl font-bold mb-2">{averageRating.toFixed(1)}</div>
-                  <div className="flex text-orange-400 mb-2 justify-center">
+                  <div className="text-3xl font-bold mb-1">{averageRating.toFixed(1)}</div>
+                  <div className="flex text-orange-400 mb-1 justify-center">
                     {[...Array(5)].map((_, i) => (
                       <FaStar
                         key={i}
+                        size={12}
                         className={i < Math.round(averageRating) ? 'text-orange-400' : 'text-gray-300'}
                       />
                     ))}
                   </div>
-                  <div className="text-sm text-gray-600">{reviews.length}개의 리뷰</div>
+                  <div className="text-xs text-gray-600">{reviews.length}개의 리뷰</div>
                 </div>
 
                 {/* Rating Distribution */}
                 <div className="flex-1">
                   {[5, 4, 3, 2, 1].map((rating) => (
-                    <div key={rating} className="flex items-center gap-2 mb-2">
-                      <div className="flex items-center gap-1 w-12">
-                        <FaStar className="text-orange-400" size={14} />
-                        <span className="text-sm">{rating}</span>
+                    <div key={rating} className="flex items-center gap-1.5 mb-1">
+                      <div className="flex items-center gap-0.5 w-9">
+                        <FaStar className="text-orange-400" size={10} />
+                        <span className="text-xs">{rating}</span>
                       </div>
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                         <div
-                          className="bg-orange-400 h-2 rounded-full"
+                          className="bg-orange-400 h-1.5 rounded-full"
                           style={{ width: `${getPercentage(ratingDistribution[rating])}%` }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-600 w-12 text-right">
+                      <span className="text-xs text-gray-600 w-9 text-right">
                         {getPercentage(ratingDistribution[rating])}%
                       </span>
                     </div>
@@ -145,40 +146,40 @@ export default function ReviewsPage() {
             </div>
 
             {/* Reviews List */}
-            <div className="space-y-6">
+            <div className="space-y-3">
               {reviews.map((review) => (
-                <div key={review.id} className="border-b border-gray-200 pb-6 last:border-b-0">
+                <div key={review.id} className="border-b border-gray-200 pb-3 last:border-b-0">
                   {/* Rating and Author */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
                       <div className="flex text-orange-400">
                         {[...Array(5)].map((_, i) => (
                           <FaStar
                             key={i}
                             className={i < review.rating ? 'text-orange-400' : 'text-gray-300'}
-                            size={16}
+                            size={12}
                           />
                         ))}
                       </div>
-                      <span className="font-medium">{maskAuthorName(review.author_name)}</span>
+                      <span className="text-xs font-medium">{maskAuthorName(review.author_name)}</span>
                       {review.is_verified_purchase && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
                           구매확인
                         </span>
                       )}
                     </div>
-                    <span className="text-sm text-gray-500">{formatDate(review.created_at)}</span>
+                    <span className="text-xs text-gray-500">{formatDate(review.created_at)}</span>
                   </div>
 
                   {/* Review Title */}
-                  <h3 className="font-semibold text-lg mb-2">{review.title}</h3>
+                  <h3 className="font-semibold text-sm mb-1">{review.title}</h3>
 
                   {/* Review Content */}
-                  <p className="text-gray-700 mb-3 leading-relaxed">{review.content}</p>
+                  <p className="text-xs text-gray-700 mb-2 leading-relaxed">{review.content}</p>
 
                   {/* Review Images */}
                   {review.review_image_urls && review.review_image_urls.length > 0 && (
-                    <div className="flex gap-2 mb-3">
+                    <div className="flex gap-1.5 mb-2">
                       {review.review_image_urls.map((url, index) => (
                         <button
                           key={index}
@@ -186,7 +187,7 @@ export default function ReviewsPage() {
                             setModalImages(review.review_image_urls);
                             setCurrentImageIndex(index);
                           }}
-                          className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0"
+                          className="relative w-16 h-16 rounded-md overflow-hidden border border-gray-200 flex-shrink-0"
                         >
                           <Image
                             src={url}
@@ -194,7 +195,7 @@ export default function ReviewsPage() {
                             fill
                             unoptimized
                             className="object-cover"
-                            sizes="80px"
+                            sizes="64px"
                           />
                         </button>
                       ))}
@@ -203,8 +204,8 @@ export default function ReviewsPage() {
 
                   {/* Helpful Count */}
                   {review.helpful_count > 0 && (
-                    <div className="flex items-center gap-2">
-                      <button className="text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded px-3 py-1">
+                    <div className="flex items-center">
+                      <button className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded px-2 py-0.5">
                         도움이 됨 ({review.helpful_count})
                       </button>
                     </div>
