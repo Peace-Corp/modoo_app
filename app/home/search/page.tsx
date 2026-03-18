@@ -179,6 +179,9 @@ export default function SearchPage() {
     setDisplayCount(prev => prev + 12);
   }, []);
 
+  const visibleProducts = filteredProducts.slice(0, displayCount);
+  const hasMore = displayCount < filteredProducts.length;
+
   useEffect(() => {
     const el = loadMoreRef.current;
     if (!el) return;
@@ -188,10 +191,7 @@ export default function SearchPage() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore]);
-
-  const visibleProducts = filteredProducts.slice(0, displayCount);
-  const hasMore = displayCount < filteredProducts.length;
+  }, [loadMore, hasMore]);
 
   const handleClearSearch = () => {
     setSearchQuery("");
@@ -367,7 +367,7 @@ export default function SearchPage() {
       </div>
 
       {/* Content Container */}
-      <div className="px-2">
+      <div className="px-2 pb-24">
         {/* Results Count & Sort */}
         <div className="mt-4 flex items-center justify-between">
           <div className="text-sm text-gray-600">

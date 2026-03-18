@@ -434,16 +434,21 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
     const tempCenteredLeft = (width - printW) / 2;
     const tempCenteredTop = (height - printH) / 2;
     const tempPrintCenterX = tempCenteredLeft + (printW / 2);
+    const tempPrintCenterY = tempCenteredTop + (printH / 2);
 
     // Check if side has layers (multi-layer mode) or single imageUrl (legacy mode)
     const hasLayers = side.layers && side.layers.length > 0;
 
-    // Creating the Snap Line (Vertical)
+    // Creating the Snap Lines (Vertical + Horizontal)
     // For multi-layer mode: use canvas center
     // For single-image mode: use print area center (will be updated when image loads)
     const snapLineCenterX = hasLayers ? width / 2 : tempPrintCenterX;
     const snapLineTop = hasLayers ? 0 : tempCenteredTop;
     const snapLineBottom = hasLayers ? height : tempCenteredTop + printH;
+
+    const snapLineCenterY = hasLayers ? height / 2 : tempPrintCenterY;
+    const snapLineLeft = hasLayers ? 0 : tempCenteredLeft;
+    const snapLineRight = hasLayers ? width : tempCenteredLeft + printW;
 
     const verticalSnapLine = new fabric.Line(
       [snapLineCenterX, snapLineTop, snapLineCenterX, snapLineBottom],
@@ -458,6 +463,21 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
       }
     )
     canvas.add(verticalSnapLine)
+
+    // Creating the Snap Line (Horizontal)
+    const horizontalSnapLine = new fabric.Line(
+      [snapLineLeft, snapLineCenterY, snapLineRight, snapLineCenterY],
+      {
+        stroke: '#FF0072',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+        visible: false,
+        excludeFromExport: true,
+        data: {id: 'center-line-horizontal'}
+      }
+    )
+    canvas.add(horizontalSnapLine)
 
 
     if (hasLayers) {
@@ -656,13 +676,19 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         const printAreaTop = imageTop + scaledPrintY;
         const printCenterX = printAreaLeft + (scaledPrintW / 2);
 
-        // Update vertical snap line
-        // For multi-layer mode, keep it at canvas center spanning full height
+        // Update snap lines
+        // For multi-layer mode, keep them at canvas center spanning full width/height
         verticalSnapLine.set({
           x1: width / 2,
           y1: 0,
           x2: width / 2,
           y2: height,
+        });
+        horizontalSnapLine.set({
+          x1: 0,
+          y1: height / 2,
+          x2: width,
+          y2: height / 2,
         });
 
         // Store values for use in event handlers
@@ -690,6 +716,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         // For multi-layer mode, store canvas center as the snap center
         // @ts-expect-error - Custom property
         canvas.printCenterX = width / 2;
+        // @ts-expect-error - Custom property
+        canvas.printCenterY = height / 2;
 
         // Force a render to ensure all objects are processed by Fabric.js
         canvas.requestRenderAll();
@@ -852,13 +880,20 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         const printAreaLeft = imageLeft + scaledPrintX;
         const printAreaTop = imageTop + scaledPrintY;
         const printCenterX = printAreaLeft + (scaledPrintW / 2);
+        const printCenterY = printAreaTop + (scaledPrintH / 2);
 
-        // Update vertical snap line
+        // Update snap lines
         verticalSnapLine.set({
           x1: printCenterX,
           y1: printAreaTop,
           x2: printCenterX,
           y2: printAreaTop + scaledPrintH,
+        });
+        horizontalSnapLine.set({
+          x1: printAreaLeft,
+          y1: printCenterY,
+          x2: printAreaLeft + scaledPrintW,
+          y2: printCenterY,
         });
 
         // Store these values for use in event handlers and pricing calculations
@@ -872,6 +907,8 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
         canvas.printAreaHeight = scaledPrintH;
         // @ts-expect-error - Custom property
         canvas.printCenterX = printCenterX;
+        // @ts-expect-error - Custom property
+        canvas.printCenterY = printCenterY;
 
         // Store original and scaled image dimensions for accurate pixel-to-mm conversion
         // @ts-expect-error - Custom property
@@ -1117,32 +1154,53 @@ const SingleSideCanvas: React.FC<SingleSideCanvasProps> = ({
 
     canvas.on('object:moving', (e) => {
         const obj = e.target;
-        if (!obj) return; // for error handling if there is no object
+        if (!obj) return;
 
         // Update scale box position during movement
         updateScaleBox(obj);
 
         const objCenter = obj.getCenterPoint();
 
-        // Get the current print center X (will be updated after image loads)
+        // Get the current print center (will be updated after image loads)
         // @ts-expect-error - Custom property
         const currentPrintCenterX = canvas.printCenterX || tempPrintCenterX;
+        // @ts-expect-error - Custom property
+        const currentPrintCenterY = canvas.printCenterY || tempPrintCenterY;
 
-        // 1. Snap: force the object to the center line
+        let deltaX = 0;
+        let deltaY = 0;
+
+        // Snap X: force the object to the vertical center line
         if (Math.abs(objCenter.x - currentPrintCenterX) < snapThreshold) {
-          obj.setPositionByOrigin(
-            new fabric.Point(currentPrintCenterX, objCenter.y),
-            'center',
-            'center'
-          );
+          deltaX = currentPrintCenterX - objCenter.x;
           verticalSnapLine.set('visible', true);
         } else {
-          verticalSnapLine.set('visible', false)
+          verticalSnapLine.set('visible', false);
         }
+
+        // Snap Y: force the object to the horizontal center line
+        if (Math.abs(objCenter.y - currentPrintCenterY) < snapThreshold) {
+          deltaY = currentPrintCenterY - objCenter.y;
+          horizontalSnapLine.set('visible', true);
+        } else {
+          horizontalSnapLine.set('visible', false);
+        }
+
+        // Apply snap by adjusting left/top directly (works reliably on both mouse and touch)
+        if (deltaX !== 0 || deltaY !== 0) {
+          obj.set({
+            left: (obj.left || 0) + deltaX,
+            top: (obj.top || 0) + deltaY,
+          });
+          obj.setCoords();
+        }
+
+        canvas.requestRenderAll();
     });
 
     canvas.on('mouse:up', () => {
         verticalSnapLine.set('visible', false);
+        horizontalSnapLine.set('visible', false);
         canvas.requestRenderAll();
     });
 
