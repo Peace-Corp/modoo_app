@@ -43,6 +43,7 @@ export default function SearchPage() {
         .from('products')
         .select('*, manufacturers(name)')
         .eq('is_active', true)
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (error) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
 import {
@@ -48,6 +48,7 @@ interface InternationalAddress {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated } = useAuthStore();
   const [items, setItems] = useState<CartItemWithDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -162,11 +163,10 @@ export default function CheckoutPage() {
       try {
         let cartItems = await getCartItemsWithDesigns();
 
-        // If direct checkout, filter to only the specific items
-        const directIdsRaw = sessionStorage.getItem('directCheckoutItemIds');
-        if (directIdsRaw) {
-          sessionStorage.removeItem('directCheckoutItemIds');
-          const directIds: string[] = JSON.parse(directIdsRaw);
+        // If direct checkout, filter to only the specific items (passed via URL param)
+        const directItemsParam = searchParams.get('directItems');
+        if (directItemsParam) {
+          const directIds: string[] = JSON.parse(decodeURIComponent(directItemsParam));
           cartItems = cartItems.filter(item => directIds.includes(item.id!));
         }
 
@@ -183,7 +183,7 @@ export default function CheckoutPage() {
     };
 
     fetchCartItems();
-  }, [router]);
+  }, [router, searchParams]);
 
   // Fetch available coupons
   const fetchCoupons = useCallback(async () => {

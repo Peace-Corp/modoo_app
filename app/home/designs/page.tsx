@@ -247,7 +247,7 @@ export default function DesignsPage() {
     return designTitle.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  const handleSaveToCart = async (designName: string, selectedItems: CartItem[]) => {
+  const handleSaveToCart = async (designName: string, selectedItems: CartItem[], purchaseType: 'direct' | 'cart') => {
     if (!selectedDesign) return;
 
     setIsSaving(true);
@@ -267,6 +267,8 @@ export default function DesignsPage() {
       if (designError || !fullDesign) {
         throw new Error('Failed to fetch design data');
       }
+
+      const newCartItemIds: string[] = [];
 
       // Add all cart items using the existing design ID
       for (const item of selectedItems) {
@@ -288,6 +290,9 @@ export default function DesignsPage() {
 
         // Also add to local cart store
         if (dbCartItem) {
+          if (dbCartItem.id) {
+            newCartItemIds.push(dbCartItem.id);
+          }
           addToCart({
             productId: selectedDesign.product.id,
             productTitle: selectedDesign.product.title,
@@ -302,6 +307,11 @@ export default function DesignsPage() {
             designName: designName,
           });
         }
+      }
+
+      // For direct purchase, store item IDs so checkout filters to these only
+      if (purchaseType === 'direct' && newCartItemIds.length > 0) {
+        sessionStorage.setItem('directCheckoutItemIds', JSON.stringify(newCartItemIds));
       }
     } catch (error) {
       console.error('Add to cart failed:', error);

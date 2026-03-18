@@ -198,9 +198,14 @@ export default function QuantitySelectorModal({
     await onConfirm(designName, selectedItems, type);
 
     if (type === 'direct') {
+      // Read direct checkout item IDs set by onConfirm and pass via URL
+      const directIds = sessionStorage.getItem('directCheckoutItemIds');
+      if (directIds) {
+        sessionStorage.removeItem('directCheckoutItemIds');
+      }
       resetState();
       onClose();
-      router.push('/checkout');
+      router.push(directIds ? `/checkout?directItems=${encodeURIComponent(directIds)}` : '/checkout');
     } else {
       setShowSuccess(true);
     }
