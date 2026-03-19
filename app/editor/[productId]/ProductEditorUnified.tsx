@@ -936,9 +936,6 @@ export default function ProductEditorUnified({
 
                 {/* Price Display */}
                 <div className="px-4 py-3 border-t border-gray-100">
-                  {pricingData.totalAdditionalPrice > 0 && (
-                    <p className="text-xs text-gray-400 line-through">{formattedPrice}원</p>
-                  )}
                   <p className="text-xl font-bold text-gray-900">{pricePerItem.toLocaleString('ko-KR')}원</p>
                   {pricingData.totalAdditionalPrice > 0 && (
                     <p className="text-[11px] text-gray-500 mt-1">
