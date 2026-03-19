@@ -787,10 +787,10 @@ export default function ProductEditorUnified({
       </div>
 
       <div className="max-w-360 mx-auto px-6 py-4">
-        <div className="flex gap-4" style={{ height: 'calc(100vh - 80px)' }}>
+        <div className="flex gap-4 h-175">
           {/* Side Thumbnails */}
           {product.configuration.length > 1 && (
-            <div className="flex flex-col gap-2 w-20 shrink-0">
+            <div className="flex flex-col gap-2 w-16 shrink-0">
               {product.configuration.map(side => (
                 <button
                   key={side.id}
@@ -853,11 +853,11 @@ export default function ProductEditorUnified({
           </div>
 
           {/* Right Sidebar */}
-          <aside className="w-96 shrink-0 border border-gray-200 rounded-lg h-full overflow-hidden flex flex-col bg-white">
+          <aside className="w-80 shrink-0 border border-gray-200 rounded-lg h-full overflow-hidden flex flex-col bg-white">
             {selectedObject && (selectedObject.type === 'i-text' || selectedObject.type === 'text' || isCurvedText(selectedObject)) ? (
               <>
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                  <h3 className="text-base font-semibold text-gray-900">텍스트 편집</h3>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">텍스트 편집</h3>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
@@ -896,15 +896,15 @@ export default function ProductEditorUnified({
             ) : (
               <>
                 {/* Product Info */}
-                <div className="p-5 pb-3">
+                <div className="p-4 pb-2">
                   {product.manufacturer_name && (
-                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{product.manufacturer_name}</p>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{product.manufacturer_name}</p>
                   )}
-                  <h2 className="text-lg font-bold text-gray-900 leading-snug mt-1">{product.title}</h2>
+                  <h2 className="text-sm font-bold text-gray-900 leading-snug mt-1">{product.title}</h2>
                 </div>
 
                 {/* Color Swatches */}
-                <div className="px-5 pb-4">
+                <div className="px-4 pb-3">
                   {(() => {
                     const currentSide = product.configuration.find(side => side.id === activeSideId);
                     const hasLayers = currentSide?.layers && currentSide.layers.length > 0;
@@ -913,12 +913,12 @@ export default function ProductEditorUnified({
                     ) : (
                       productColors.length > 0 && (
                         <div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {productColors.map((color) => (
                               <button
                                 key={color.id}
                                 onClick={() => handleColorChange(color.manufacturer_colors.hex)}
-                                className={`w-10 h-10 rounded-lg border-2 transition ${
+                                className={`w-8 h-8 rounded-lg border-2 transition ${
                                   productColor === color.manufacturer_colors.hex
                                     ? 'border-black scale-110'
                                     : 'border-gray-200 hover:border-gray-400'
@@ -935,17 +935,13 @@ export default function ProductEditorUnified({
                 </div>
 
                 {/* Price Display */}
-                <div className="px-5 py-4 border-t border-gray-100">
+                <div className="px-4 py-3 border-t border-gray-100">
+                  <p className="text-xl font-bold text-gray-900">{pricePerItem.toLocaleString('ko-KR')}원</p>
                   {pricingData.totalAdditionalPrice > 0 && (
-                    <p className="text-sm text-gray-400 line-through">{formattedPrice}원</p>
-                  )}
-                  <p className="text-2xl font-bold text-gray-900">{pricePerItem.toLocaleString('ko-KR')}원</p>
-                  {pricingData.totalAdditionalPrice > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-[11px] text-gray-500 mt-1">
                       기본가 {formattedPrice}원 + 디자인 {pricingData.totalAdditionalPrice.toLocaleString('ko-KR')}원
                     </p>
                   )}
-                  {/* <p className="text-xs text-gray-400 mt-1">배송비 3,000원</p> */}
                 </div>
 
                 {/* Action Button */}

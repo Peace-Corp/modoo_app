@@ -44,14 +44,14 @@ export default function LandingStep({
     <div className="text-black bg-white pb-24 lg:pb-0">
       <div className="lg:max-w-360 lg:mx-auto lg:px-6 lg:py-6">
         {/* Desktop: side-by-side / Mobile: stacked */}
-        <div className="lg:flex lg:gap-8">
+        <div className="lg:flex lg:gap-8 lg:items-start">
           {/* Image Gallery */}
           <div className="lg:flex-1 lg:min-w-0">
             <ProductImageGallery images={thumbnailImages} />
           </div>
 
           {/* Product Details Sidebar */}
-          <div className="p-4 lg:p-0 lg:w-96 lg:shrink-0 flex flex-col gap-1 border-b border-gray-200">
+          <div className="p-4 lg:p-0 lg:w-80 lg:shrink-0 lg:sticky lg:top-20 flex flex-col gap-1 border-b border-gray-200 lg:border-b-0">
             {/* Title Section */}
             <div className="w-full flex justify-between items-start">
               <div>
@@ -67,13 +67,6 @@ export default function LandingStep({
             <div>
               <p className="text-lg font-bold text-gray-900">{formattedPrice}원</p>
             </div>
-
-            {/* Print Methods */}
-            {/* <PrintMethodsDisplay
-              allPrintMethods={allPrintMethods}
-              enabledPrintMethodIds={enabledPrintMethodIds}
-              className=""
-            /> */}
 
             {/* Desktop action button */}
             <button
