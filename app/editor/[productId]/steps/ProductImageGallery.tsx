@@ -40,7 +40,7 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
     <div className="w-full lg:flex lg:gap-3">
       {/* Thumbnails - desktop only */}
       {images.length > 1 && (
-        <div className="hidden lg:flex lg:flex-col lg:gap-2 lg:w-20 lg:shrink-0 lg:overflow-y-auto lg:max-h-175">
+        <div className="hidden lg:flex lg:flex-col lg:gap-2 lg:w-16 lg:shrink-0 lg:overflow-y-auto lg:max-h-150">
           {images.map((img, idx) => (
             <button
               key={idx}
@@ -57,9 +57,10 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
               <Image
                 src={img}
                 alt={`썸네일 ${idx + 1}`}
-                width={80}
-                height={80}
+                width={64}
+                height={64}
                 className="w-full aspect-square object-cover"
+                unoptimized
               />
             </button>
           ))}
@@ -68,7 +69,7 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
 
       <div className="flex-1 min-w-0">
         {/* Main Image with Swiper */}
-        <div className="relative w-full aspect-1/1 bg-gray-50 overflow-hidden lg:rounded-lg">
+        <div className="relative w-full aspect-4/5 lg:aspect-auto lg:h-150 bg-gray-50 overflow-hidden lg:rounded-lg">
           <Swiper
             modules={[Pagination]}
             onSwiper={setSwiper}
@@ -86,6 +87,7 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
                     className="object-contain"
                     sizes="(max-width: 768px) 100vw, 50vw"
                     priority={idx === 0}
+                    unoptimized
                   />
                 </div>
               </SwiperSlide>
