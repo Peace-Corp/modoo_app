@@ -207,6 +207,7 @@ export default function CheckoutPage() {
                     thumbnailUrl: item.thumbnail_url,
                     designName: item.designName,
                     previewImage: (item as any).previewImage || item.thumbnail_url,
+                    customFonts: (item as any).customFonts,
                   });
                   if (result?.id) createdIds.push(result.id);
                 }
@@ -253,6 +254,7 @@ export default function CheckoutPage() {
             designName: item.designName,
             canvasState: item.canvasState,
             previewImage: item.previewImage,
+            customFonts: item.customFonts,
           } as CartItemWithDesign));
         }
 
