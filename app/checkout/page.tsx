@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
 import {
   getCartItemsWithDesigns,
+  addToCartDB,
   type CartItemWithDesign
 } from '@/lib/cartService';
 import {
@@ -23,6 +24,7 @@ import { CouponUsage } from '@/types/types';
 import { Ticket, ChevronDown, ChevronUp, X, Check, AlertCircle, Paperclip, Upload } from 'lucide-react';
 import { createClient as createBrowserClient } from '@/lib/supabase-client';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
+import LoginPromptModal from '@/app/components/LoginPromptModal';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
 type PaymentMethod = 'toss' | 'paypal';
@@ -52,9 +54,10 @@ interface InternationalAddress {
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuthStore();
   const [items, setItems] = useState<CartItemWithDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const restoredFromLoginRef = useRef(false);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('domestic');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('toss');
   const [tossWidgetKey, setTossWidgetKey] = useState(0);
@@ -93,6 +96,7 @@ export default function CheckoutPage() {
   const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [showCouponList, setShowCouponList] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Group items by design for display
   const groupedItems = items.reduce<Array<{
@@ -167,9 +171,65 @@ export default function CheckoutPage() {
 
   // Fetch cart items (filtered to direct checkout items if applicable)
   useEffect(() => {
+    // Wait for auth state to be determined before deciding what to load
+    if (isAuthLoading) return;
+
     const fetchCartItems = async () => {
       setIsLoading(true);
       try {
+        // Check for items saved before login redirect (avoids race with CartButton sync)
+        const savedItems = sessionStorage.getItem('checkout:pendingItems');
+        if (savedItems && isAuthenticated) {
+          sessionStorage.removeItem('checkout:pendingItems');
+          const parsedItems: CartItemWithDesign[] = JSON.parse(savedItems);
+          if (parsedItems.length > 0) {
+            restoredFromLoginRef.current = true;
+            setItems(parsedItems);
+
+            // Clear Zustand store so CartButton doesn't duplicate these items
+            useCartStore.getState().clearCart();
+
+            // Save items to DB in background (links designs to the user)
+            (async () => {
+              try {
+                const createdIds: string[] = [];
+                for (const item of parsedItems) {
+                  const result = await addToCartDB({
+                    productId: item.product_id,
+                    productTitle: item.product_title,
+                    productColor: item.product_color,
+                    productColorName: item.product_color_name,
+                    productColorCode: item.product_color_code,
+                    size: item.size_id,
+                    quantity: item.quantity,
+                    pricePerItem: item.price_per_item,
+                    canvasState: item.canvasState || {},
+                    thumbnailUrl: item.thumbnail_url,
+                    designName: item.designName,
+                    previewImage: (item as any).previewImage || item.thumbnail_url,
+                  });
+                  if (result?.id) createdIds.push(result.id);
+                }
+                // Re-fetch to get DB-linked items with saved_design_id
+                if (createdIds.length > 0) {
+                  const dbItems = await getCartItemsWithDesigns();
+                  const linkedItems = dbItems.filter(i => createdIds.includes(i.id!));
+                  if (linkedItems.length > 0) {
+                    setItems(linkedItems);
+                  }
+                }
+              } catch (e) {
+                console.error('Error linking items to user:', e);
+              }
+            })();
+
+            return;
+          }
+        }
+
+        // Already restored pre-login items — don't re-fetch from DB on effect re-runs
+        if (restoredFromLoginRef.current) return;
+
         let cartItems: CartItemWithDesign[];
 
         if (isAuthenticated) {
@@ -192,7 +252,8 @@ export default function CheckoutPage() {
             saved_design_id: item.savedDesignId,
             designName: item.designName,
             canvasState: item.canvasState,
-          }));
+            previewImage: item.previewImage,
+          } as CartItemWithDesign));
         }
 
         // If direct checkout, filter to only the specific items (passed via URL param)
@@ -215,7 +276,7 @@ export default function CheckoutPage() {
     };
 
     fetchCartItems();
-  }, [router, searchParams, isAuthenticated]);
+  }, [router, searchParams, isAuthenticated, isAuthLoading]);
 
   // Fetch available coupons
   const fetchCoupons = useCallback(async () => {
@@ -447,19 +508,20 @@ export default function CheckoutPage() {
         strategy="lazyOnload"
       />
 
-      <div className="min-h-screen bg-gray-50 pb-32">
+      <div className="min-h-screen bg-gray-50 pb-32 lg:pb-8">
         {/* Header */}
         <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
           <Header back={true} />
         </div>
 
-      {/* Page Title */}
-      {/* <div className="bg-white px-4 py-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-black">주문서</h1>
-      </div> */}
+      <div className="max-w-5xl mx-auto lg:px-6">
+      <div className="lg:flex lg:gap-6 lg:py-4">
+
+      {/* Left Column - Form Sections */}
+      <div className="lg:flex-1 lg:min-w-0">
 
       {/* Order Summary */}
-      <div className="bg-white mt-2 p-4">
+      <div className="bg-white mt-2 lg:mt-0 p-4 lg:rounded-lg">
         <h2 className="text-sm font-semibold text-black mb-3">주문 상품 ({groupedItems.length})</h2>
         <div className="space-y-3">
           {groupedItems.map((group) => (
@@ -505,7 +567,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Customer Information */}
-      <div className="bg-white mt-2 p-4">
+      <div className="bg-white mt-2 p-4 lg:rounded-lg">
         <h2 className="text-sm font-semibold text-black mb-3">주문자 정보</h2>
         <div className="space-y-3">
           <div>
@@ -542,7 +604,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Shipping Method */}
-      <div className="bg-white mt-2 p-4 text-sm">
+      <div className="bg-white mt-2 p-4 text-sm lg:rounded-lg">
         <h2 className="text-sm font-semibold text-black mb-3">배송 방법</h2>
         <div className="space-y-2">
           <button
@@ -618,7 +680,7 @@ export default function CheckoutPage() {
 
       {/* Address Input - Domestic */}
       {shippingMethod === 'domestic' && (
-        <div className="bg-white mt-2 p-4 text-sm">
+        <div className="bg-white mt-2 p-4 text-sm lg:rounded-lg">
           <h2 className="text-sm font-semibold text-black mb-3">배송지 정보<span className='text-red-500'>*</span></h2>
           <div className="space-y-3">
             <div>
@@ -671,7 +733,7 @@ export default function CheckoutPage() {
 
       {/* Address Input - International */}
       {shippingMethod === 'international' && (
-        <div className="bg-white mt-2 p-4">
+        <div className="bg-white mt-2 p-4 lg:rounded-lg">
           <h2 className="text-sm font-semibold text-black mb-3">배송지 정보</h2>
           <div className="space-y-3">
             <div>
@@ -742,7 +804,7 @@ export default function CheckoutPage() {
 
       {/* Pickup Information */}
       {shippingMethod === 'pickup' && (
-        <div className="bg-white mt-2 p-4">
+        <div className="bg-white mt-2 p-4 lg:rounded-lg">
           <h2 className="text-sm font-semibold text-black mb-3">픽업 안내</h2>
           <div className="bg-gray-50 p-4 rounded-lg">
             <p className="text-sm text-gray-700 mb-2">
@@ -759,7 +821,7 @@ export default function CheckoutPage() {
       )}
 
       {/* Customer Note & Attachments */}
-      <div className="bg-white mt-2 p-4">
+      <div className="bg-white mt-2 p-4 lg:rounded-lg">
         <h2 className="text-sm font-semibold text-black mb-3">요청사항</h2>
         <textarea
           value={customerNote}
@@ -806,9 +868,15 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Coupon Section - Only show for authenticated users */}
-      {isAuthenticated && (
-        <div className="bg-white mt-2 p-4">
+      </div>{/* End Left Column */}
+
+      {/* Right Column - Payment & Summary */}
+      <div className="lg:w-[360px] lg:shrink-0">
+      <div className="lg:sticky lg:top-20">
+
+      {/* Coupon Section */}
+      {isAuthenticated ? (
+        <div className="bg-white mt-2 lg:mt-0 p-4 lg:rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-black">쿠폰</h2>
             {availableCoupons.length > 0 && (
@@ -955,10 +1023,29 @@ export default function CheckoutPage() {
             </div>
           )}
         </div>
+      ) : (
+        <div className="bg-white mt-2 p-4 lg:rounded-lg">
+          <h2 className="text-sm font-semibold text-black mb-2">쿠폰</h2>
+          <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+            <div className="flex items-center gap-2 min-w-0">
+              <Ticket className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="text-sm text-gray-500 truncate">로그인하면 쿠폰을 사용할 수 있습니다</span>
+            </div>
+            <button
+              onClick={() => {
+                sessionStorage.setItem('checkout:pendingItems', JSON.stringify(items));
+                setShowLoginModal(true);
+              }}
+              className="text-sm font-medium text-[#3B55A5] hover:text-[#2D4280] shrink-0 ml-2"
+            >
+              로그인
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Payment Summary */}
-      <div className="bg-white mt-2 p-4">
+      <div className="bg-white mt-2 p-4 lg:rounded-lg">
         <h2 className="text-sm font-semibold text-black mb-3">결제 금액</h2>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
@@ -995,7 +1082,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Payment Method Section */}
-      <div className="bg-white mt-2 p-4">
+      <div className="bg-white mt-2 p-4 lg:rounded-lg">
         <h2 className="text-sm font-semibold text-black mb-3">결제 수단</h2>
         <div className="space-y-2">
           <button
@@ -1063,7 +1150,7 @@ export default function CheckoutPage() {
 
       {/* Toss Payment Widget - Only show when Toss is selected */}
       {paymentMethod === 'toss' && (
-        <div className='w-full px-4 bg-white '>
+        <div className='w-full px-4 bg-white lg:rounded-lg'>
           <TossPaymentWidget
             key={tossWidgetKey}
             amount={finalTotal}
@@ -1085,9 +1172,15 @@ export default function CheckoutPage() {
         </div>
       )}
 
+      </div>{/* End sticky wrapper */}
+      </div>{/* End Right Column */}
+
+      </div>{/* End two-column flex */}
+      </div>{/* End max-w container */}
+
       {/* Bottom Fixed Bar - Only show for PayPal */}
       {paymentMethod === 'paypal' && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6 lg:static lg:border-t-0 lg:max-w-5xl lg:mx-auto lg:px-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs text-gray-500">총 결제금액</p>
@@ -1105,6 +1198,12 @@ export default function CheckoutPage() {
         </div>
       )}
     </div>
+
+    <LoginPromptModal
+      isOpen={showLoginModal}
+      onClose={() => setShowLoginModal(false)}
+      message="쿠폰을 사용하려면 로그인이 필요합니다."
+    />
     </>
   );
 }

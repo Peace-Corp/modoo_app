@@ -135,23 +135,6 @@ export default async function HomePage() {
         </section>
       </div>
       <main className="mx-auto max-w-7xl space-y-4 px-4 sm:px-0 lg:space-y-8 py-4 lg:py-6">
-
-        {/* CoBuy Request CTA */}
-        {/* <section className="w-full">
-          <Link
-            href="/home/cobuy/request/create"
-            className="block rounded-md lg:rounded-2xl bg-gradient-to-r from-[#3B55A5] to-[#8da3e6] px-5 lg:px-6 py-3 text-white hover:from-[#2D4280] hover:to-[#243366] transition-all"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs lg:text-md font-bold mb-1">원하는 디자인으로 과잠을 만들어보세요</h3>
-                <p className="text-[10px] lg:text-xs text-white/80">제품 선택 → 디자인 스케치 → 요청 제출</p>
-              </div>
-              <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6 shrink-0 text-white/60" />
-            </div>
-          </Link>
-        </section> */}
-
         {/* Featured Products Section */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-3 lg:mb-4">
@@ -161,7 +144,7 @@ export default async function HomePage() {
               <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 lg:gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 gap-3 lg:gap-4">
             {products.length > 0 ? (
               products.map((product) => (
                 <ProductCard key={product.id} product={product}/>
