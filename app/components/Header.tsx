@@ -1,5 +1,5 @@
 'use client'
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import CartButton from "./CartButton";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -72,18 +72,9 @@ export default function Header({
               )}
 
               {/* Shopping card button */}
-              {showHomeNav ? (
-                <div className="hidden lg:flex items-center justify-end gap-4 text-gray-600 lg:w-48">
-                  <CartButton />
-                  <Link href="/home/my-page" className="hover:text-black transition" aria-label="내 정보">
-                    <User className="size-5" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="hidden lg:flex items-center justify-end gap-4 text-gray-600 lg:w-48">
-                  <CartButton />
-                </div>
-              )}
+              <div className="hidden lg:flex items-center justify-end gap-4 text-gray-600 lg:w-48">
+                <CartButton />
+              </div>
             </div>
           </div>
         </div>

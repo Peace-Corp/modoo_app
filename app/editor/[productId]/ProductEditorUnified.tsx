@@ -194,6 +194,7 @@ export default function ProductEditorUnified({
       // Guest flow: save to cart store (localStorage) and navigate
       const canvasState = saveAllCanvasState();
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
+      const previewImage = generateProductThumbnail(canvasMap, 'front', 800, 800);
       const selectedColor = productColors.find(c => c.manufacturer_colors.hex === productColor);
       const colorName = selectedColor?.manufacturer_colors.name || '색상';
       const colorCode = selectedColor?.manufacturer_colors.color_code;
@@ -216,6 +217,7 @@ export default function ProductEditorUnified({
           thumbnailUrl: thumbnail,
           designName,
           customFonts,
+          previewImage,
         });
       }
 
@@ -243,7 +245,7 @@ export default function ProductEditorUnified({
     try {
       const canvasState = saveAllCanvasState();
       const thumbnail = generateProductThumbnail(canvasMap, 'front', 200, 200);
-      const previewImage = generateProductThumbnail(canvasMap, 'front', 400, 400);
+      const previewImage = generateProductThumbnail(canvasMap, 'front', 800, 800);
       const selectedColor = productColors.find(c => c.manufacturer_colors.hex === productColor);
       const colorName = selectedColor?.manufacturer_colors.name || '색상';
       const colorCode = selectedColor?.manufacturer_colors.color_code;
