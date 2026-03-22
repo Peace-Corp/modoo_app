@@ -609,9 +609,8 @@ export default function ProductEditorUnified({
     };
   }, [isMobile, currentStep]);
 
-  // Desktop: listen for canvas selection changes
+  // Listen for canvas selection changes (both mobile and desktop)
   useEffect(() => {
-    if (isMobile) return;
     const activeCanvas = canvasMap[activeSideId];
     if (!activeCanvas) return;
 
@@ -633,7 +632,7 @@ export default function ProductEditorUnified({
       activeCanvas.off('selection:updated', handleSelectionUpdated);
       activeCanvas.off('selection:cleared', handleSelectionCleared);
     };
-  }, [isMobile, activeSideId, canvasMap]);
+  }, [activeSideId, canvasMap]);
 
   // Pricing
   const [pricingData, setPricingData] = useState<PricingSummary>({
