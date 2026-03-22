@@ -99,6 +99,7 @@ export default function ProductEditorUnified({
         productId: product.id,
         productColor,
         canvasState,
+        customFonts: useFontStore.getState().customFonts,
       });
     }
     setCurrentStep('quantity');
@@ -201,7 +202,10 @@ export default function ProductEditorUnified({
       const customFonts = useFontStore.getState().customFonts;
 
       // Also save guest design as backup
-      saveGuestDesign({ productId: product.id, productColor, canvasState });
+      saveGuestDesign({ productId: product.id, productColor, canvasState, customFonts });
+
+      // Generate a shared design ID so all sizes from this design are grouped together
+      const guestDesignId = `guest-${product.id}-${Date.now()}`;
 
       for (const item of selectedItems) {
         addToCart({
@@ -215,6 +219,7 @@ export default function ProductEditorUnified({
           pricePerItem,
           canvasState,
           thumbnailUrl: thumbnail,
+          savedDesignId: guestDesignId,
           designName,
           customFonts,
           previewImage,
@@ -296,6 +301,8 @@ export default function ProductEditorUnified({
           thumbnailUrl: thumbnail,
           savedDesignId: sharedDesignId,
           designName,
+          customFonts,
+          previewImage,
         });
       }
 
@@ -511,6 +518,12 @@ export default function ProductEditorUnified({
           attempts++;
         }
         if (!checkCanvasesReady()) { console.error('Canvases not ready after timeout'); return; }
+        // Load custom fonts before restoring canvas state
+        if (cartItem.customFonts && cartItem.customFonts.length > 0) {
+          const fontStore = useFontStore.getState();
+          fontStore.setCustomFonts(cartItem.customFonts);
+          await fontStore.loadAllFonts();
+        }
         if (cartItem.productColor) setProductColor(cartItem.productColor);
         await new Promise(resolve => setTimeout(resolve, 100));
         await restoreAllCanvasState(cartItem.canvasState);
@@ -650,6 +663,12 @@ export default function ProductEditorUnified({
               attempts++;
             }
             if (!checkCanvasesReady()) { setIsRecallGuestDesignOpen(false); return; }
+            // Load custom fonts before restoring canvas state
+            if (guestDesign.customFonts && guestDesign.customFonts.length > 0) {
+              const fontStore = useFontStore.getState();
+              fontStore.setCustomFonts(guestDesign.customFonts);
+              await fontStore.loadAllFonts();
+            }
             setProductColor(guestDesign.productColor);
             await new Promise(resolve => setTimeout(resolve, 100));
             await restoreAllCanvasState(guestDesign.canvasState);
@@ -718,6 +737,9 @@ export default function ProductEditorUnified({
           config={productConfig}
           layout="mobile"
           onExitEditMode={goBackToLanding}
+          onColorPress={() => setIsColorModalOpen(true)}
+          displayColor={displayColor}
+          hasColorOptions={hasAnyColorOptions}
         />
 
         {/* Bottom bar */}
@@ -734,23 +756,13 @@ export default function ProductEditorUnified({
                 ) : '몰에 저장'}
               </button>
             ) : (
-              <>
-                {hasAnyColorOptions && (
-                  <button
-                    onClick={() => setIsColorModalOpen(true)}
-                    className="shrink-0 w-10 h-10 rounded-full border-2 border-gray-300 transition hover:border-gray-500"
-                    style={{ backgroundColor: displayColor }}
-                    title="색상 선택"
-                  />
-                )}
-                <button
-                  onClick={handleEditorDone}
-                  disabled={isSaving}
-                  className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-                >
-                  {isSaving ? '처리 중...' : '완료'}
-                </button>
-              </>
+              <button
+                onClick={handleEditorDone}
+                disabled={isSaving}
+                className="w-full bg-black py-3 text-sm rounded-lg text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+              >
+                {isSaving ? '처리 중...' : '완료'}
+              </button>
             )}
           </div>
         </div>
@@ -999,6 +1011,12 @@ export default function ProductEditorUnified({
             attempts++;
           }
           if (!checkCanvasesReady()) { setIsRecallGuestDesignOpen(false); return; }
+          // Load custom fonts before restoring canvas state
+          if (guestDesign.customFonts && guestDesign.customFonts.length > 0) {
+            const fontStore = useFontStore.getState();
+            fontStore.setCustomFonts(guestDesign.customFonts);
+            await fontStore.loadAllFonts();
+          }
           setProductColor(guestDesign.productColor);
           await new Promise(resolve => setTimeout(resolve, 100));
           await restoreAllCanvasState(guestDesign.canvasState);
