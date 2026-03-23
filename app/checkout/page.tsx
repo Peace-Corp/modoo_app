@@ -100,7 +100,16 @@ export default function CheckoutPage() {
   const [showCouponList, setShowCouponList] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showEmptyModal, setShowEmptyModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const cartStore = useCartStore();
+
+  const handleLeaveCheckout = () => {
+    try {
+      sessionStorage.removeItem('pendingTossOrder');
+      sessionStorage.removeItem('checkout:pendingItems');
+    } catch {}
+    setShowLeaveModal(true);
+  };
 
   // Group items by design for display
   const groupedItems = items.reduce<Array<{
@@ -183,12 +192,16 @@ export default function CheckoutPage() {
 
     const fetchCartItems = async () => {
       setIsLoading(true);
+      // Clear stale payment data from any previous checkout attempt
+      try { sessionStorage.removeItem('pendingTossOrder'); } catch {}
+
       try {
         // Check for items saved before login redirect
         const savedItems = sessionStorage.getItem('checkout:pendingItems');
         if (savedItems && isAuthenticated) {
           sessionStorage.removeItem('checkout:pendingItems');
-          // Clean up the return-to key left over from the login flow
+          // Clean up Zustand cart + login key so CartButton doesn't duplicate-sync
+          useCartStore.getState().clearCart();
           try { sessionStorage.removeItem('login:returnTo'); } catch {}
           const parsedItems: CartItemWithDesign[] = JSON.parse(savedItems);
           if (parsedItems.length > 0) {
@@ -545,7 +558,7 @@ export default function CheckoutPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header back={true} />
+        <Header back={true} onBack={handleLeaveCheckout} />
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
         </div>
@@ -564,7 +577,7 @@ export default function CheckoutPage() {
       <div className="min-h-screen bg-gray-50 pb-32 lg:pb-8">
         {/* Header */}
         <div className="sticky top-0 bg-white z-50 border-b border-gray-200">
-          <Header back={true} />
+          <Header back={true} onBack={handleLeaveCheckout} />
         </div>
 
       <div className="max-w-5xl mx-auto lg:px-6">
@@ -1120,8 +1133,6 @@ export default function CheckoutPage() {
             <button
               onClick={() => {
                 sessionStorage.setItem('checkout:pendingItems', JSON.stringify(items));
-                // Clear Zustand store now so CartButton won't duplicate-sync these items after login
-                useCartStore.getState().clearCart();
                 setShowLoginModal(true);
               }}
               className="text-sm font-medium text-[#3B55A5] hover:text-[#2D4280] shrink-0 ml-2"
@@ -1310,6 +1321,36 @@ export default function CheckoutPage() {
           >
             홈으로 이동
           </button>
+        </div>
+      </div>
+    )}
+
+    {/* Leave checkout confirmation modal */}
+    {showLeaveModal && (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+        onClick={() => setShowLeaveModal(false)}
+      >
+        <div
+          className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-sm font-medium text-black mb-1">결제를 취소하시겠습니까?</p>
+          <p className="text-xs text-gray-500 mb-5">디자인은 내 디자인 페이지에 저장되어 있습니다.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowLeaveModal(false)}
+              className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+            >
+              계속 결제
+            </button>
+            <button
+              onClick={() => router.replace('/home')}
+              className="flex-1 py-2.5 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition"
+            >
+              나가기
+            </button>
+          </div>
         </div>
       </div>
     )}
