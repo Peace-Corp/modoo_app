@@ -7,12 +7,18 @@ import { useAuthStore } from '@/store/useAuthStore';
  * AuthInitializer component
  *
  * Initializes authentication state on app load by checking for existing session.
- * This ensures isLoading is set to false when user is not authenticated.
+ * Also clears stale checkout/payment sessionStorage on fresh app mount.
  */
 export default function AuthInitializer() {
   const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
+    // Clear stale payment data from previous sessions
+    try {
+      sessionStorage.removeItem('pendingTossOrder');
+      sessionStorage.removeItem('pendingCoBuyPayment');
+    } catch {}
+
     initialize();
   }, [initialize]);
 

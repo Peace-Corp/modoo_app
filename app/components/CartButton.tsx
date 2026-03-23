@@ -44,8 +44,10 @@ export default function CartButton() {
       }
 
       // User just logged in - merge any guest cart items into DB, then fetch from DB
+      // Skip if checkout page is handling the restore (checkout:pendingItems exists)
+      const checkoutHandling = !!sessionStorage.getItem('checkout:pendingItems');
       const guestItems = useCartStore.getState().items;
-      if (wasAuthenticated === false && guestItems.length > 0) {
+      if (wasAuthenticated === false && guestItems.length > 0 && !checkoutHandling) {
         try {
           for (const guestItem of guestItems) {
             await addToCartDB({

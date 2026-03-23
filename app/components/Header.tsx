@@ -8,10 +8,12 @@ import Link from "next/link";
 export default function Header({
   back = false,
   backHref,
+  onBack,
   showHomeNav = false,
 }: {
   back?: boolean;
   backHref?: string;
+  onBack?: () => void;
   showHomeNav?: boolean;
 }) {
   const router = useRouter()
@@ -30,7 +32,7 @@ export default function Header({
                         <ArrowLeft className="text-gray-700 size-5 sm:size-6"/>
                       </Link>
                     ) : (
-                      <button className="" onClick={() => router.back()}>
+                      <button className="" onClick={onBack || (() => router.back())}>
                         <ArrowLeft className="text-gray-700 size-5 sm:size-6"/>
                       </button>
                     )
