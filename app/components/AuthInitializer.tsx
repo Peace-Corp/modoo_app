@@ -13,12 +13,6 @@ export default function AuthInitializer() {
   const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
-    // Clear stale payment data from previous sessions
-    try {
-      sessionStorage.removeItem('pendingTossOrder');
-      sessionStorage.removeItem('pendingCoBuyPayment');
-    } catch {}
-
     initialize();
   }, [initialize]);
 
