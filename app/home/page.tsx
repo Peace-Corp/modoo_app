@@ -122,14 +122,14 @@ export default async function HomePage() {
       <PromotionalPopup />
       {/* Header */}
       <Header showHomeNav />
-      <div className="lg:pt-6 pt-4 flex flex-col lg:flex-row lg:items-center border-b border-black/30 pb-4">
+      <div className="lg:pt-6 pt-4 flex flex-col border-b border-black/30 pb-4">
         {/* Hero Banner */}
-        <div className="w-full lg:w-[78%] lg:shrink-0">
+        <div className="w-full">
           <HeroBanner />
         </div>
 
-        {/* Categories - 2 column grid on desktop */}
-        <section className="w-full lg:w-[22%] mt-4 lg:mt-0 px-4 sm:px-6 lg:px-8">
+        {/* Categories */}
+        <section className="w-full mt-4 px-4 sm:px-6 lg:px-0 max-w-7xl lg:mx-auto">
           <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-3 lg:mb-4">카테고리</h2>
           <CategoriesSection />
         </section>
@@ -196,18 +196,15 @@ function CategoriesSection() {
   const categoryItems = getCategoryItems();
 
   return (
-    <div>
-      {/* Mobile: horizontal scroll, Desktop: 2-column grid */}
-      <div className="flex gap-2 overflow-x-auto pb-2 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:overflow-visible">
-        {categoryItems.map((category) => (
-          <CategoryButton
-            key={category.key}
-            name={category.name}
-            icon={category.icon}
-            href={category.href}
-          />
-        ))}
-      </div>
+    <div className="flex gap-3 sm:gap-4 lg:gap-6 overflow-x-auto pb-2 lg:overflow-visible">
+      {categoryItems.map((category) => (
+        <CategoryButton
+          key={category.key}
+          name={category.name}
+          icon={category.icon}
+          href={category.href}
+        />
+      ))}
     </div>
   )
 }
