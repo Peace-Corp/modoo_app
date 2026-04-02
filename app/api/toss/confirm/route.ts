@@ -216,9 +216,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch all unique saved_designs for cart items that have design_id
+    // Exclude guest design IDs (format: 'guest-xxx') as they don't exist in DB
     const uniqueDesignIds = [...new Set(cartItems
       .map(item => item.saved_design_id)
-      .filter((id): id is string => id !== undefined && id !== null))];
+      .filter((id): id is string => id !== undefined && id !== null && !id.startsWith('guest-')))];
 
     const savedDesignsMap = new Map<string, {
       title: string;
@@ -298,14 +299,15 @@ export async function POST(request: NextRequest) {
           quantity: item.quantity,
         });
       } else {
-        // Get saved design data if available
-        const savedDesign = item.saved_design_id ? savedDesignsMap.get(item.saved_design_id) : null;
+        // Get saved design data if available (guest design IDs like 'guest-xxx' won't exist in DB)
+        const isGuestDesignId = item.saved_design_id?.startsWith('guest-');
+        const savedDesign = (item.saved_design_id && !isGuestDesignId) ? savedDesignsMap.get(item.saved_design_id) : null;
 
-        // Create new group
+        // Create new group — guest design IDs are not valid UUIDs, so set design_id to null
         groupedItems.set(groupKey, {
           product_id: item.product_id,
           product_title: item.product_title,
-          design_id: item.saved_design_id || null,
+          design_id: (item.saved_design_id && !isGuestDesignId) ? item.saved_design_id : null,
           design_title: savedDesign?.title || null,
           canvas_state: savedDesign?.canvas_state || item.canvasState || {},
           color_selections: savedDesign?.color_selections || item.colorSelections || { productColor: item.product_color },

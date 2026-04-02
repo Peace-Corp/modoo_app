@@ -222,8 +222,8 @@ export default function DesignEditModal({
         // Wait for canvases to be registered
         // Get fresh canvasMap from the store each time we check
         const checkCanvasesReady = () => {
-          const currentCanvasMap = useCanvasStore.getState().canvasMap;
-          return pendingData.config.sides.every((side: { id: string }) => currentCanvasMap[side.id]);
+          const store = useCanvasStore.getState();
+          return pendingData.config.sides.every((side: { id: string }) => store.canvasMap[side.id] && store.imageLoadedMap[side.id]);
         };
 
         // Poll until canvases are ready with longer timeout and better error handling

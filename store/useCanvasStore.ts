@@ -380,6 +380,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             });
             canvas.requestRenderAll();
             resolve();
+          }).catch((error) => {
+            console.error(`[useCanvasStore] Failed to enliven objects for side ${id}:`, error);
+            canvas.requestRenderAll();
+            resolve();
           });
         } else {
           canvas.requestRenderAll();
@@ -501,6 +505,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
               }
             }
           });
+          canvas.requestRenderAll();
+          resolve();
+        }).catch((error) => {
+          console.error(`[useCanvasStore] Failed to enliven objects for side ${id}:`, error);
           canvas.requestRenderAll();
           resolve();
         });

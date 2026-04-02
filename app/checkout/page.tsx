@@ -106,7 +106,7 @@ export default function CheckoutPage() {
   const handleLeaveCheckout = () => {
     try {
       sessionStorage.removeItem('pendingTossOrder');
-      sessionStorage.removeItem('checkout:pendingItems');
+      localStorage.removeItem('checkout:pendingItems');
       sessionStorage.removeItem('directCheckoutItemIds');
     } catch {}
     setShowLeaveModal(true);
@@ -197,54 +197,62 @@ export default function CheckoutPage() {
       try { sessionStorage.removeItem('pendingTossOrder'); } catch {}
 
       try {
-        // Check for items saved before login redirect
-        const savedItems = sessionStorage.getItem('checkout:pendingItems');
-        if (savedItems && isAuthenticated) {
-          sessionStorage.removeItem('checkout:pendingItems');
+        // Check for items saved before login redirect (localStorage survives new tabs)
+        let pendingItems: CartItemWithDesign[] | null = null;
+        try {
+          const raw = localStorage.getItem('checkout:pendingItems');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const savedAt = parsed.savedAt || 0;
+            const ONE_HOUR = 60 * 60 * 1000;
+            if (Date.now() - savedAt < ONE_HOUR && parsed.items?.length > 0) {
+              pendingItems = parsed.items;
+            }
+            localStorage.removeItem('checkout:pendingItems');
+          }
+        } catch { /* ignore parse errors */ }
+
+        if (pendingItems && isAuthenticated) {
           // Clean up Zustand cart + login key so CartButton doesn't duplicate-sync
           useCartStore.getState().clearCart();
           try { sessionStorage.removeItem('login:returnTo'); } catch {}
-          const parsedItems: CartItemWithDesign[] = JSON.parse(savedItems);
-          if (parsedItems.length > 0) {
-            restoredFromLoginRef.current = true;
+          restoredFromLoginRef.current = true;
 
-            // Save guest items to DB first, then display DB-linked items
-            try {
-              const createdIds: string[] = [];
-              for (const item of parsedItems) {
-                const result = await addToCartDB({
-                  productId: item.product_id,
-                  productTitle: item.product_title,
-                  productColor: item.product_color,
-                  productColorName: item.product_color_name,
-                  productColorCode: item.product_color_code,
-                  size: item.size_id,
-                  quantity: item.quantity,
-                  pricePerItem: item.price_per_item,
-                  canvasState: item.canvasState || {},
-                  thumbnailUrl: item.thumbnail_url,
-                  designName: item.designName,
-                  previewImage: (item as any).previewImage || item.thumbnail_url,
-                  customFonts: (item as any).customFonts,
-                });
-                if (result?.id) createdIds.push(result.id);
-              }
-              // Fetch DB-linked items with saved_design_id
-              if (createdIds.length > 0) {
-                const dbItems = await getCartItemsWithDesigns();
-                const linkedItems = dbItems.filter(i => createdIds.includes(i.id!));
-                setItems(linkedItems.length > 0 ? linkedItems : parsedItems);
-              } else {
-                setItems(parsedItems);
-              }
-            } catch (e) {
-              console.error('Error linking items to user:', e);
-              // Fallback: show the original items so user can still checkout
-              setItems(parsedItems);
+          // Save guest items to DB first, then display DB-linked items
+          try {
+            const createdIds: string[] = [];
+            for (const item of pendingItems) {
+              const result = await addToCartDB({
+                productId: item.product_id,
+                productTitle: item.product_title,
+                productColor: item.product_color,
+                productColorName: item.product_color_name,
+                productColorCode: item.product_color_code,
+                size: item.size_id,
+                quantity: item.quantity,
+                pricePerItem: item.price_per_item,
+                canvasState: item.canvasState || {},
+                thumbnailUrl: item.thumbnail_url,
+                designName: item.designName,
+                previewImage: (item as any).previewImage || item.thumbnail_url,
+                customFonts: (item as any).customFonts,
+              });
+              if (result?.id) createdIds.push(result.id);
             }
-
-            return;
+            // Fetch DB-linked items with saved_design_id
+            if (createdIds.length > 0) {
+              const dbItems = await getCartItemsWithDesigns();
+              const linkedItems = dbItems.filter(i => createdIds.includes(i.id!));
+              setItems(linkedItems.length > 0 ? linkedItems : pendingItems);
+            } else {
+              setItems(pendingItems);
+            }
+          } catch (e) {
+            console.error('Error linking items to user:', e);
+            setItems(pendingItems);
           }
+
+          return;
         }
 
         // Already restored pre-login items — don't re-fetch from DB on effect re-runs
@@ -254,6 +262,41 @@ export default function CheckoutPage() {
 
         if (isAuthenticated) {
           cartItems = await getCartItemsWithDesigns();
+
+          // Fallback: DB is empty but guest cart items remain in localStorage (Zustand persist).
+          // This handles the case where checkout:pendingItems was lost (e.g., email signup opened in new tab).
+          if (cartItems.length === 0) {
+            const guestItems = useCartStore.getState().items;
+            const unmergedGuest = guestItems.filter(i => i.savedDesignId?.startsWith('guest-'));
+            if (unmergedGuest.length > 0) {
+              try {
+                const createdIds: string[] = [];
+                for (const item of unmergedGuest) {
+                  const result = await addToCartDB({
+                    productId: item.productId,
+                    productTitle: item.productTitle,
+                    productColor: item.productColor,
+                    productColorName: item.productColorName,
+                    productColorCode: item.productColorCode,
+                    size: item.size,
+                    quantity: item.quantity,
+                    pricePerItem: item.pricePerItem,
+                    canvasState: item.canvasState,
+                    thumbnailUrl: item.thumbnailUrl,
+                    designName: item.designName,
+                    customFonts: item.customFonts,
+                  });
+                  if (result?.id) createdIds.push(result.id);
+                }
+                useCartStore.getState().clearCart();
+                if (createdIds.length > 0) {
+                  cartItems = await getCartItemsWithDesigns();
+                }
+              } catch (e) {
+                console.error('Error merging guest cart as fallback:', e);
+              }
+            }
+          }
         } else {
           // Guest: transform cart store items to CartItemWithDesign format
           const storeItems = useCartStore.getState().items;
@@ -1186,7 +1229,9 @@ export default function CheckoutPage() {
             </div>
             <button
               onClick={() => {
-                sessionStorage.setItem('checkout:pendingItems', JSON.stringify(items));
+                try {
+                  localStorage.setItem('checkout:pendingItems', JSON.stringify({ items, savedAt: Date.now() }));
+                } catch { /* quota exceeded */ }
                 setShowLoginModal(true);
               }}
               className="text-sm font-medium text-[#3B55A5] hover:text-[#2D4280] shrink-0 ml-2"

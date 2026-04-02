@@ -393,8 +393,10 @@ export default function ProductEditorUnified({
         setPartnerMallAddData(data);
         sessionStorage.removeItem('partnerMallAddData');
 
-        const checkCanvasesReady = () =>
-          product.configuration.every(side => canvasMap[side.id]);
+        const checkCanvasesReady = () => {
+          const store = useCanvasStore.getState();
+          return product.configuration.every(side => store.canvasMap[side.id] && store.imageLoadedMap[side.id]);
+        };
         let attempts = 0;
         while (!checkCanvasesReady() && attempts < 50) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -545,7 +547,10 @@ export default function ProductEditorUnified({
       if (!cartItem) { console.error('Cart item not found:', cartItemId); return; }
       setIsLoadingCartItem(true);
       try {
-        const checkCanvasesReady = () => product.configuration.every(side => canvasMap[side.id]);
+        const checkCanvasesReady = () => {
+          const store = useCanvasStore.getState();
+          return product.configuration.every(side => store.canvasMap[side.id] && store.imageLoadedMap[side.id]);
+        };
         let attempts = 0;
         while (!checkCanvasesReady() && attempts < 50) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -697,7 +702,10 @@ export default function ProductEditorUnified({
           isOpen={isRecallGuestDesignOpen}
           onRecall={async () => {
             if (!guestDesign) { setIsRecallGuestDesignOpen(false); return; }
-            const checkCanvasesReady = () => product.configuration.every(side => canvasMap[side.id]);
+            const checkCanvasesReady = () => {
+              const store = useCanvasStore.getState();
+              return product.configuration.every(side => store.canvasMap[side.id] && store.imageLoadedMap[side.id]);
+            };
             let attempts = 0;
             while (!checkCanvasesReady() && attempts < 50) {
               await new Promise(resolve => setTimeout(resolve, 100));
@@ -1148,7 +1156,10 @@ export default function ProductEditorUnified({
         isOpen={isRecallGuestDesignOpen}
         onRecall={async () => {
           if (!guestDesign) { setIsRecallGuestDesignOpen(false); return; }
-          const checkCanvasesReady = () => product.configuration.every(side => canvasMap[side.id]);
+          const checkCanvasesReady = () => {
+            const store = useCanvasStore.getState();
+            return product.configuration.every(side => store.canvasMap[side.id] && store.imageLoadedMap[side.id]);
+          };
           let attempts = 0;
           while (!checkCanvasesReady() && attempts < 50) {
             await new Promise(resolve => setTimeout(resolve, 100));

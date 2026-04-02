@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase-client";
 import { addToCartDB } from "@/lib/cartService";
+import { removeGuestDesign } from "@/lib/guestDesignStorage";
 
 export default function CartButton() {
   const [mounted, setMounted] = useState(false);
@@ -49,15 +50,22 @@ export default function CartButton() {
         return;
       }
 
-      // First confirmed auth check (wasAuthenticated === null) - just fetch from DB.
-      // Only merge guest items on a genuine login transition (wasAuthenticated === false),
-      // which happens when the user was confirmed unauthenticated and then logged in.
-      const isGenuineLogin = wasAuthenticated === false;
-      if (isGenuineLogin) {
-        const checkoutHandling = !!sessionStorage.getItem('checkout:pendingItems');
-        const guestItems = useCartStore.getState().items;
+      // Merge guest cart items into DB when the user has just logged in.
+      // wasAuthenticated === false: same-session login (email/password).
+      // wasAuthenticated === null + unmerged guest items: page-reload login
+      // (OAuth redirect, email confirmation) where prevAuthRef resets.
+      const guestItems = useCartStore.getState().items;
+      const hasUnmergedGuestItems = guestItems.some(
+        item => item.savedDesignId?.startsWith('guest-')
+      );
+      const shouldMerge = wasAuthenticated === false ||
+        (wasAuthenticated === null && hasUnmergedGuestItems);
+
+      if (shouldMerge) {
+        const checkoutHandling = !!localStorage.getItem('checkout:pendingItems');
         if (guestItems.length > 0 && !checkoutHandling) {
           try {
+            const mergedProductIds = new Set<string>();
             for (const guestItem of guestItems) {
               await addToCartDB({
                 productId: guestItem.productId,
@@ -73,7 +81,9 @@ export default function CartButton() {
                 designName: guestItem.designName,
                 customFonts: guestItem.customFonts,
               });
+              mergedProductIds.add(guestItem.productId);
             }
+            mergedProductIds.forEach(pid => removeGuestDesign(pid));
           } catch (err) {
             console.error('Error merging guest cart items:', err);
           }
