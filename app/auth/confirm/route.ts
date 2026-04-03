@@ -7,7 +7,15 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
-  const next = searchParams.get('next') ?? '/home'
+
+  let next = searchParams.get('next')
+  if (!next || next === '/home') {
+    const cookieValue = request.cookies.get('login_return_to')?.value
+    if (cookieValue) {
+      try { next = decodeURIComponent(cookieValue) } catch { /* keep existing */ }
+    }
+  }
+  next = next || '/home'
 
   if (token_hash && type) {
     const supabase = await createClient()

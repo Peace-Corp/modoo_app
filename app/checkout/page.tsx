@@ -209,9 +209,13 @@ export default function CheckoutPage() {
             const loginReturn = JSON.parse(loginReturnRaw);
             localStorage.removeItem('checkout:loginReturn');
             localStorage.removeItem('checkout:pendingItems');
+            try { document.cookie = 'login_return_to=; path=/; max-age=0'; } catch {}
             if (Date.now() - (loginReturn.savedAt || 0) < ONE_HOUR) {
               restoredFromLoginRef.current = true;
-              try { sessionStorage.removeItem('login:returnTo'); } catch {}
+              try {
+                sessionStorage.removeItem('login:returnTo');
+                localStorage.removeItem('login:returnTo');
+              } catch {}
 
               const guestItems = useCartStore.getState().items;
               const unmerged = guestItems.filter(i => i.savedDesignId?.startsWith('guest-'));
@@ -282,7 +286,10 @@ export default function CheckoutPage() {
 
         if (pendingItems && isAuthenticated) {
           useCartStore.getState().clearCart();
-          try { sessionStorage.removeItem('login:returnTo'); } catch {}
+          try {
+            sessionStorage.removeItem('login:returnTo');
+            localStorage.removeItem('login:returnTo');
+          } catch {}
           restoredFromLoginRef.current = true;
 
           try {
@@ -400,10 +407,36 @@ export default function CheckoutPage() {
         }
 
         if (cartItems.length === 0) {
-          router.replace('/home');
-          return;
+          // Double-check: if guest items still exist in Zustand (race with CartButton), use them
+          const fallbackGuest = useCartStore.getState().items;
+          if (fallbackGuest.length > 0) {
+            const mapped = fallbackGuest.map(item => ({
+              id: item.id,
+              product_id: item.productId,
+              product_title: item.productTitle,
+              product_color: item.productColor,
+              product_color_name: item.productColorName,
+              product_color_code: item.productColorCode,
+              size_id: item.size,
+              size_name: item.size,
+              quantity: item.quantity,
+              price_per_item: item.pricePerItem,
+              thumbnail_url: item.thumbnailUrl,
+              saved_design_id: item.savedDesignId,
+              designName: item.designName,
+              canvasState: item.canvasState,
+              previewImage: item.previewImage,
+              customFonts: item.customFonts,
+              retouchRequested: item.retouchRequested,
+            } as CartItemWithDesign));
+            setItems(mapped);
+          } else {
+            router.replace('/home');
+            return;
+          }
+        } else {
+          setItems(cartItems);
         }
-        setItems(cartItems);
       } catch (error) {
         console.error('Error fetching cart items:', error);
       } finally {
@@ -1484,6 +1517,11 @@ export default function CheckoutPage() {
       onClose={() => setShowLoginModal(false)}
       message="쿠폰을 사용하려면 로그인이 필요합니다."
       returnTo="/checkout"
+      onBeforeNavigate={() => {
+        try {
+          localStorage.setItem('checkout:loginReturn', JSON.stringify({ savedAt: Date.now() }));
+        } catch {}
+      }}
     />
 
     {/* Empty cart modal */}

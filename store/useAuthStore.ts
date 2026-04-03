@@ -186,10 +186,10 @@ export const useAuthStore = create<AuthState>()(
           const supabase = createClient();
           const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
-          // Carry the saved return URL through email confirmation
           let returnTo = '/home';
           try {
-            const saved = sessionStorage.getItem('login:returnTo');
+            const saved = sessionStorage.getItem('login:returnTo')
+                       || localStorage.getItem('login:returnTo');
             if (saved && saved.startsWith('/') && !saved.startsWith('//')) {
               returnTo = saved;
             }
@@ -253,13 +253,18 @@ export const useAuthStore = create<AuthState>()(
           const supabase = createClient();
           const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
-          // Carry the saved return URL through the OAuth redirect
           let returnTo = '/home';
           try {
-            const saved = sessionStorage.getItem('login:returnTo');
+            const saved = sessionStorage.getItem('login:returnTo')
+                       || localStorage.getItem('login:returnTo');
             if (saved && saved.startsWith('/') && !saved.startsWith('//')) {
               returnTo = saved;
             }
+          } catch {}
+
+          // Set cookie as server-side fallback in case Supabase strips query params
+          try {
+            document.cookie = `login_return_to=${encodeURIComponent(returnTo)}; path=/; max-age=3600; SameSite=Lax`;
           } catch {}
 
           const { error } = await supabase.auth.signInWithOAuth({
@@ -274,7 +279,6 @@ export const useAuthStore = create<AuthState>()(
             return { success: false, error: error.message };
           }
 
-          // OAuth will redirect, so loading state stays true
           return { success: true };
         } catch (err) {
           set({ isLoading: false });

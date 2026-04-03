@@ -64,7 +64,12 @@ export default function CartButton() {
       if (shouldMerge) {
         const checkoutHandling = !!localStorage.getItem('checkout:loginReturn')
                               || !!localStorage.getItem('checkout:pendingItems');
-        if (guestItems.length > 0 && !checkoutHandling) {
+        if (checkoutHandling) {
+          // Checkout page will handle the merge and item loading.
+          // Return early to prevent overwriting Zustand guest items with empty DB data.
+          return;
+        }
+        if (guestItems.length > 0) {
           try {
             const mergedProductIds = new Set<string>();
             for (const guestItem of guestItems) {

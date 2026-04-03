@@ -103,6 +103,7 @@ export default function LoginPage() {
           const redirectFromSession = (() => {
             try {
               return getSafeRedirectPath(sessionStorage.getItem(LOGIN_RETURN_TO_KEY))
+                  || getSafeRedirectPath(localStorage.getItem(LOGIN_RETURN_TO_KEY))
             } catch {
               return null
             }
@@ -114,6 +115,7 @@ export default function LoginPage() {
 
           try {
             sessionStorage.removeItem(LOGIN_RETURN_TO_KEY)
+            localStorage.removeItem(LOGIN_RETURN_TO_KEY)
           } catch {
             // ignore
           }
@@ -130,6 +132,7 @@ export default function LoginPage() {
         const redirectFromSession = (() => {
           try {
             return getSafeRedirectPath(sessionStorage.getItem(LOGIN_RETURN_TO_KEY))
+                || getSafeRedirectPath(localStorage.getItem(LOGIN_RETURN_TO_KEY))
           } catch {
             return null
           }
@@ -141,6 +144,7 @@ export default function LoginPage() {
 
         try {
           sessionStorage.removeItem(LOGIN_RETURN_TO_KEY)
+          localStorage.removeItem(LOGIN_RETURN_TO_KEY)
         } catch {
           // ignore
         }

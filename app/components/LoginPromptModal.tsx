@@ -16,6 +16,7 @@ interface LoginPromptModalProps {
   title?: string;
   message?: string;
   returnTo?: string;
+  onBeforeNavigate?: () => void;
 }
 
 export default function LoginPromptModal({
@@ -24,6 +25,7 @@ export default function LoginPromptModal({
   title = "로그인이 필요합니다",
   message = "이 기능을 사용하려면 로그인이 필요합니다.",
   returnTo,
+  onBeforeNavigate,
 }: LoginPromptModalProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -38,9 +40,12 @@ export default function LoginPromptModal({
     try {
       const returnUrl = returnTo || `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
       sessionStorage.setItem(LOGIN_RETURN_TO_KEY, returnUrl);
+      localStorage.setItem(LOGIN_RETURN_TO_KEY, returnUrl);
     } catch {
       // ignore
     }
+
+    onBeforeNavigate?.();
 
     router.push('/login');
   };

@@ -5,11 +5,19 @@ import type { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') ?? '/home'
   const mode = requestUrl.searchParams.get('mode') ?? 'login'
   const origin = requestUrl.origin
 
-  // Validate the next parameter to prevent open redirects
+  // Resolve return URL: prefer query param, fall back to cookie
+  let next = requestUrl.searchParams.get('next')
+  if (!next || next === '/home') {
+    const cookieValue = request.cookies.get('login_return_to')?.value
+    if (cookieValue) {
+      try { next = decodeURIComponent(cookieValue); } catch { /* keep existing */ }
+    }
+  }
+  next = next || '/home'
+
   const isValidNext = next.startsWith('/') && !next.startsWith('//')
 
   if (code) {
@@ -17,23 +25,26 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
-      // Check if this is a new user (created within last 10 seconds)
       const createdAt = new Date(data.user.created_at)
       const now = new Date()
       const isNewUser = now.getTime() - createdAt.getTime() < 10000
 
-      // If trying to login but user is new, reject and redirect to signup
       if (mode === 'login' && isNewUser) {
         await supabase.auth.signOut()
-        return NextResponse.redirect(
-          `${origin}/login?error=no_account`
-        )
+        const resp = NextResponse.redirect(`${origin}/login?error=no_account`)
+        // Preserve the return URL cookie so the retry signup can use it
+        return resp
       }
 
-      return NextResponse.redirect(`${origin}${isValidNext ? next : '/home'}`)
+      const redirectUrl = `${origin}${isValidNext ? next : '/home'}`
+      const resp = NextResponse.redirect(redirectUrl)
+      // Clear the cookie now that we've used it
+      resp.cookies.set('login_return_to', '', { path: '/', maxAge: 0 })
+      return resp
     }
   }
 
-  // Return the user to an error page
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  const resp = NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  resp.cookies.set('login_return_to', '', { path: '/', maxAge: 0 })
+  return resp
 }
