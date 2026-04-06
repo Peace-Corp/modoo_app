@@ -20,19 +20,11 @@ function withDiscount(unitPrice: number, qty: number, note?: string): PricingInf
 }
 
 export function getPricingInfo(qty: number): PricingInfo | null {
-  if (qty < 10) return null;
-  if (qty <= 30) {
-    const fixedTotal = 1800000;
-    const unitPrice = Math.round(fixedTotal / qty);
-    const discountedUnitPrice = Math.round(unitPrice * (1 - DISCOUNT_RATE));
-    return {
-      unitPrice,
-      discountedUnitPrice,
-      totalPrice: fixedTotal,
-      discountedTotalPrice: qty * discountedUnitPrice,
-      note: '(고정가)',
-    };
-  }
+  if (qty < 5) return null;
+  if (qty <= 9) return withDiscount(150000, qty);
+  if (qty <= 14) return withDiscount(130000, qty);
+  if (qty <= 20) return withDiscount(69000, qty);
+  if (qty <= 30) return withDiscount(63000, qty);
   if (qty <= 50) return withDiscount(58000, qty);
   if (qty <= 70) return withDiscount(56000, qty);
   if (qty <= 80) return withDiscount(55000, qty);
