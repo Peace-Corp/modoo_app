@@ -65,7 +65,7 @@ export default function CustomOrderPage() {
         setOrderData(data.data);
         setCustomerName(data.data.customer_name || '');
         setCustomerEmail(data.data.customer_email || '');
-        setCustomerPhone(data.data.customer_phone || '');
+        setCustomerPhone((data.data.customer_phone || '').replace(/[^0-9]/g, ''));
 
         if (data.data.shipping_method) {
           setShippingMethod(data.data.shipping_method === 'pickup' ? 'pickup' : 'domestic');
@@ -335,8 +335,8 @@ export default function CustomOrderPage() {
                     <input
                       type="tel"
                       value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="010-0000-0000"
+                      onChange={(e) => setCustomerPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="01012345678"
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -429,7 +429,7 @@ export default function CustomOrderPage() {
                   orderName={orderData.product_title}
                   customerEmail={customerEmail}
                   customerName={customerName}
-                  customerMobilePhone={customerPhone || undefined}
+                  customerMobilePhone={customerPhone.replace(/[^0-9]/g, '') || undefined}
                   successUrl={successUrl}
                   failUrl={failUrl}
                 />
