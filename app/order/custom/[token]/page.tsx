@@ -323,6 +323,21 @@ export default function CustomOrderPage() {
                   <span>+{orderData.admin_surcharge.toLocaleString()}원</span>
                 </div>
               )}
+              {(() => {
+                const computedTotal = itemsSubtotal
+                  + (orderData.delivery_fee ?? 0)
+                  - (orderData.coupon_discount ?? 0)
+                  - (orderData.admin_discount ?? 0)
+                  + (orderData.admin_surcharge ?? 0);
+                const diff = totalAmount - computedTotal;
+                if (diff === 0) return null;
+                return (
+                  <div className={`flex justify-between text-sm ${diff > 0 ? 'text-indigo-600' : 'text-green-600'}`}>
+                    <span>작업비용</span>
+                    <span>{diff > 0 ? '+' : ''}{diff.toLocaleString()}원</span>
+                  </div>
+                );
+              })()}
               {orderData.pricing_note && (
                 <p className="text-xs text-gray-400 mt-1">{orderData.pricing_note}</p>
               )}

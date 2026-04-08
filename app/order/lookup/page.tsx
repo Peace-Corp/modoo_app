@@ -235,22 +235,39 @@ function OrderLookupContent() {
             <div className="bg-white rounded-lg p-4">
               <h2 className="text-sm font-semibold text-black mb-3">결제 정보</h2>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">상품 금액</span>
-                  <span className="text-black">
-                    {(order.total_amount - order.delivery_fee + (order.coupon_discount || 0)).toLocaleString('ko-KR')}원
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">배송비</span>
-                  <span className="text-black">{order.delivery_fee.toLocaleString('ko-KR')}원</span>
-                </div>
-                {order.coupon_discount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-blue-600">쿠폰 할인</span>
-                    <span className="text-blue-600">-{order.coupon_discount.toLocaleString('ko-KR')}원</span>
-                  </div>
-                )}
+                {(() => {
+                  const itemsSubtotal = order.order_items.reduce(
+                    (sum, item) => sum + item.price_per_item * item.quantity, 0
+                  );
+                  const computedTotal = itemsSubtotal
+                    + (order.delivery_fee ?? 0)
+                    - (order.coupon_discount ?? 0);
+                  const workCost = order.total_amount - computedTotal;
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">상품 금액</span>
+                        <span className="text-black">{itemsSubtotal.toLocaleString('ko-KR')}원</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">배송비</span>
+                        <span className="text-black">{order.delivery_fee.toLocaleString('ko-KR')}원</span>
+                      </div>
+                      {order.coupon_discount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-blue-600">쿠폰 할인</span>
+                          <span className="text-blue-600">-{order.coupon_discount.toLocaleString('ko-KR')}원</span>
+                        </div>
+                      )}
+                      {workCost !== 0 && (
+                        <div className={`flex justify-between ${workCost > 0 ? 'text-indigo-600' : 'text-green-600'}`}>
+                          <span>작업비용</span>
+                          <span>{workCost > 0 ? '+' : ''}{workCost.toLocaleString('ko-KR')}원</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 <div className="h-px bg-gray-200 my-2"></div>
                 <div className="flex justify-between font-semibold">
                   <span className="text-black">총 결제금액</span>

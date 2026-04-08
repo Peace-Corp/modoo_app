@@ -195,7 +195,10 @@ export default function OrderDetailPage() {
   const orderStatus = orderStatusMap[status] || orderStatusMap.payment_completed;
   const isCancelled = status === 'cancelled' || status === 'partially_cancelled';
   const currentStep = getProgressStep(status);
-  const subtotal = order.total_amount - order.delivery_fee;
+  const itemsSubtotal = order.order_items.reduce(
+    (sum, item) => sum + (item.price_per_item ?? 0) * (item.quantity ?? 0), 0
+  );
+  const workCost = order.total_amount - itemsSubtotal - order.delivery_fee;
 
   const orderDate = new Date(order.created_at);
   const formattedOrderDate = `${orderDate.getFullYear()}. ${orderDate.getMonth() + 1}. ${orderDate.getDate()} 주문`;
@@ -267,12 +270,18 @@ export default function OrderDetailPage() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">상품 가격</span>
-              <span>{formatPrice(subtotal)} 원</span>
+              <span>{formatPrice(itemsSubtotal)} 원</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">배송비</span>
               <span>{order.delivery_fee > 0 ? `${formatPrice(order.delivery_fee)} 원` : '0 원'}</span>
             </div>
+            {workCost !== 0 && (
+              <div className={`flex justify-between ${workCost > 0 ? 'text-indigo-600' : 'text-green-600'}`}>
+                <span>작업비용</span>
+                <span>{workCost > 0 ? '+' : ''}{formatPrice(workCost)} 원</span>
+              </div>
+            )}
           </div>
           <div className="border-t border-gray-200 my-3" />
           <div className="space-y-2 text-sm">
