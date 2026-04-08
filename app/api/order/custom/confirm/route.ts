@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, total_amount, payment_status, payment_link_token')
+      .select('id, total_amount, payment_status, payment_link_token, order_status')
       .eq('payment_link_token', token)
       .single();
 
@@ -88,6 +88,10 @@ export async function POST(request: Request) {
       payment_method: 'toss',
       updated_at: new Date().toISOString(),
     };
+
+    if (order.order_status === 'payment_pending') {
+      updatePayload.order_status = 'payment_completed';
+    }
 
     if (payload.customerName) updatePayload.customer_name = payload.customerName;
     if (payload.customerEmail) updatePayload.customer_email = payload.customerEmail;
