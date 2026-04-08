@@ -141,6 +141,9 @@ function buildCustomerHtml(params: OrderNotificationParams): string {
 }
 
 function buildAdminHtml(params: OrderNotificationParams): string {
+  const adminUrl = 'https://admin.modoogoods.com';
+  const orderDetailUrl = `${adminUrl}/orders/${params.orderId}`;
+
   return `
     <div style="max-width:600px;margin:0 auto;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#333;">
       <div style="background:#e74c3c;padding:24px;text-align:center;">
@@ -175,6 +178,10 @@ function buildAdminHtml(params: OrderNotificationParams): string {
           ${params.couponDiscount ? `<p style="margin:4px 0;color:#e74c3c;">쿠폰 할인: -${formatCurrency(params.couponDiscount)}</p>` : ''}
           <p style="margin:4px 0;">배송비: ${formatCurrency(params.deliveryFee)}</p>
           <p style="margin:4px 0;font-size:18px;"><strong>총 결제금액: ${formatCurrency(params.totalAmount)}</strong></p>
+        </div>
+
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${orderDetailUrl}" style="display:inline-block;background:#e74c3c;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">주문 상세 보기</a>
         </div>
       </div>
     </div>
@@ -212,6 +219,7 @@ function buildCustomerText(params: OrderNotificationParams): string {
 }
 
 function buildAdminText(params: OrderNotificationParams): string {
+  const adminUrl = 'https://admin.modoogoods.com';
   const itemLines = params.items
     .map((item) => `- ${item.product_title} x${item.quantity} (${formatCurrency(item.price_per_item)})`)
     .join('\n');
@@ -230,6 +238,8 @@ function buildAdminText(params: OrderNotificationParams): string {
     itemLines,
     '',
     `총 결제금액: ${formatCurrency(params.totalAmount)}`,
+    '',
+    `주문 상세 보기: ${adminUrl}/orders/${params.orderId}`,
   ].join('\n');
 }
 
