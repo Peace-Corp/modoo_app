@@ -23,13 +23,13 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { generateOrderId } from '@/lib/orderIdUtils';
 import { CouponUsage } from '@/types/types';
-import { Ticket, ChevronDown, ChevronUp, X, Check, AlertCircle, Paperclip, Upload, Minus, Plus, Trash2 } from 'lucide-react';
+import { Ticket, ChevronDown, ChevronUp, X, Check, AlertCircle, Paperclip, Upload, Minus, Plus, Trash2, Building2 } from 'lucide-react';
 import { createClient as createBrowserClient } from '@/lib/supabase-client';
 import { uploadFileToStorage } from '@/lib/supabase-storage';
 import LoginPromptModal from '@/app/components/LoginPromptModal';
 
 type ShippingMethod = 'domestic' | 'international' | 'pickup';
-type PaymentMethod = 'toss' | 'paypal';
+type PaymentMethod = 'toss' | 'paypal' | 'bank_transfer';
 
 interface CustomerInfo {
   name: string;
@@ -84,6 +84,13 @@ export default function CheckoutPage() {
     addressLine1: '',
     addressLine2: '',
   });
+
+  // Bank transfer options
+  const [invoiceRequested, setInvoiceRequested] = useState(false);
+  const [invoiceEmail, setInvoiceEmail] = useState('');
+  const [bizRegFile, setBizRegFile] = useState<File | null>(null);
+  const [bizRegUrl, setBizRegUrl] = useState('');
+  const [bankTransferLoading, setBankTransferLoading] = useState(false);
 
   // Customer note & attachments
   const [customerNote, setCustomerNote] = useState('');
@@ -702,6 +709,85 @@ export default function CheckoutPage() {
     }));
 
     console.log('Order data stored for Toss payment:', orderData);
+  };
+
+  // Handle bank transfer order
+  const handleBankTransferOrder = async () => {
+    try {
+      handleBeforePaymentRequest();
+    } catch (e) {
+      alert((e as Error).message);
+      return;
+    }
+
+    if (invoiceRequested) {
+      if (!bizRegFile) {
+        alert('계산서 발행을 위해 사업자등록증을 첨부해주세요.');
+        return;
+      }
+      if (!invoiceEmail || !invoiceEmail.includes('@')) {
+        alert('계산서를 받을 이메일 주소를 올바르게 입력해주세요.');
+        return;
+      }
+    }
+
+    setBankTransferLoading(true);
+    try {
+      const pendingOrderJson = sessionStorage.getItem('pendingTossOrder');
+      if (!pendingOrderJson) throw new Error('주문 정보를 찾을 수 없습니다.');
+
+      const { orderData, cartItems } = JSON.parse(pendingOrderJson);
+
+      let uploadedBizRegUrl = '';
+      if (invoiceRequested && bizRegFile) {
+        const supabase = createBrowserClient();
+        const result = await uploadFileToStorage(
+          supabase,
+          bizRegFile,
+          'order-attachments',
+          `biz-reg/${orderData.id}`
+        );
+        if (!result.success || !result.url) {
+          throw new Error(result.error || '사업자등록증 업로드에 실패했습니다.');
+        }
+        uploadedBizRegUrl = result.url;
+      }
+
+      const response = await fetch('/api/checkout/bank-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderData,
+          cartItems,
+          bankTransferData: {
+            invoice_requested: invoiceRequested,
+            invoice_email: invoiceRequested ? invoiceEmail : null,
+            biz_registration_url: uploadedBizRegUrl || null,
+          },
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || '주문 처리에 실패했습니다.');
+      }
+
+      sessionStorage.removeItem('pendingTossOrder');
+
+      if (isAuthenticated) {
+        const { clearCart: clearCartDB } = await import('@/lib/cartService');
+        clearCartDB().catch(() => {});
+      }
+      useCartStore.getState().clearCart();
+
+      router.replace(`/payment/complete?orderId=${json.orderId}&method=bank_transfer`);
+    } catch (error) {
+      console.error('Bank transfer order error:', error);
+      alert(error instanceof Error ? error.message : '주문 처리 중 오류가 발생했습니다.');
+    } finally {
+      setBankTransferLoading(false);
+    }
   };
 
   // Handle free order (0원 total after coupon discount)
@@ -1421,33 +1507,117 @@ export default function CheckoutPage() {
             </div>
           </button>
 
-          {/* <button
-            onClick={() => setPaymentMethod('paypal')}
+          <button
+            onClick={() => setPaymentMethod('bank_transfer')}
             className={`w-full p-4 rounded-lg border-2 transition text-left ${
-              paymentMethod === 'paypal'
+              paymentMethod === 'bank_transfer'
                 ? 'border-black bg-gray-50'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#0070ba] rounded-lg flex items-center justify-center text-white font-bold text-xs">
-                  PP
+                <div className="w-10 h-10 bg-[#1a6b3c] rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                  <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-medium text-black">PayPal</p>
-                  <p className="text-xs text-gray-500 mt-1">페이팔로 안전하게 결제</p>
+                  <p className="font-medium text-black">직접 계좌이체</p>
+                  <p className="text-xs text-gray-500 mt-1">계좌로 직접 송금하여 결제</p>
                 </div>
               </div>
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                paymentMethod === 'paypal' ? 'border-black' : 'border-gray-300'
+                paymentMethod === 'bank_transfer' ? 'border-black' : 'border-gray-300'
               }`}>
-                {paymentMethod === 'paypal' && (
+                {paymentMethod === 'bank_transfer' && (
                   <div className="w-3 h-3 rounded-full bg-black"></div>
                 )}
               </div>
             </div>
-          </button> */}
+          </button>
+
+          {paymentMethod === 'bank_transfer' && (
+            <div className="mt-3 space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              {/* 계좌 안내 */}
+              <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <p className="text-sm font-semibold text-black mb-2">입금 계좌 안내</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700 font-medium">우리은행</span>
+                  <span className="text-sm text-black font-bold">1005-904-144208</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">예금주: 김현준(피스코프)</p>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-xs text-amber-800">
+                  관리자가 직접 입금 확인 후 구매가 확정됩니다. 주문 후 입금이 확인되지 않으면 주문이 취소될 수 있습니다.
+                </p>
+              </div>
+
+              {/* 계산서 발행 여부 */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={invoiceRequested}
+                    onChange={(e) => setInvoiceRequested(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black accent-black"
+                  />
+                  <span className="text-sm font-medium text-black">계산서 발행 요청</span>
+                </label>
+              </div>
+
+              {invoiceRequested && (
+                <div className="space-y-3 pl-6">
+                  {/* 사업자등록증 업로드 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      사업자등록증 <span className="text-red-500">*</span>
+                    </label>
+                    {bizRegFile ? (
+                      <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg">
+                        <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-xs text-gray-700 truncate flex-1">{bizRegFile.name}</span>
+                        <button
+                          onClick={() => { setBizRegFile(null); setBizRegUrl(''); }}
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 p-2 bg-white border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition">
+                        <Upload className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs text-gray-500">파일 선택 (PDF, JPG, PNG)</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setBizRegFile(file);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* 계산서 받을 이메일 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      계산서 받을 이메일 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={invoiceEmail}
+                      onChange={(e) => setInvoiceEmail(e.target.value)}
+                      placeholder="example@company.com"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-black transition"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1482,6 +1652,16 @@ export default function CheckoutPage() {
             }}
             onBeforePaymentRequest={handleBeforePaymentRequest}
           />
+        </div>
+      ) : paymentMethod === 'bank_transfer' ? (
+        <div className='w-full px-4 py-4 bg-white lg:rounded-lg'>
+          <button
+            onClick={handleBankTransferOrder}
+            disabled={bankTransferLoading}
+            className="w-full py-3 px-6 bg-black text-white rounded-md font-medium text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {bankTransferLoading ? '주문 처리 중...' : `${finalTotal.toLocaleString('ko-KR')}원 주문하기`}
+          </button>
         </div>
       ) : null}
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Clock } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 
 function PaymentCompleteContent() {
@@ -11,10 +11,11 @@ function PaymentCompleteContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
   const orderId = searchParams.get('orderId');
+  const method = searchParams.get('method');
+  const isBankTransfer = method === 'bank_transfer';
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verify that we have an order ID
     if (!orderId) {
       router.push('/home');
       return;
@@ -35,30 +36,66 @@ function PaymentCompleteContent() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="flex flex-col items-center text-center">
-          {/* Success Icon */}
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
+          {isBankTransfer ? (
+            <>
+              <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6">
+                <Clock className="w-12 h-12 text-amber-600" />
+              </div>
 
-          {/* Title */}
-          <h1 className="text-2xl font-bold text-black mb-2">
-            결제가 완료되었습니다!
-          </h1>
+              <h1 className="text-2xl font-bold text-black mb-2">
+                주문이 접수되었습니다
+              </h1>
 
-          <p className="text-gray-600 mb-8">
-            주문이 성공적으로 접수되었습니다.
-          </p>
+              <p className="text-gray-600 mb-4">
+                아래 계좌로 입금해 주시면 확인 후 구매가 확정됩니다.
+              </p>
 
-          {/* Order ID */}
-          <div className="w-full bg-gray-50 rounded-lg p-4 mb-8">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">주문번호</span>
-              <span className="text-sm font-medium text-black">{orderId}</span>
-            </div>
-            <p className="text-xs text-gray-500 mt-4">
-              주문 내역은 이메일로 전송됩니다.
-            </p>
-          </div>
+              <div className="w-full bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-gray-600">주문번호</span>
+                  <span className="text-sm font-medium text-black">{orderId}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-sm font-semibold text-black mb-2">입금 계좌</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">우리은행</span>
+                    <span className="text-sm text-black font-bold">1005-904-144208</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1 text-right">예금주: 김현준(피스코프)</p>
+                </div>
+              </div>
+
+              <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg mb-8">
+                <p className="text-xs text-amber-800">
+                  관리자가 입금을 확인한 후 주문이 확정됩니다. 입금이 확인되지 않으면 주문이 취소될 수 있습니다.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <CheckCircle className="w-12 h-12 text-green-600" />
+              </div>
+
+              <h1 className="text-2xl font-bold text-black mb-2">
+                결제가 완료되었습니다!
+              </h1>
+
+              <p className="text-gray-600 mb-8">
+                주문이 성공적으로 접수되었습니다.
+              </p>
+
+              <div className="w-full bg-gray-50 rounded-lg p-4 mb-8">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">주문번호</span>
+                  <span className="text-sm font-medium text-black">{orderId}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-4">
+                  주문 내역은 이메일로 전송됩니다.
+                </p>
+              </div>
+            </>
+          )}
 
           {/* Action Buttons */}
           <div className="w-full space-y-3">
