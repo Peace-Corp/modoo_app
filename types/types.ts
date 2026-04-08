@@ -375,7 +375,8 @@ export interface CustomOrderData {
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
   payment_method: string;
   order_status: string;
-  order_items: OrderItem[];
+  order_items: (OrderItem & { design_preview_url?: string | null })[];
+  order_name: string;
   product_title: string;
   design_preview_url: string | null;
 }

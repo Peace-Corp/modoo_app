@@ -72,15 +72,33 @@ export async function GET(
       return NextResponse.json({ error: '주문 항목을 불러올 수 없습니다.' }, { status: 500 });
     }
 
-    let designPreviewUrl: string | null = null;
-    if (orderItems && orderItems.length > 0 && orderItems[0].design_id) {
-      const { data: design } = await adminClient
+    // Fetch design preview URLs for all items that have design_id
+    const designIds = (orderItems || [])
+      .map(item => item.design_id)
+      .filter((id): id is string => !!id);
+    const uniqueDesignIds = [...new Set(designIds)];
+
+    const designPreviewMap = new Map<string, string>();
+    if (uniqueDesignIds.length > 0) {
+      const { data: designs } = await adminClient
         .from('saved_designs')
-        .select('preview_url')
-        .eq('id', orderItems[0].design_id)
-        .single();
-      designPreviewUrl = design?.preview_url || orderItems[0].thumbnail_url;
+        .select('id, preview_url')
+        .in('id', uniqueDesignIds);
+      designs?.forEach(d => {
+        if (d.preview_url) designPreviewMap.set(d.id, d.preview_url);
+      });
     }
+
+    const itemsWithPreview = (orderItems || []).map(item => ({
+      ...item,
+      design_preview_url: (item.design_id && designPreviewMap.get(item.design_id)) || item.thumbnail_url || null,
+    }));
+
+    // Build order name for Toss widget
+    const firstTitle = orderItems?.[0]?.product_title || '주문';
+    const orderName = (orderItems && orderItems.length > 1)
+      ? `${firstTitle} 외 ${orderItems.length - 1}건`
+      : firstTitle;
 
     return NextResponse.json({
       data: {
@@ -105,9 +123,10 @@ export async function GET(
         payment_status: order.payment_status,
         payment_method: order.payment_method,
         order_status: order.order_status,
-        order_items: orderItems || [],
-        product_title: orderItems?.[0]?.product_title || '',
-        design_preview_url: designPreviewUrl,
+        order_items: itemsWithPreview,
+        order_name: orderName,
+        product_title: firstTitle,
+        design_preview_url: itemsWithPreview[0]?.design_preview_url || null,
       },
     });
   } catch (error) {
@@ -136,7 +155,7 @@ export async function PUT(
 
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, payment_status')
+      .select('id, payment_status, order_status')
       .eq('payment_link_token', token)
       .single();
 
@@ -151,6 +170,12 @@ export async function PUT(
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
+
+    if (payload.confirmBankTransfer) {
+      updatePayload.payment_method = 'bank_transfer';
+      updatePayload.payment_status = 'pending';
+      updatePayload.order_status = 'payment_pending';
+    }
 
     if (payload.customerName) updatePayload.customer_name = payload.customerName;
     if (payload.customerEmail) updatePayload.customer_email = payload.customerEmail;

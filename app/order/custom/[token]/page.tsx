@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { Package, MapPin, Search, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Package, MapPin, Search, Loader2, ShieldCheck, CheckCircle2, CreditCard, Building2, Clock } from 'lucide-react';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 import { CustomOrderData } from '@/types/types';
 
@@ -45,6 +45,8 @@ export default function CustomOrderPage() {
   });
 
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank_transfer'>('card');
+  const [bankTransferLoading, setBankTransferLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,6 +94,10 @@ export default function CustomOrderPage() {
   }, [token]);
 
   const totalAmount = orderData?.total_amount ?? 0;
+  const itemsSubtotal = useMemo(() => {
+    if (!orderData?.order_items) return 0;
+    return orderData.order_items.reduce((sum, item) => sum + item.quantity * item.price_per_item, 0);
+  }, [orderData]);
   const hasAdjustments = useMemo(() => {
     if (!orderData) return false;
     return (orderData.coupon_discount > 0 || orderData.admin_discount > 0 || orderData.admin_surcharge > 0);
@@ -172,6 +178,29 @@ export default function CustomOrderPage() {
     setShowPayment(true);
   };
 
+  const handleBankTransferOrder = async () => {
+    setBankTransferLoading(true);
+    try {
+      const res = await fetch(`/api/order/custom/${token}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmBankTransfer: true }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setFormError(data.error || '주문 처리에 실패했습니다.');
+        return;
+      }
+
+      router.push(`/payment/complete?orderId=${orderData?.id}&method=bank_transfer`);
+    } catch {
+      setFormError('주문 처리 중 오류가 발생했습니다.');
+    } finally {
+      setBankTransferLoading(false);
+    }
+  };
+
   const successUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/order/custom/${token}/success?token=${token}`
     : '';
@@ -227,36 +256,36 @@ export default function CustomOrderPage() {
         </div>
 
         <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-          {/* Design Preview */}
+          {/* Order Items */}
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b">
               <h2 className="font-semibold text-gray-900">주문 상품</h2>
             </div>
-            <div className="p-4">
-              <div className="flex gap-4">
-                {orderData.design_preview_url ? (
-                  <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                    <img src={orderData.design_preview_url} alt="디자인 미리보기" className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
-                    <Package className="w-8 h-8 text-gray-300" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{orderData.product_title}</p>
-                  {orderData.order_items?.[0] && (
-                    <>
+            <div className="divide-y">
+              {orderData.order_items.map((item, idx) => (
+                <div key={item.id || idx} className="p-4">
+                  <div className="flex gap-4">
+                    {item.design_preview_url ? (
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                        <img src={item.design_preview_url} alt={item.product_title} className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                        <Package className="w-6 h-6 text-gray-300" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">{item.product_title}</p>
                       <p className="text-sm text-gray-500 mt-1">
-                        수량: {orderData.order_items[0].quantity}개
+                        {item.price_per_item.toLocaleString()}원 × {item.quantity}개
                       </p>
-                      <p className="text-sm text-gray-500">
-                        단가: {orderData.order_items[0].price_per_item.toLocaleString()}원
+                      <p className="text-sm font-medium text-gray-800 mt-0.5">
+                        {(item.price_per_item * item.quantity).toLocaleString()}원
                       </p>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -266,10 +295,14 @@ export default function CustomOrderPage() {
               <h2 className="font-semibold text-gray-900">결제 금액</h2>
             </div>
             <div className="p-4 space-y-2">
-              {hasAdjustments && orderData.original_amount && (
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>상품 금액</span>
+                <span>{itemsSubtotal.toLocaleString()}원</span>
+              </div>
+              {orderData.delivery_fee > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>상품 금액</span>
-                  <span>{orderData.original_amount.toLocaleString()}원</span>
+                  <span>배송비</span>
+                  <span>+{orderData.delivery_fee.toLocaleString()}원</span>
                 </div>
               )}
               {orderData.coupon_discount > 0 && (
@@ -290,7 +323,10 @@ export default function CustomOrderPage() {
                   <span>+{orderData.admin_surcharge.toLocaleString()}원</span>
                 </div>
               )}
-              {hasAdjustments && <div className="border-t my-2" />}
+              {orderData.pricing_note && (
+                <p className="text-xs text-gray-400 mt-1">{orderData.pricing_note}</p>
+              )}
+              <div className="border-t my-2" />
               <div className="flex justify-between font-bold text-lg">
                 <span>총 결제 금액</span>
                 <span className="text-blue-600">{totalAmount.toLocaleString()}원</span>
@@ -421,19 +457,93 @@ export default function CustomOrderPage() {
             </>
           ) : (
             <>
-              {/* Toss Payment Widget */}
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden p-4">
-                <TossPaymentWidget
-                  amount={totalAmount}
-                  orderId={orderData.id}
-                  orderName={orderData.product_title}
-                  customerEmail={customerEmail}
-                  customerName={customerName}
-                  customerMobilePhone={customerPhone.replace(/[^0-9]/g, '') || undefined}
-                  successUrl={successUrl}
-                  failUrl={failUrl}
-                />
+              {/* Payment Method Selection */}
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="p-4 border-b">
+                  <h2 className="font-semibold text-gray-900">결제 수단</h2>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${paymentMethod === 'card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                  >
+                    <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <span className={`text-sm font-medium ${paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-600'}`}>카드결제</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('bank_transfer')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${paymentMethod === 'bank_transfer' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                  >
+                    <Building2 className={`w-6 h-6 ${paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <span className={`text-sm font-medium ${paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-600'}`}>직접 계좌이체</span>
+                  </button>
+                </div>
               </div>
+
+              {paymentMethod === 'card' ? (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden p-4">
+                  <TossPaymentWidget
+                    amount={totalAmount}
+                    orderId={orderData.id}
+                    orderName={orderData.order_name}
+                    customerEmail={customerEmail}
+                    customerName={customerName}
+                    customerMobilePhone={customerPhone.replace(/[^0-9]/g, '') || undefined}
+                    successUrl={successUrl}
+                    failUrl={failUrl}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="p-4 border-b">
+                      <h2 className="font-semibold text-gray-900">입금 계좌 안내</h2>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-gray-600">은행</span>
+                          <span className="text-sm font-medium text-gray-900">우리은행</span>
+                        </div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-gray-600">계좌번호</span>
+                          <span className="text-sm font-bold text-gray-900">1005-904-144208</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">예금주</span>
+                          <span className="text-sm font-medium text-gray-900">김현준(피스코프)</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-sm text-gray-600">입금 금액</span>
+                        <span className="text-base font-bold text-blue-600">{totalAmount.toLocaleString()}원</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+                    <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-800">
+                      위 계좌로 입금해 주시면 관리자가 확인 후 구매가 확정됩니다. 입금이 확인되지 않으면 주문이 취소될 수 있습니다.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleBankTransferOrder}
+                    disabled={bankTransferLoading}
+                    className="w-full py-4 bg-black text-white rounded-xl font-medium text-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {bankTransferLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        처리 중...
+                      </span>
+                    ) : '주문하기'}
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={() => setShowPayment(false)}
