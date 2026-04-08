@@ -345,6 +345,13 @@ export interface OrderItem {
   thumbnail_url: string | null;
   text_svg_exports: TextSvgExports | null;
   image_urls: Record<string, unknown> | null;
+
+  // Design proof status
+  design_status?: 'pending' | 'in_progress' | 'design_shared' | 'revision_requested' | 'confirmed';
+  design_shared_at?: string | null;
+  design_confirmed_at?: string | null;
+  design_revision_note?: string | null;
+
   created_at: string;
   updated_at: string;
 }

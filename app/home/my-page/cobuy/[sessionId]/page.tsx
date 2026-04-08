@@ -14,10 +14,11 @@ import {
   updateDeliverySettings
 } from '@/lib/cobuyService';
 import { CoBuyParticipant, CoBuySession, CoBuyDeliverySettings } from '@/types/types';
-import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check, Pencil } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Copy, Users, PackageCheck, ShoppingBag, Info, ChevronDown, Truck, MapPin, Check, Pencil, Search, UserPlus, Trash2 } from 'lucide-react';
 import CoBuyProgressBar from '@/app/components/cobuy/CoBuyProgressBar';
 import CoBuyOrderModal from '@/app/components/cobuy/CoBuyOrderModal';
 import DeliverySettingsEditModal from '@/app/components/cobuy/DeliverySettingsEditModal';
+import CoBuyParticipantModal, { ParticipantFormData } from '@/app/components/cobuy/CoBuyParticipantModal';
 
 const statusLabels: Record<CoBuySession['status'], { label: string; color: string }> = {
   gathering: { label: '모집중', color: 'bg-green-100 text-green-800' },
@@ -53,6 +54,11 @@ export default function CoBuyDetailPage() {
   const [updatingPickupStatus, setUpdatingPickupStatus] = useState<Set<string>>(new Set());
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isDeliverySettingsModalOpen, setIsDeliverySettingsModalOpen] = useState(false);
+  const [showParticipantModal, setShowParticipantModal] = useState(false);
+  const [editingParticipant, setEditingParticipant] = useState<CoBuyParticipant | null>(null);
+  const [participantSearch, setParticipantSearch] = useState('');
+  const [participantPaymentFilter, setParticipantPaymentFilter] = useState<'all' | CoBuyParticipant['payment_status']>('all');
+  const [participantPickupFilter, setParticipantPickupFilter] = useState<'all' | 'pending' | 'picked_up'>('all');
 
   // Check if editing is allowed (before order_complete)
   const canEditDeliverySettings = session && !['order_complete', 'manufacturing', 'manufacture_complete', 'delivering', 'delivery_complete', 'cancelled'].includes(session.status);
@@ -221,6 +227,106 @@ export default function CoBuyDetailPage() {
       .reduce((sum, p) => sum + (p.total_quantity || 0), 0),
     [participants]
   );
+
+  const filteredParticipants = useMemo(() => {
+    let filtered = participants;
+    if (participantSearch.trim()) {
+      const q = participantSearch.trim().toLowerCase();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.email.toLowerCase().includes(q) ||
+        (p.phone && p.phone.includes(q))
+      );
+    }
+    if (participantPaymentFilter !== 'all') {
+      filtered = filtered.filter(p => p.payment_status === participantPaymentFilter);
+    }
+    if (participantPickupFilter !== 'all') {
+      filtered = filtered.filter(p => (p.pickup_status || 'pending') === participantPickupFilter);
+    }
+    return filtered;
+  }, [participants, participantSearch, participantPaymentFilter, participantPickupFilter]);
+
+  const sizeOptionsFromSession = useMemo(() => {
+    const sizeField = session?.custom_fields?.find((f: { id: string; type: string; options?: string[] }) => f.id === 'size' && f.type === 'dropdown');
+    return sizeField?.options ?? [];
+  }, [session?.custom_fields]);
+
+  const handleAddParticipant = async (data: ParticipantFormData) => {
+    if (!session) return;
+    const response = await fetch('/api/cobuy/participant/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: session.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        selectedItems: data.selectedItems,
+        fieldResponses: data.fieldResponses,
+        deliveryMethod: data.deliveryMethod,
+      }),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.error || '참여자 추가에 실패했습니다.');
+    }
+    fetchSessionData();
+  };
+
+  const handleEditParticipant = async (data: ParticipantFormData) => {
+    if (!editingParticipant || !session) return;
+    const totalQty = data.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const selectedSize = data.selectedItems.map(i => `${i.size}(${i.quantity})`).join(', ');
+
+    const response = await fetch('/api/cobuy/participant/update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        participantId: editingParticipant.id,
+        sessionId: session.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        selectedItems: data.selectedItems,
+        totalQuantity: totalQty,
+        selectedSize,
+        fieldResponses: data.fieldResponses,
+        deliveryMethod: data.deliveryMethod,
+      }),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.error || '참여자 수정에 실패했습니다.');
+    }
+    fetchSessionData();
+  };
+
+  const handleDeleteParticipant = async (participant: CoBuyParticipant) => {
+    if (!session) return;
+    if (participant.payment_status !== 'pending') {
+      alert('결제 대기 상태의 참여자만 삭제할 수 있습니다.');
+      return;
+    }
+    const confirmed = window.confirm(`${participant.name}님을 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch('/api/cobuy/participant/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId: participant.id, sessionId: session.id }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || '참여자 삭제에 실패했습니다.');
+      }
+      fetchSessionData();
+    } catch (err) {
+      console.error('Error deleting participant:', err);
+      alert(err instanceof Error ? err.message : '참여자 삭제에 실패했습니다.');
+    }
+  };
 
   // Helper to render selected items
   const renderSelectedItems = (participant: CoBuyParticipant) => {
@@ -692,25 +798,73 @@ export default function CoBuyDetailPage() {
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-gray-900">
               참여자 목록
-              <span className="ml-2 text-sm font-normal text-gray-500">({participants.length}명)</span>
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({filteredParticipants.length}{filteredParticipants.length !== participants.length ? ` / ${participants.length}` : ''}명)
+              </span>
             </h2>
-            <button
-              onClick={fetchSessionData}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              새로고침
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setEditingParticipant(null); setShowParticipantModal(true); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-black rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">수기 추가</span>
+              </button>
+              <button
+                onClick={fetchSessionData}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                새로고침
+              </button>
+            </div>
           </div>
-          {participants.length === 0 ? (
-            <p className="text-gray-500 text-sm">아직 참여한 인원이 없습니다.</p>
+
+          {/* Search & Filters */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="이름, 이메일, 전화번호 검색..."
+                value={participantSearch}
+                onChange={(e) => setParticipantSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-black focus:border-black"
+              />
+            </div>
+            <select
+              value={participantPaymentFilter}
+              onChange={(e) => setParticipantPaymentFilter(e.target.value as typeof participantPaymentFilter)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+            >
+              <option value="all">결제: 전체</option>
+              <option value="pending">결제: 대기</option>
+              <option value="completed">결제: 완료</option>
+              <option value="failed">결제: 실패</option>
+              <option value="refunded">결제: 환불</option>
+            </select>
+            <select
+              value={participantPickupFilter}
+              onChange={(e) => setParticipantPickupFilter(e.target.value as typeof participantPickupFilter)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+            >
+              <option value="all">수령: 전체</option>
+              <option value="pending">수령: 미수령</option>
+              <option value="picked_up">수령: 완료</option>
+            </select>
+          </div>
+
+          {filteredParticipants.length === 0 ? (
+            <p className="text-gray-500 text-sm py-6 text-center">
+              {participants.length === 0 ? '아직 참여한 인원이 없습니다.' : '검색 결과가 없습니다.'}
+            </p>
           ) : (
             <>
               {/* Mobile view - Accordion layout */}
               <div className="md:hidden space-y-2">
-                {participants.map((participant) => {
+                {filteredParticipants.map((participant) => {
                   const paymentInfo = paymentLabels[participant.payment_status];
                   const isExpanded = expandedParticipants.has(participant.id);
                   const totalQty = participant.total_quantity || participant.selected_items?.reduce((sum, i) => sum + i.quantity, 0) || 1;
@@ -796,6 +950,24 @@ export default function CoBuyDetailPage() {
 
                           {/* Custom field responses */}
                           {renderFieldResponses(participant, 'mobile')}
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-200">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingParticipant(participant); setShowParticipantModal(true); }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                            >
+                              <Pencil className="w-3 h-3" /> 수정
+                            </button>
+                            {participant.payment_status === 'pending' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteParticipant(participant); }}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50"
+                              >
+                                <Trash2 className="w-3 h-3" /> 삭제
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                       </div>
@@ -817,10 +989,11 @@ export default function CoBuyDetailPage() {
                       <th className="py-2 pr-4 font-medium">결제 금액</th>
                       <th className="py-2 pr-4 font-medium">참여일</th>
                       <th className="py-2 font-medium text-center">배부</th>
+                      <th className="py-2 font-medium text-center">액션</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {participants.map((participant) => {
+                    {filteredParticipants.map((participant) => {
                       const paymentInfo = paymentLabels[participant.payment_status];
                       return (
                         <tr key={participant.id} className="border-b last:border-b-0 align-top">
@@ -860,6 +1033,26 @@ export default function CoBuyDetailPage() {
                               <span className="text-gray-400 text-xs">-</span>
                             )}
                           </td>
+                          <td className="py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => { setEditingParticipant(participant); setShowParticipantModal(true); }}
+                                title="수정"
+                                className="p-1.5 text-gray-400 hover:text-[#3B55A5] hover:bg-blue-50 rounded transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              {participant.payment_status === 'pending' && (
+                                <button
+                                  onClick={() => handleDeleteParticipant(participant)}
+                                  title="삭제"
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -890,6 +1083,18 @@ export default function CoBuyDetailPage() {
           onClose={() => setIsDeliverySettingsModalOpen(false)}
           deliverySettings={session.delivery_settings}
           onSave={handleSaveDeliverySettings}
+        />
+      )}
+
+      {/* Participant Add/Edit Modal */}
+      {session && (
+        <CoBuyParticipantModal
+          isOpen={showParticipantModal}
+          onClose={() => { setShowParticipantModal(false); setEditingParticipant(null); }}
+          onSave={editingParticipant ? handleEditParticipant : handleAddParticipant}
+          participant={editingParticipant}
+          customFields={session.custom_fields}
+          sizeOptions={sizeOptionsFromSession}
         />
       )}
     </div>

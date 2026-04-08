@@ -88,6 +88,14 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
     }
 
+    // Update status to 'feedback' if currently 'design_shared'
+    if (request.status === 'design_shared') {
+      await adminSupabase
+        .from('cobuy_requests')
+        .update({ status: 'feedback', updated_at: new Date().toISOString() })
+        .eq('id', request.id);
+    }
+
     // Notify admin about every customer comment
     const adminEmail = process.env.ADMIN_EMAIL;
     if (adminEmail) {

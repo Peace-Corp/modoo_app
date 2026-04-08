@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
-import { ChevronLeft, Package, Phone, X, XCircle, MessageSquare } from 'lucide-react';
+import { ChevronLeft, Package, Phone, X, XCircle, MessageSquare, Send } from 'lucide-react';
+import Link from 'next/link';
 import { OrderItem } from '@/types/types';
 import DesignChatSection from '@/app/components/DesignChatSection';
 
@@ -264,6 +265,27 @@ export default function OrderDetailPage() {
       </div>
 
       <div className="max-w-4xl mx-auto">
+        {/* Design Review Banner */}
+        {order.order_items.some((item) =>
+          item.design_status === 'design_shared' || item.design_status === 'revision_requested'
+        ) && (
+          <Link
+            href={`/order/${orderId}/design-review`}
+            className="block bg-purple-50 border border-purple-200 mt-2 mx-4 rounded-xl p-4 hover:bg-purple-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                <Send className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-purple-900 text-sm">시안 확인이 필요합니다</p>
+                <p className="text-xs text-purple-600 mt-0.5">디자인 시안을 확인하고 확정해주세요</p>
+              </div>
+              <ChevronLeft className="w-5 h-5 text-purple-400 rotate-180" />
+            </div>
+          </Link>
+        )}
+
         {/* 결제 정보 */}
         <div className="bg-white mt-2 px-4 py-4">
           <h2 className="text-sm font-bold mb-3">결제 정보</h2>
@@ -328,6 +350,19 @@ export default function OrderDetailPage() {
                 <span className={`text-sm font-bold ${orderStatus.color}`}>
                   {orderStatus.label}
                 </span>
+                {item.design_status && item.design_status !== 'pending' && (
+                  <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                    item.design_status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                    item.design_status === 'design_shared' ? 'bg-purple-100 text-purple-700' :
+                    item.design_status === 'revision_requested' ? 'bg-amber-100 text-amber-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {item.design_status === 'confirmed' ? '시안확정' :
+                     item.design_status === 'design_shared' ? '시안확인 필요' :
+                     item.design_status === 'revision_requested' ? '수정요청' :
+                     item.design_status}
+                  </span>
+                )}
               </div>
 
               {/* Item */}
