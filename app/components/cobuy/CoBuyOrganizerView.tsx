@@ -37,7 +37,7 @@ const paymentLabels: Record<CoBuyParticipant['payment_status'], { label: string;
   completed: { label: '완료', color: 'bg-green-100 text-green-800' },
   failed: { label: '실패', color: 'bg-red-100 text-red-800' },
   refunded: { label: '환불', color: 'bg-gray-100 text-gray-800' },
-  not_required: { label: '불필요', color: 'bg-blue-100 text-blue-800' },
+  not_required: { label: '대표자 일괄결제', color: 'bg-blue-100 text-blue-800' },
 };
 
 /** 마이페이지 UUID 경로(로그인 필수) 또는 share_token 기반 `/cobuy/host/[shareToken]`(누구나 접근 가능) */
