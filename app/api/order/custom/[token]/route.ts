@@ -90,9 +90,23 @@ export async function GET(
       });
     }
 
+    // Fetch sizing_chart_image for each product
+    const productIds = [...new Set((orderItems || []).map(item => item.product_id).filter(Boolean))];
+    const sizingChartMap = new Map<string, string>();
+    if (productIds.length > 0) {
+      const { data: productsData } = await adminClient
+        .from('products')
+        .select('id, sizing_chart_image')
+        .in('id', productIds);
+      productsData?.forEach(p => {
+        if (p.sizing_chart_image) sizingChartMap.set(p.id, p.sizing_chart_image);
+      });
+    }
+
     const itemsWithPreview = (orderItems || []).map(item => ({
       ...item,
       design_preview_url: (item.design_id && designPreviewMap.get(item.design_id)) || item.thumbnail_url || null,
+      sizing_chart_image: (item.product_id && sizingChartMap.get(item.product_id)) || null,
     }));
 
     // Build order name for Toss widget

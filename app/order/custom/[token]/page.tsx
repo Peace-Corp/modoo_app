@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { Package, MapPin, Search, Loader2, ShieldCheck, CheckCircle2, CreditCard, Building2, Clock, Minus, Plus } from 'lucide-react';
+import { Package, MapPin, Search, Loader2, ShieldCheck, CheckCircle2, CreditCard, Building2, Clock, Minus, Plus, ChevronDown, ChevronUp, X, Ruler } from 'lucide-react';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 import { CustomOrderData } from '@/types/types';
 
@@ -58,6 +58,8 @@ export default function CustomOrderPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [itemQuantities, setItemQuantities] = useState<ItemQuantities>({});
+  const [expandedQtyItems, setExpandedQtyItems] = useState<Record<string, boolean>>({});
+  const [sizeChartUrl, setSizeChartUrl] = useState<string | null>(null);
 
   const ceFields = orderData?.customer_editable_fields;
   const isQtyEditable = !!ceFields?.quantities;
@@ -386,40 +388,92 @@ export default function CustomOrderPage() {
                       </div>
                     </div>
 
-                    {isQtyEditable && variants.length > 0 && (
-                      <div className="mt-3 space-y-2 pl-1">
-                        <p className="text-xs font-medium text-gray-500 mb-1">사이즈별 수량 선택</p>
-                        {variants.map(v => (
-                          <div key={v.sizeId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-                            <span className="text-sm text-gray-700 font-medium">{v.sizeName}</span>
-                            <div className="flex items-center gap-1.5">
+                    {(() => {
+                      const readOnlyVariants = !isQtyEditable
+                        ? (item.item_options?.variants || []).filter(v => v.quantity > 0)
+                        : [];
+                      const showEditable = isQtyEditable && variants.length > 0;
+                      const showReadOnly = !isQtyEditable && readOnlyVariants.length > 1;
+                      const showSizeChart = !!item.sizing_chart_image;
+
+                      if (!showEditable && !showReadOnly && !showSizeChart) return null;
+
+                      return (
+                        <div className="mt-3 pl-1">
+                          <div className="flex items-center justify-between mb-2">
+                            {(showEditable || showReadOnly) ? (
                               <button
                                 type="button"
-                                onClick={() => handleVariantQty(item.id, v.sizeId, -1)}
-                                disabled={v.quantity <= 0}
-                                className="p-1.5 rounded bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                onClick={() => setExpandedQtyItems(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                                className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
                               >
-                                <Minus className="w-3.5 h-3.5" />
+                                <span>
+                                  {showEditable
+                                    ? `사이즈별 수량 선택 (${variants.filter(v => v.quantity > 0).length}개 선택)`
+                                    : `사이즈별 수량 (${readOnlyVariants.length}개)`}
+                                </span>
+                                {expandedQtyItems[item.id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                               </button>
-                              <input
-                                type="number"
-                                min="0"
-                                value={v.quantity}
-                                onChange={(e) => handleVariantQtyInput(item.id, v.sizeId, e.target.value)}
-                                className="w-14 text-center p-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
+                            ) : <div />}
+                            {showSizeChart && (
                               <button
                                 type="button"
-                                onClick={() => handleVariantQty(item.id, v.sizeId, 1)}
-                                className="p-1.5 rounded bg-white border border-gray-200 hover:bg-gray-100"
+                                onClick={() => setSizeChartUrl(item.sizing_chart_image!)}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
                               >
-                                <Plus className="w-3.5 h-3.5" />
+                                <Ruler className="w-3.5 h-3.5" />
+                                사이즈표
                               </button>
-                            </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
+
+                          {expandedQtyItems[item.id] && showEditable && (
+                            <div className="space-y-2">
+                              {variants.map(v => (
+                                <div key={v.sizeId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                                  <span className="text-sm text-gray-700 font-medium">{v.sizeName}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleVariantQty(item.id, v.sizeId, -1)}
+                                      disabled={v.quantity <= 0}
+                                      className="p-1.5 rounded bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={v.quantity}
+                                      onChange={(e) => handleVariantQtyInput(item.id, v.sizeId, e.target.value)}
+                                      className="w-14 text-center p-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleVariantQty(item.id, v.sizeId, 1)}
+                                      className="p-1.5 rounded bg-white border border-gray-200 hover:bg-gray-100"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {expandedQtyItems[item.id] && showReadOnly && (
+                            <div className="space-y-1.5">
+                              {readOnlyVariants.map(v => (
+                                <div key={v.size_id} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg">
+                                  <span className="text-sm text-gray-700 font-medium">{v.size_name}</span>
+                                  <span className="text-sm text-gray-600">{v.quantity}개</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -708,6 +762,27 @@ export default function CustomOrderPage() {
           )}
         </div>
       </div>
+
+      {sizeChartUrl && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60"
+          onClick={() => setSizeChartUrl(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setSizeChartUrl(null)}
+              className="absolute -top-8 right-0 text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={sizeChartUrl}
+              alt="사이즈표"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

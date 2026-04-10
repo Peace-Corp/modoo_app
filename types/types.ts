@@ -343,6 +343,7 @@ export interface OrderItem {
     }>;
   };
   thumbnail_url: string | null;
+  sizing_chart_image?: string | null;
   text_svg_exports: TextSvgExports | null;
   image_urls: Record<string, unknown> | null;
 
