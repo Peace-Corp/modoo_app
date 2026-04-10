@@ -64,6 +64,7 @@ export default function CustomOrderPage() {
   const [designPreviewItem, setDesignPreviewItem] = useState<{
     productTitle: string;
     designTitle: string | null;
+    productId: string;
     sides: Array<{ id: string; name: string; imageUrl?: string; printArea: { x: number; y: number; width: number; height: number }; layers?: Array<{ id: string; imageUrl: string; zIndex: number }>; zoomScale?: number }> | null;
     canvasState: Record<string, string> | null;
     productColor?: string;
@@ -390,6 +391,7 @@ export default function CustomOrderPage() {
                             setDesignPreviewItem({
                               productTitle: item.product_title,
                               designTitle: (item as any).design_title || null,
+                              productId: item.product_id,
                               sides: hasCanvasData ? sides : null,
                               canvasState: hasCanvasData ? parsed : null,
                               productColor: typeof pColor === 'string' ? pColor : undefined,
@@ -804,6 +806,7 @@ export default function CustomOrderPage() {
           onClose={() => setDesignPreviewItem(null)}
           productTitle={designPreviewItem.productTitle}
           designTitle={designPreviewItem.designTitle}
+          productId={designPreviewItem.productId}
           sides={designPreviewItem.sides || []}
           canvasState={designPreviewItem.canvasState}
           productColor={designPreviewItem.productColor}
