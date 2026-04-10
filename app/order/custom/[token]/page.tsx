@@ -384,13 +384,15 @@ export default function CustomOrderPage() {
                             const cs = (item as any).canvas_state;
                             const parsed = cs ? (typeof cs === 'string' ? (() => { try { return JSON.parse(cs); } catch { return null; } })() : cs) : null;
                             const sides = (item as any).product_sides || null;
-                            const hasCanvasData = parsed && sides && Object.keys(parsed).length > 0;
+                            const hasCanvasData = parsed && sides && Array.isArray(sides) && sides.length > 0 && Object.keys(parsed).length > 0;
+                            const colorSel = (item as any).color_selections;
+                            const pColor = colorSel?.productColor || (typeof colorSel === 'object' ? Object.values(colorSel || {})?.[0] : undefined);
                             setDesignPreviewItem({
                               productTitle: item.product_title,
                               designTitle: (item as any).design_title || null,
                               sides: hasCanvasData ? sides : null,
                               canvasState: hasCanvasData ? parsed : null,
-                              productColor: (item as any).color_selections?.productColor,
+                              productColor: typeof pColor === 'string' ? pColor : undefined,
                               fallbackImageUrl: item.design_preview_url || undefined,
                             });
                           }}

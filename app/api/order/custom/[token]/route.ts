@@ -107,8 +107,9 @@ export async function GET(
         if (p.sizing_chart_image) sizingChartMap.set(p.id, p.sizing_chart_image);
         if (p.configuration) {
           const config = typeof p.configuration === 'string' ? JSON.parse(p.configuration) : p.configuration;
-          if (config?.sides) {
-            productConfigMap.set(p.id, { sides: config.sides });
+          const sides = Array.isArray(config) ? config : config?.sides;
+          if (Array.isArray(sides) && sides.length > 0) {
+            productConfigMap.set(p.id, { sides });
           }
         }
       });
