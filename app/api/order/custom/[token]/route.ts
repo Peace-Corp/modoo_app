@@ -65,7 +65,9 @@ export async function GET(
         quantity,
         price_per_item,
         item_options,
-        thumbnail_url
+        thumbnail_url,
+        canvas_state,
+        color_selections
       `)
       .eq('order_id', order.id);
 
@@ -73,41 +75,55 @@ export async function GET(
       return NextResponse.json({ error: '주문 항목을 불러올 수 없습니다.' }, { status: 500 });
     }
 
-    // Fetch design preview URLs for all items that have design_id
+    // Fetch design preview URLs and titles for all items that have design_id
     const designIds = (orderItems || [])
       .map(item => item.design_id)
       .filter((id): id is string => !!id);
     const uniqueDesignIds = [...new Set(designIds)];
 
     const designPreviewMap = new Map<string, string>();
+    const designTitleMap = new Map<string, string>();
     if (uniqueDesignIds.length > 0) {
       const { data: designs } = await adminClient
         .from('saved_designs')
-        .select('id, preview_url')
+        .select('id, preview_url, title')
         .in('id', uniqueDesignIds);
       designs?.forEach(d => {
         if (d.preview_url) designPreviewMap.set(d.id, d.preview_url);
+        if (d.title) designTitleMap.set(d.id, d.title);
       });
     }
 
-    // Fetch sizing_chart_image for each product
+    // Fetch sizing_chart_image and configuration for each product
     const productIds = [...new Set((orderItems || []).map(item => item.product_id).filter(Boolean))];
     const sizingChartMap = new Map<string, string>();
+    const productConfigMap = new Map<string, { sides: Array<{ id: string; name: string; imageUrl?: string; printArea: { x: number; y: number; width: number; height: number }; layers?: Array<{ id: string; imageUrl: string; zIndex: number }>; zoomScale?: number }> }>();
     if (productIds.length > 0) {
       const { data: productsData } = await adminClient
         .from('products')
-        .select('id, sizing_chart_image')
+        .select('id, sizing_chart_image, configuration')
         .in('id', productIds);
       productsData?.forEach(p => {
         if (p.sizing_chart_image) sizingChartMap.set(p.id, p.sizing_chart_image);
+        if (p.configuration) {
+          const config = typeof p.configuration === 'string' ? JSON.parse(p.configuration) : p.configuration;
+          if (config?.sides) {
+            productConfigMap.set(p.id, { sides: config.sides });
+          }
+        }
       });
     }
 
-    const itemsWithPreview = (orderItems || []).map(item => ({
-      ...item,
-      design_preview_url: (item.design_id && designPreviewMap.get(item.design_id)) || item.thumbnail_url || null,
-      sizing_chart_image: (item.product_id && sizingChartMap.get(item.product_id)) || null,
-    }));
+    const itemsWithPreview = (orderItems || []).map(item => {
+      const productConfig = item.product_id ? productConfigMap.get(item.product_id) : null;
+      return {
+        ...item,
+        design_preview_url: (item.design_id && designPreviewMap.get(item.design_id)) || item.thumbnail_url || null,
+        design_title: (item.design_id && designTitleMap.get(item.design_id)) || null,
+        sizing_chart_image: (item.product_id && sizingChartMap.get(item.product_id)) || null,
+        product_sides: productConfig?.sides || null,
+      };
+    });
 
     // Build order name for Toss widget
     const firstTitle = orderItems?.[0]?.product_title || '주문';

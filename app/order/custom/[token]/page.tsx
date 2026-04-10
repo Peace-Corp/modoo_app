@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { Package, MapPin, Search, Loader2, ShieldCheck, CheckCircle2, CreditCard, Building2, Clock, Minus, Plus, ChevronDown, ChevronUp, X, Ruler } from 'lucide-react';
+import { Package, MapPin, Search, Loader2, ShieldCheck, CheckCircle2, CreditCard, Building2, Clock, Minus, Plus, ChevronDown, ChevronUp, X, Ruler, Eye } from 'lucide-react';
 import TossPaymentWidget from '@/app/components/toss/TossPaymentWidget';
 import { CustomOrderData } from '@/types/types';
+import DesignPreviewModal from './DesignPreviewModal';
 
 type ShippingMethod = 'domestic' | 'pickup';
 
@@ -60,6 +61,13 @@ export default function CustomOrderPage() {
   const [itemQuantities, setItemQuantities] = useState<ItemQuantities>({});
   const [expandedQtyItems, setExpandedQtyItems] = useState<Record<string, boolean>>({});
   const [sizeChartUrl, setSizeChartUrl] = useState<string | null>(null);
+  const [designPreviewItem, setDesignPreviewItem] = useState<{
+    productTitle: string;
+    designTitle: string | null;
+    sides: Array<{ id: string; name: string; imageUrl?: string; printArea: { x: number; y: number; width: number; height: number }; layers?: Array<{ id: string; imageUrl: string; zIndex: number }>; zoomScale?: number }>;
+    canvasState: Record<string, string> | null;
+    productColor?: string;
+  } | null>(null);
 
   const ceFields = orderData?.customer_editable_fields;
   const isQtyEditable = !!ceFields?.quantities;
@@ -368,17 +376,47 @@ export default function CustomOrderPage() {
                 return (
                   <div key={item.id || idx} className="p-4">
                     <div className="flex gap-4">
-                      {item.design_preview_url ? (
-                        <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                          <img src={item.design_preview_url} alt={item.product_title} className="w-full h-full object-contain" />
-                        </div>
-                      ) : (
+                      {item.design_preview_url ? (() => {
+                        const hasSidePreview = !!(item as any).product_sides && !!(item as any).canvas_state;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (hasSidePreview) {
+                                const cs = (item as any).canvas_state;
+                                const parsed = typeof cs === 'string' ? (() => { try { return JSON.parse(cs); } catch { return null; } })() : cs;
+                                setDesignPreviewItem({
+                                  productTitle: item.product_title,
+                                  designTitle: (item as any).design_title || null,
+                                  sides: (item as any).product_sides,
+                                  canvasState: parsed,
+                                  productColor: (item as any).color_selections?.productColor,
+                                });
+                              }
+                            }}
+                            className={`relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 ${hasSidePreview ? 'group cursor-pointer active:scale-95 transition-transform' : 'cursor-default'}`}
+                          >
+                            <img src={item.design_preview_url} alt={item.product_title} className="w-full h-full object-contain" />
+                            {hasSidePreview && (
+                              <>
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                <div className="absolute bottom-0.5 right-0.5 p-0.5 rounded-full bg-black/40">
+                                  <Eye className="w-3 h-3 text-white" />
+                                </div>
+                              </>
+                            )}
+                          </button>
+                        );
+                      })() : (
                         <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
                           <Package className="w-6 h-6 text-gray-300" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">{item.product_title}</p>
+                        {(item as any).design_title && (
+                          <p className="text-xs text-gray-400 mt-0.5">{(item as any).design_title}</p>
+                        )}
                         <p className="text-sm text-gray-500 mt-1">
                           {item.price_per_item.toLocaleString()}원{isQtyEditable ? '/개' : ` × ${item.quantity}개`}
                         </p>
@@ -762,6 +800,18 @@ export default function CustomOrderPage() {
           )}
         </div>
       </div>
+
+      {designPreviewItem && (
+        <DesignPreviewModal
+          isOpen={!!designPreviewItem}
+          onClose={() => setDesignPreviewItem(null)}
+          productTitle={designPreviewItem.productTitle}
+          designTitle={designPreviewItem.designTitle}
+          sides={designPreviewItem.sides}
+          canvasState={designPreviewItem.canvasState}
+          productColor={designPreviewItem.productColor}
+        />
+      )}
 
       {sizeChartUrl && (
         <div
