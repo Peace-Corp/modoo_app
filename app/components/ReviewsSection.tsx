@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FaStar } from 'react-icons/fa';
+import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
 interface Review {
@@ -150,6 +151,17 @@ export default function ReviewsSection({ productId, limit = 10 }: ReviewsSection
             )}
           </div>
         ))}
+      </div>
+
+      {/* Inquiry Link */}
+      <div className="mt-3 flex justify-end">
+        <Link
+          href={`/inquiries/new?products=${productId}`}
+          className="inline-flex items-center gap-1.5 text-xs text-[#3B55A5] hover:underline"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          이 상품 문의하기
+        </Link>
       </div>
 
       {/* Image Modal */}

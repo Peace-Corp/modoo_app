@@ -212,13 +212,27 @@ export default function MyReviewsPage() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDelete(review.id)}
-                    disabled={deletingId === review.id}
-                    className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
-                  >
-                    {deletingId === review.id ? '삭제 중...' : '삭제'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          productId: review.product_id,
+                          editReviewId: review.id,
+                        });
+                        router.push(`/reviews/my/create?${params.toString()}`);
+                      }}
+                      className="text-sm text-[#3B55A5] hover:text-[#2D4280]"
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={() => handleDelete(review.id)}
+                      disabled={deletingId === review.id}
+                      className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+                    >
+                      {deletingId === review.id ? '삭제 중...' : '삭제'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3">

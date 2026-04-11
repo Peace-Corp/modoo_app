@@ -451,6 +451,13 @@ export default function OrderDetailPage() {
                 <Phone className="w-4 h-4" />
                 전화로 문의하기
               </a>
+              <Link
+                href="/inquiries/new"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition"
+              >
+                <MessageSquare className="w-4 h-4" />
+                게시판으로 문의하기
+              </Link>
             </div>
           </div>
         </div>

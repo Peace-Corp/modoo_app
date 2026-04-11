@@ -76,3 +76,72 @@ export async function DELETE(
   return NextResponse.json({ ok: true });
 }
 
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ reviewId: string }> }
+) {
+  const { reviewId } = await params;
+  if (!reviewId) {
+    return NextResponse.json({ error: 'Missing reviewId' }, { status: 400 });
+  }
+
+  const supabase = await createAuthedClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+  }
+
+  const { rating, title, content, review_image_urls } = body as {
+    rating?: number;
+    title?: string;
+    content?: string;
+    review_image_urls?: string[];
+  };
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (rating != null && rating >= 1 && rating <= 5) updates.rating = rating;
+  if (typeof title === 'string' && title.trim()) updates.title = title.trim();
+  if (typeof content === 'string' && content.trim()) updates.content = content.trim();
+  if (Array.isArray(review_image_urls)) updates.review_image_urls = review_image_urls;
+
+  if (Object.keys(updates).length <= 1) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+
+  const { data: existing, error: fetchError } = await admin
+    .from('reviews')
+    .select('id')
+    .eq('id', reviewId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  }
+  if (!existing) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const { error: updateError } = await admin
+    .from('reviews')
+    .update(updates)
+    .eq('id', reviewId)
+    .eq('user_id', user.id);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+

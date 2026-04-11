@@ -6,7 +6,6 @@ import Header from '@/app/components/Header';
 import { createClient } from '@/lib/supabase-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { FaStar } from 'react-icons/fa';
-import { userInfo } from 'os';
 
 type ProductSummary = {
   id: string;
@@ -26,6 +25,8 @@ export default function CreateMyReviewPage() {
 
   const productId = searchParams.get('productId') || '';
   const orderId = searchParams.get('orderId') || '';
+  const editReviewId = searchParams.get('editReviewId') || '';
+  const isEditMode = Boolean(editReviewId);
 
   const [product, setProduct] = useState<ProductSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +39,7 @@ export default function CreateMyReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedReviewImage[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [editDataLoaded, setEditDataLoaded] = useState(false);
 
   const uploadedImagesRef = useRef<UploadedReviewImage[]>([]);
   const didCreateReviewRef = useRef(false);
@@ -87,7 +89,7 @@ export default function CreateMyReviewPage() {
 
       if (existingError) {
         console.error('Failed to check existing review:', existingError);
-      } else {
+      } else if (!isEditMode) {
         setExistingReviewId(existingData?.id ?? null);
       }
 
@@ -96,6 +98,37 @@ export default function CreateMyReviewPage() {
 
     fetchProductAndCheckExisting();
   }, [productId, user?.id]);
+
+  useEffect(() => {
+    if (!isEditMode || !editReviewId || editDataLoaded) return;
+
+    const loadReviewForEdit = async () => {
+      const supabase = createClient();
+      const { data, error: fetchErr } = await supabase
+        .from('reviews')
+        .select('id, rating, title, content, review_image_urls')
+        .eq('id', editReviewId)
+        .single();
+
+      if (fetchErr || !data) {
+        console.error('Failed to load review for edit:', fetchErr);
+        setError('리뷰 정보를 불러오는데 실패했습니다.');
+        return;
+      }
+
+      setRating(data.rating ?? 5);
+      setTitle(data.title ?? '');
+      setContent(data.content ?? '');
+      if (Array.isArray(data.review_image_urls) && data.review_image_urls.length > 0) {
+        setUploadedImages(
+          data.review_image_urls.map((url: string) => ({ url, path: url }))
+        );
+      }
+      setEditDataLoaded(true);
+    };
+
+    loadReviewForEdit();
+  }, [isEditMode, editReviewId, editDataLoaded]);
 
   useEffect(() => {
     return () => {
@@ -225,23 +258,42 @@ export default function CreateMyReviewPage() {
         return;
       }
 
-      const { error: insertError } = await supabase
-        .from('reviews')
-        .insert({
-          product_id: productId,
-          author_name: user?.name,
-          user_id: userId,
-          rating,
-          title: title.trim(),
-          content: content.trim(),
-          is_verified_purchase: Boolean(orderId),
-          review_image_urls: uploadedImagesRef.current.map((img) => img.url),
+      if (isEditMode) {
+        const res = await fetch(`/api/reviews/my/${editReviewId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rating,
+            title: title.trim(),
+            content: content.trim(),
+            review_image_urls: uploadedImagesRef.current.map((img) => img.url),
+          }),
         });
 
-      if (insertError) {
-        console.error('Failed to create review:', insertError);
-        setError('리뷰 작성에 실패했습니다.');
-        return;
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          setError(body?.error || '리뷰 수정에 실패했습니다.');
+          return;
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('reviews')
+          .insert({
+            product_id: productId,
+            author_name: user?.name,
+            user_id: userId,
+            rating,
+            title: title.trim(),
+            content: content.trim(),
+            is_verified_purchase: Boolean(orderId),
+            review_image_urls: uploadedImagesRef.current.map((img) => img.url),
+          });
+
+        if (insertError) {
+          console.error('Failed to create review:', insertError);
+          setError('리뷰 작성에 실패했습니다.');
+          return;
+        }
       }
 
       didCreateReviewRef.current = true;
@@ -256,7 +308,7 @@ export default function CreateMyReviewPage() {
       <Header back />
 
       <div className="max-w-3xl mx-auto p-4">
-        <h1 className="text-xl font-bold text-gray-900 mb-4">리뷰 작성</h1>
+        <h1 className="text-xl font-bold text-gray-900 mb-4">{isEditMode ? '리뷰 수정' : '리뷰 작성'}</h1>
 
         {!isAuthenticated ? (
           <div className="text-center py-20">
@@ -428,7 +480,7 @@ export default function CreateMyReviewPage() {
               disabled={submitting || uploadingImages || Boolean(existingReviewId)}
               className="flex-1 px-4 py-3 rounded-lg bg-black text-white font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
             >
-              {existingReviewId ? '이미 작성한 리뷰가 있습니다' : submitting ? '등록 중...' : '리뷰 등록'}
+              {existingReviewId ? '이미 작성한 리뷰가 있습니다' : submitting ? (isEditMode ? '수정 중...' : '등록 중...') : (isEditMode ? '리뷰 수정하기' : '리뷰 등록')}
             </button>
           </div>
         </div>
