@@ -128,28 +128,45 @@ export default function GuidesPage() {
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100">
-            {filteredGuides.map((guide) => (
-              <Link
-                key={guide.id}
-                href={`/support/guides/${guide.id}`}
-                className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className={`shrink-0 inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                    guide.category === 'fabric' ? 'bg-emerald-50 text-emerald-700' :
-                    guide.category === 'printing' ? 'bg-purple-50 text-purple-700' :
-                    'bg-amber-50 text-amber-700'
-                  }`}>
-                    {GUIDE_CATEGORIES[guide.category as GuideCategory] ?? guide.category}
+            {filteredGuides.map((guide) => {
+              const created = new Date(guide.created_at);
+              return (
+                <Link
+                  key={guide.id}
+                  href={`/support/guides/${guide.id}`}
+                  className="flex items-center gap-2 pl-3.5 pr-1 sm:pl-4 sm:pr-1.5 py-3.5 hover:bg-gray-50 transition-colors active:bg-gray-100/80"
+                >
+                  <div className="min-w-0 flex-1 pr-1 flex flex-col gap-1">
+                    <span
+                      className={`inline-flex w-fit items-center px-1.5 py-px rounded-md text-[11px] font-semibold leading-5 tracking-tight ring-1 ring-inset ${
+                        guide.category === 'fabric'
+                          ? 'bg-emerald-50/90 text-emerald-800 ring-emerald-200/70'
+                          : guide.category === 'printing'
+                            ? 'bg-violet-50/90 text-violet-800 ring-violet-200/70'
+                            : 'bg-amber-50/90 text-amber-900 ring-amber-200/70'
+                      }`}
+                    >
+                      {GUIDE_CATEGORIES[guide.category as GuideCategory] ?? guide.category}
+                    </span>
+                    <h3 className="text-[15px] font-semibold text-gray-900 leading-snug line-clamp-2 break-keep">
+                      {guide.title}
+                    </h3>
+                    <time
+                      dateTime={guide.created_at}
+                      className="text-[11px] leading-4 text-gray-400 tabular-nums tracking-tight"
+                    >
+                      {created.toLocaleDateString('ko-KR')}
+                    </time>
+                  </div>
+                  <span
+                    className="flex w-9 shrink-0 items-center justify-center self-stretch text-gray-300"
+                    aria-hidden="true"
+                  >
+                    <ChevronRight className="size-[18px]" strokeWidth={1.75} />
                   </span>
-                  <h3 className="text-sm font-medium text-gray-900 truncate">{guide.title}</h3>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <span className="text-xs text-gray-400">{new Date(guide.created_at).toLocaleDateString('ko-KR')}</span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
