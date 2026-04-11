@@ -1,5 +1,5 @@
 'use client'
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookOpen, MessageCircle } from "lucide-react";
 import CartButton from "./CartButton";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -68,9 +68,32 @@ export default function Header({
                 <nav className="hidden lg:flex flex-1 items-center justify-center gap-8 text-base font-semibold text-gray-700">
                   <Link href="/home" className="hover:text-black transition">홈</Link>
                   <Link href="/home/search" className="hover:text-black transition">검색</Link>
-                  <Link href="/home/designs" className="hover:text-black transition">내 디자인</Link>
+                  <Link href="/support/guides" className="hover:text-black transition">제작가이드</Link>
+                  <Link href="/inquiries/new" className="hover:text-black transition">문의하기</Link>
                   <Link href="/home/my-page" className="hover:text-black transition">내정보</Link>
                 </nav>
+              )}
+
+              {/* 모바일: 제작가이드/문의하기 아이콘 (lg 미만에서만 표시) */}
+              {showHomeNav && (
+                <div className="flex lg:hidden items-center gap-1 text-gray-600">
+                  <Link
+                    href="/support/guides"
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-label="제작가이드"
+                    title="제작가이드"
+                  >
+                    <BookOpen className="w-5 h-5" />
+                  </Link>
+                  <Link
+                    href="/inquiries/new"
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-label="문의하기"
+                    title="문의하기"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                  </Link>
+                </div>
               )}
 
               {/* Shopping card button */}
