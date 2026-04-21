@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Header from "@/app/components/Header";
 import HeroBanner from "@/app/components/HeroBanner";
 import ProductCard from "../components/ProductCard"
@@ -15,6 +16,26 @@ import Link from "next/link";
 import Footer from "../components/Footer";
 import PromotionalPopup from "../components/PromotionalPopup";
 import { ChevronRight } from "lucide-react";
+
+const HOME_DESC =
+  "의류 주문 제작, 무료 견적, 대량 주문, 단체 유니폼·단체복 제작. 모두의 유니폼에서 간편하게 신청하세요.";
+
+export const metadata: Metadata = {
+  title: { absolute: "모두의 유니폼 | 단체 유니폼 · 단체복 주문" },
+  description: HOME_DESC,
+  openGraph: {
+    title: "모두의 유니폼 | 단체 유니폼 · 단체복 주문",
+    description: HOME_DESC,
+    url: "/home",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "모두의 유니폼 | 단체 유니폼 · 단체복 주문",
+    description: HOME_DESC,
+  },
+  alternates: { canonical: "/home" },
+};
 
 const getActiveProducts = unstable_cache(
   async (): Promise<Product[]> => {
@@ -92,7 +113,8 @@ const getBestReviews = unstable_cache(
         product:products (
           id,
           title,
-          thumbnail_image_link
+          thumbnail_image_link,
+          is_active
         )
       `)
       .eq('is_best', true)
@@ -105,7 +127,23 @@ const getBestReviews = unstable_cache(
       return [];
     }
 
-    return (data ?? []) as ReviewWithProduct[];
+    type JoinedProduct = NonNullable<ReviewWithProduct['product']> & {
+      is_active: boolean;
+    };
+
+    return (data ?? [])
+      .map((row) => {
+        let product = (row as { product?: JoinedProduct | JoinedProduct[] }).product;
+        if (Array.isArray(product)) {
+          product = product[0];
+        }
+        if (!product || !product.is_active) {
+          return null;
+        }
+        const { is_active: _omit, ...productRest } = product;
+        return { ...(row as object), product: productRest } as ReviewWithProduct;
+      })
+      .filter((r): r is ReviewWithProduct => r !== null);
   },
   ['home-best-reviews'],
   { revalidate: 60, tags: ['reviews'] }

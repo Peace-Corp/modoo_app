@@ -1,20 +1,5 @@
-'use client'
-
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import LoadingSpinner from "./components/LoadingSpinner";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  const router = useRouter();
-
-
-  useEffect(() => {
-    setTimeout(() => {
-      router.push('/home')
-    }, 1000)
-  }, [])
-  return (
-    <LoadingSpinner />
-  );
+  redirect("/home");
 }

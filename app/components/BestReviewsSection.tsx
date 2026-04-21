@@ -13,6 +13,11 @@ interface BestReviewsSectionProps {
   reviews: ReviewWithProduct[];
 }
 
+function editorProductHref(review: Pick<ReviewWithProduct, 'product_id' | 'product'>): string {
+  const id = review.product?.id ?? review.product_id;
+  return `/editor/${id}`;
+}
+
 export default function BestReviewsSection({ reviews }: BestReviewsSectionProps) {
   const [selectedReview, setSelectedReview] = useState<ReviewWithProduct | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -71,29 +76,27 @@ export default function BestReviewsSection({ reviews }: BestReviewsSectionProps)
               </p>
 
               {/* Product Link */}
-              {review.product && (
-                <Link
-                  href={`/product/${review.product.id}`}
-                  className="flex items-center gap-2 mt-2 group"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {review.product.thumbnail_image_link?.[0] && (
-                    <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden flex-shrink-0">
-                      <Image
-                        src={review.product.thumbnail_image_link[0]}
-                        alt={review.product.title}
-                        fill
-                        unoptimized
-                        className="object-cover"
-                        sizes="32px"
-                      />
-                    </div>
-                  )}
-                  <span className="text-xs text-gray-500 group-hover:text-gray-700 truncate">
-                    {review.product.title}
-                  </span>
-                </Link>
-              )}
+              <Link
+                href={editorProductHref(review)}
+                className="flex items-center gap-2 mt-2 group"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {review.product?.thumbnail_image_link?.[0] && (
+                  <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden flex-shrink-0">
+                    <Image
+                      src={review.product.thumbnail_image_link[0]}
+                      alt={review.product?.title ?? '상품'}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                      sizes="32px"
+                    />
+                  </div>
+                )}
+                <span className="text-xs text-gray-500 group-hover:text-gray-700 truncate">
+                  {review.product?.title ?? '상품 보기'}
+                </span>
+              </Link>
             </div>
           </div>
         ))}
@@ -212,32 +215,30 @@ export default function BestReviewsSection({ reviews }: BestReviewsSectionProps)
               </p>
 
               {/* Product Link */}
-              {selectedReview.product && (
-                <Link
-                  href={`/product/${selectedReview.product.id}`}
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  onClick={() => setSelectedReview(null)}
-                >
-                  {selectedReview.product.thumbnail_image_link?.[0] && (
-                    <div className="relative w-12 h-12 rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                      <Image
-                        src={selectedReview.product.thumbnail_image_link[0]}
-                        alt={selectedReview.product.title}
-                        fill
-                        unoptimized
-                        className="object-cover"
-                        sizes="48px"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {selectedReview.product.title}
-                    </p>
-                    <p className="text-xs text-gray-500">상품 보러가기 →</p>
+              <Link
+                href={editorProductHref(selectedReview)}
+                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                onClick={() => setSelectedReview(null)}
+              >
+                {selectedReview.product?.thumbnail_image_link?.[0] && (
+                  <div className="relative w-12 h-12 rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                    <Image
+                      src={selectedReview.product.thumbnail_image_link[0]}
+                      alt={selectedReview.product?.title ?? '상품'}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                      sizes="48px"
+                    />
                   </div>
-                </Link>
-              )}
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {selectedReview.product?.title ?? '상품 보기'}
+                  </p>
+                  <p className="text-xs text-gray-500">상품 보러가기 →</p>
+                </div>
+              </Link>
             </div>
           </div>
         </div>

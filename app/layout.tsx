@@ -6,12 +6,26 @@ import NavigationListener from "./components/NavigationListener";
 import AuthInitializer from "./components/AuthInitializer";
 import ChatBubble from "./components/chatbot/ChatBubble";
 import ChatWindow from "./components/chatbot/ChatWindow";
+import { getSiteUrl } from "@/lib/site-url";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata: Metadata = {
-  title: "모두의 유니폼 | 단체복 의류 주문 제작",
-  description: "의류 주문 제작, 뮤료 견적, 대랸 주문, 단체복 제작",
+  metadataBase: getSiteUrl(),
+  title: {
+    default: "모두의 유니폼 | 단체복 의류 주문 제작",
+    template: "%s | 모두의 유니폼",
+  },
+  description:
+    "의류 주문 제작, 무료 견적, 대량 주문, 단체 유니폼·단체복 제작. 모두의 유니폼에서 간편하게 신청하세요.",
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: "모두의 유니폼",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
